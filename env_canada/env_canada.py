@@ -143,28 +143,45 @@ class ECData(object):
 
 class ECRadar(object):
     FRAME_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/' \
-                'PRECIPET/GIF/{0}/{1}_{0}_{2}PRECIPET_RAIN.gif'
+                'PRECIPET/GIF/{0}/{1}_{0}_{2}PRECIPET_{3}.gif'
     LOOP_FRAMES = 12
     LOOP_FPS = 6
 
-    def __init__(self, station_id=None, coordinates=None):
+    def __init__(self, station_id=None, coordinates=None, precip_type=None):
         """Initialize the data object."""
         self.sites = self.get_radar_sites()
         if station_id:
             self.station_code = station_id
-        else:
+        elif coordinates:
             self.station_code = self.closest_site(coordinates[0], coordinates[1])[0]
         self.station_name = self.sites[self.station_code]['name']
         self.image_bytes = None
+        if precip_type:
+            self.precip_type = precip_type
+        else:
+            self.precip_type = self.set_precip_type()
         self.composite = self.detect_composite()
+
+    def set_precip_type(self):
+        """Set the precipitation type"""
+        if datetime.date.today().month in range(4, 11):
+            return 'RAIN'
+        else:
+            return 'SNOW'
 
     def detect_composite(self):
         """Detect if a station is returning regular or composite images."""
-        url = self.FRAME_URL.format(self.station_code, self.frame_time(10), '')
+        url = self.FRAME_URL.format(self.station_code,
+                                    self.frame_time(10),
+                                    '',
+                                    self.precip_type)
         if requests.get(url=url).status_code != 404:
             return ''
         else:
-            url = self.FRAME_URL.format(self.station_code, self.frame_time(10), 'COMP_')
+            url = self.FRAME_URL.format(self.station_code,
+                                        self.frame_time(10),
+                                        'COMP_',
+                                        self.precip_type)
             if requests.get(url=url).status_code != 404:
                 return 'COMP_'
         return None
@@ -189,7 +206,8 @@ class ECRadar(object):
             time_string = self.frame_time(mins_ago)
             url = self.FRAME_URL.format(self.station_code,
                                         time_string,
-                                        self.composite)
+                                        self.composite,
+                                        self.precip_type)
             futures.append(session.get(url=url))
 
         for future in futures:
