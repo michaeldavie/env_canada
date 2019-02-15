@@ -5,10 +5,10 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="env_canada",
-    version="0.0.2",
+    version="0.0.3",
     author="Michael Davie",
     author_email="michael.davie@gmail.com",
-    description="A package to access meteorological data from Enviroment Canada",
+    description="A package to access meteorological data from Environment Canada",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/michaeldavie/env_canada",

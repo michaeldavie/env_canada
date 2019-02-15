@@ -31,10 +31,13 @@ class ECData(object):
     }
 
     attribute_paths = {
-        'warning': {'xpath': './warnings/event',
-                    'attribute': 'description'},
         'tendency': {'xpath': './currentConditions/pressure',
                      'attribute': 'tendency'}
+    }
+
+    attribute_list_paths = {
+        'warning': {'xpath': './warnings/event',
+                    'attribute': 'description'}
     }
 
     """Get data from Environment Canada."""
@@ -68,10 +71,15 @@ class ECData(object):
 
         for condition, v in self.attribute_paths.items():
             element = xml_object.find(v['xpath'])
-            if element:
-                value = element.attrib.get(v['attribute'])
-                if value:
-                    self.conditions[condition] = value
+            value = element.attrib.get(v['attribute'])
+            if value:
+                self.conditions[condition] = value
+
+        for condition, v in self.attribute_list_paths.items():
+            element_list = xml_object.findall(v['xpath'])
+            value = ', '.join([e.attrib.get(v['attribute']) for e in element_list])
+            if value:
+                self.conditions[condition] = value
 
         # Update daily forecasts
         self.forecast_time = xml_object.findtext('./forecastGroup/dateTime/timeStamp')
