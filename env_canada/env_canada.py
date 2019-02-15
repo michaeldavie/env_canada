@@ -162,7 +162,8 @@ class ECRadar(object):
             self.precip_type = self.set_precip_type()
         self.composite = self.detect_composite()
 
-    def set_precip_type(self):
+    @staticmethod
+    def set_precip_type():
         """Set the precipitation type"""
         if datetime.date.today().month in range(4, 11):
             return 'RAIN'
