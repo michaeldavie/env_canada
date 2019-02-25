@@ -64,6 +64,8 @@ class ECData(object):
         xml_object = et.fromstring(site_xml)
 
         # Update current conditions
+        self.conditions = {}
+
         for condition, xpath in self.value_paths.items():
             result = xml_object.findtext(xpath)
             if result:
