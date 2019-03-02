@@ -152,39 +152,41 @@ class ECRadar(object):
     def __init__(self, station_id=None, coordinates=None, precip_type=None):
         """Initialize the data object."""
         self.sites = self.get_radar_sites()
+
         if station_id:
             self.station_code = station_id
         elif coordinates:
             self.station_code = self.closest_site(coordinates[0], coordinates[1])[0]
-        self.station_name = self.sites[self.station_code]['name']
-        self.image_bytes = None
-        if precip_type:
-            self.precip_type = precip_type
-        else:
-            self.precip_type = self.set_precip_type()
-        self.composite = self.detect_composite()
 
-    @staticmethod
-    def set_precip_type():
-        """Set the precipitation type"""
-        if datetime.date.today().month in range(4, 11):
+        self.station_name = self.sites[self.station_code]['name']
+
+        if precip_type:
+            self.user_precip_type = precip_type
+        else:
+            self.user_precip_type = None
+
+    def get_precip_type(self):
+        """Determine the precipitation type"""
+        if self.user_precip_type:
+            return self.user_precip_type
+        elif datetime.date.today().month in range(4, 11):
             return 'RAIN'
         else:
             return 'SNOW'
 
-    def detect_composite(self):
+    def detect_composite(self, precip):
         """Detect if a station is returning regular or composite images."""
         url = self.FRAME_URL.format(self.station_code,
                                     self.frame_time(10),
                                     '',
-                                    self.precip_type)
+                                    precip)
         if requests.get(url=url).status_code != 404:
             return ''
         else:
             url = self.FRAME_URL.format(self.station_code,
                                         self.frame_time(10),
                                         'COMP_',
-                                        self.precip_type)
+                                        precip)
             if requests.get(url=url).status_code != 404:
                 return 'COMP_'
         return None
@@ -193,28 +195,29 @@ class ECRadar(object):
     def frame_time(mins_ago):
         """Return the timestamp of a frame from at least x minutes ago."""
         time_object = datetime.datetime.utcnow() - datetime.timedelta(minutes=mins_ago)
-        time_string = time_object.strftime('%Y%m%d%H%M')
-        time_string = time_string[:-1] + '0'
+        time_string = time_object.strftime('%Y%m%d%H%M')[:-1] + '0'
         return time_string
 
     def get_frames(self, count):
         """Get a list of images from Environment Canada."""
+        precip = self.get_precip_type()
+        comp_tag = self.detect_composite(precip)
+
         from requests_futures.sessions import FuturesSession
 
-        frames = []
         futures = []
         session = FuturesSession(max_workers=5)
 
         for mins_ago in range(10 * count, 0, -10):
-            time_string = self.frame_time(mins_ago)
             url = self.FRAME_URL.format(self.station_code,
-                                        time_string,
-                                        self.composite,
-                                        self.precip_type)
+                                        self.frame_time(mins_ago),
+                                        comp_tag,
+                                        precip)
             futures.append(session.get(url=url))
 
-        for future in futures:
-            frames.append(future.result().content)
+        frames = [f.result().content for f in futures]
+
+        """Repeat last frame."""
         for i in range(0, 2):             # pylint: disable=unused-variable
             frames.append(frames[count - 1])
 
@@ -229,13 +232,12 @@ class ECRadar(object):
         import imageio
 
         frames = self.get_frames(self.LOOP_FRAMES)
-        gifs = []
-
-        for frame in frames:
-            gifs.append(imageio.imread(frame))
+        gifs = [imageio.imread(f) for f in frames if f[0:3] == b'GIF']
 
         return imageio.mimwrite(imageio.RETURN_BYTES,
-                                gifs, format='GIF', fps=self.LOOP_FPS)
+                                gifs,
+                                format='GIF',
+                                fps=self.LOOP_FPS)
 
     def get_radar_sites(self):
         """Get list of radar sites from Wikipedia."""
@@ -249,10 +251,8 @@ class ECRadar(object):
         for site in folder.findall('ns:Placemark', namespace):
             code = site.find('ns:name', namespace).text[1:4]
             name = site.find('ns:name', namespace).text[7:]
-            lat = float(site.find('ns:Point/ns:coordinates',
-                                  namespace).text.split(',')[1])
-            lon = float(site.find('ns:Point/ns:coordinates',
-                                  namespace).text.split(',')[0])
+            lat = float(site.find('ns:Point/ns:coordinates', namespace).text.split(',')[1])
+            lon = float(site.find('ns:Point/ns:coordinates', namespace).text.split(',')[0])
 
             site_dict[code] = {'name': name,
                                'lat': lat,
