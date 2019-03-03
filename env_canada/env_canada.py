@@ -1,4 +1,5 @@
 import datetime
+import re
 import xml.etree.ElementTree as et
 
 from geopy import distance
@@ -35,9 +36,12 @@ class ECData(object):
                      'attribute': 'tendency'}
     }
 
-    attribute_list_paths = {
-        'warning': {'xpath': './warnings/event',
-                    'attribute': 'description'}
+    alert_patterns = {
+        'warnings': '.*WARNING((?!ENDED).)*$',
+        'watches': '.*WATCH((?!ENDED).)*$',
+        'advisories': '.*ADVISORY((?!ENDED).)*$',
+        'statements': '.*STATEMENT((?!ENDED).)*$',
+        'endings': '.*ENDED'
     }
 
     """Get data from Environment Canada."""
@@ -50,6 +54,7 @@ class ECData(object):
             self.station_id = self.closest_site(coordinates[0],
                                                 coordinates[1])
         self.conditions = {}
+        self.alerts = {}
         self.daily_forecasts = []
         self.hourly_forecasts = []
         self.forecast_time = ''
@@ -77,11 +82,12 @@ class ECData(object):
             if value:
                 self.conditions[condition] = value
 
-        for condition, v in self.attribute_list_paths.items():
-            element_list = xml_object.findall(v['xpath'])
-            value = ', '.join([e.attrib.get(v['attribute']) for e in element_list])
-            if value:
-                self.conditions[condition] = value
+        # Update alerts
+        alert_elements = xml_object.findall('./warnings/event')
+        alert_list = [e.attrib.get('description').strip() for e in alert_elements]
+
+        for category, pattern in self.alert_patterns.items():
+            self.alerts[category] = [re.search(pattern, a).group(0) for a in alert_list if re.search(pattern, a)]
 
         # Update daily forecasts
         self.forecast_time = xml_object.findtext('./forecastGroup/dateTime/timeStamp')
