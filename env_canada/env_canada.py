@@ -1,8 +1,11 @@
 import datetime
+from io import BytesIO
+from PIL import Image
 import re
 import xml.etree.ElementTree as et
 
 from geopy import distance
+import imageio
 import requests
 
 
@@ -150,8 +153,9 @@ class ECData(object):
 
 
 class ECRadar(object):
-    FRAME_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/' \
-                'PRECIPET/GIF/{0}/{1}_{0}_{2}PRECIPET_{3}.gif'
+    FRAME_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/PRECIPET/GIF/{0}/{1}_{0}_{2}PRECIPET_{3}.gif'
+    CITIES_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/default_cities/{0}_towns.gif'
+    ROADS_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/roads/{0}_roads.gif'
     LOOP_FRAMES = 12
     LOOP_FPS = 6
 
@@ -170,6 +174,11 @@ class ECRadar(object):
             self.user_precip_type = precip_type
         else:
             self.user_precip_type = None
+
+        cities_bytes = requests.get(self.CITIES_URL.format(self.station_code.lower())).content
+        self.cities = Image.open(BytesIO(cities_bytes)).convert('RGBA')
+        roads_bytes = requests.get(self.ROADS_URL.format(self.station_code.upper())).content
+        self.roads = Image.open(BytesIO(roads_bytes)).convert('RGBA')
 
     def get_precip_type(self):
         """Determine the precipitation type"""
@@ -219,9 +228,18 @@ class ECRadar(object):
                                         self.frame_time(mins_ago),
                                         comp_tag,
                                         precip)
-            futures.append(session.get(url=url))
+            futures.append(session.get(url=url).result().content)
 
-        frames = [f.result().content for f in futures]
+        def add_layers(frame):
+            frame_bytesio = BytesIO()
+            base = Image.open(BytesIO(frame)).convert('RGBA')
+            base.alpha_composite(self.cities)
+            base.alpha_composite(self.roads)
+            base.save(frame_bytesio, 'GIF')
+            frame_bytesio.seek(0)
+            return frame_bytesio.read()
+
+        frames = [add_layers(f) for f in futures if f[0:3] == b'GIF']
 
         """Repeat last frame."""
         for i in range(0, 2):             # pylint: disable=unused-variable
@@ -235,10 +253,9 @@ class ECRadar(object):
 
     def get_loop(self):
         """Build an animated GIF of recent radar images."""
-        import imageio
 
         frames = self.get_frames(self.LOOP_FRAMES)
-        gifs = [imageio.imread(f) for f in frames if f[0:3] == b'GIF']
+        gifs = [imageio.imread(f) for f in frames]
 
         return imageio.mimwrite(imageio.RETURN_BYTES,
                                 gifs,
