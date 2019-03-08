@@ -233,8 +233,8 @@ class ECRadar(object):
         def add_layers(frame):
             frame_bytesio = BytesIO()
             base = Image.open(BytesIO(frame)).convert('RGBA')
-            base.alpha_composite(self.cities)
             base.alpha_composite(self.roads)
+            base.alpha_composite(self.cities)
             base.save(frame_bytesio, 'GIF')
             frame_bytesio.seek(0)
             return frame_bytesio.read()
