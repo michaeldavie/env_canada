@@ -4,9 +4,11 @@ from PIL import Image
 import re
 import xml.etree.ElementTree as et
 
+from bs4 import BeautifulSoup
 from geopy import distance
 import imageio
 import requests
+from requests_futures.sessions import FuturesSession
 
 
 class ECData(object):
@@ -153,11 +155,10 @@ class ECData(object):
 
 
 class ECRadar(object):
-    FRAME_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/PRECIPET/GIF/{0}/{1}_{0}_{2}PRECIPET_{3}.gif'
+    IMAGES_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/PRECIPET/GIF/{0}/?C=M;O=D'
+    FRAME_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/PRECIPET/GIF/{0}/{1}'
     CITIES_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/default_cities/{0}_towns.gif'
     ROADS_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/roads/{0}_roads.gif'
-    LOOP_FRAMES = 12
-    LOOP_FPS = 6
 
     def __init__(self, station_id=None, coordinates=None, precip_type=None):
         """Initialize the data object."""
@@ -215,19 +216,16 @@ class ECRadar(object):
 
     def get_frames(self, count):
         """Get a list of images from Environment Canada."""
-        precip = self.get_precip_type()
-        comp_tag = self.detect_composite(precip)
+        image_string = '_'.join([self.station_code, 'PRECIPET', self.get_precip_type() + '.gif'])
 
-        from requests_futures.sessions import FuturesSession
+        soup = BeautifulSoup(requests.get(self.IMAGES_URL.format(self.station_code)).text, 'html.parser')
+        images = [tag['href'] for tag in soup.find_all('a') if image_string in tag['href']]
 
         futures = []
-        session = FuturesSession(max_workers=5)
+        session = FuturesSession(max_workers=count)
 
-        for mins_ago in range(10 * count, 0, -10):
-            url = self.FRAME_URL.format(self.station_code,
-                                        self.frame_time(mins_ago),
-                                        comp_tag,
-                                        precip)
+        for i in images[:count]:
+            url = self.FRAME_URL.format(self.station_code, i)
             futures.append(session.get(url=url).result().content)
 
         def add_layers(frame):
@@ -242,7 +240,7 @@ class ECRadar(object):
         frames = [add_layers(f) for f in futures if f[0:3] == b'GIF']
 
         """Repeat last frame."""
-        for i in range(0, 2):             # pylint: disable=unused-variable
+        for i in range(0, 2):  # pylint: disable=unused-variable
             frames.append(frames[count - 1])
 
         return frames
@@ -253,14 +251,20 @@ class ECRadar(object):
 
     def get_loop(self):
         """Build an animated GIF of recent radar images."""
+        if len(self.station_code) == 5:
+            count = 20
+            fps = 10
+        else:
+            count = 12
+            fps = 6
 
-        frames = self.get_frames(self.LOOP_FRAMES)
+        frames = self.get_frames(count)
         gifs = [imageio.imread(f) for f in frames]
 
         return imageio.mimwrite(imageio.RETURN_BYTES,
                                 gifs,
                                 format='GIF',
-                                fps=self.LOOP_FPS)
+                                fps=fps)
 
     def get_radar_sites(self):
         """Get list of radar sites from Wikipedia."""
@@ -272,8 +276,11 @@ class ECRadar(object):
         site_dict = {}
 
         for site in folder.findall('ns:Placemark', namespace):
-            code = site.find('ns:name', namespace).text[1:4]
-            name = site.find('ns:name', namespace).text[7:]
+            name_parts = site.find('ns:name', namespace).text.split(' - ')
+            name = name_parts[1]
+            code = name_parts[0]
+            if len(code) == 4:
+                code = code[1:]
             lat = float(site.find('ns:Point/ns:coordinates', namespace).text.split(',')[1])
             lon = float(site.find('ns:Point/ns:coordinates', namespace).text.split(',')[0])
 
