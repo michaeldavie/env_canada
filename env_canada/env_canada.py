@@ -190,41 +190,22 @@ class ECRadar(object):
         else:
             return 'SNOW'
 
-    def detect_composite(self, precip):
-        """Detect if a station is returning regular or composite images."""
-        url = self.FRAME_URL.format(self.station_code,
-                                    self.frame_time(10),
-                                    '',
-                                    precip)
-        if requests.get(url=url).status_code != 404:
-            return ''
-        else:
-            url = self.FRAME_URL.format(self.station_code,
-                                        self.frame_time(10),
-                                        'COMP_',
-                                        precip)
-            if requests.get(url=url).status_code != 404:
-                return 'COMP_'
-        return None
-
-    @staticmethod
-    def frame_time(mins_ago):
-        """Return the timestamp of a frame from at least x minutes ago."""
-        time_object = datetime.datetime.utcnow() - datetime.timedelta(minutes=mins_ago)
-        time_string = time_object.strftime('%Y%m%d%H%M')[:-1] + '0'
-        return time_string
-
     def get_frames(self, count):
         """Get a list of images from Environment Canada."""
-        image_string = '_'.join([self.station_code, 'PRECIPET', self.get_precip_type() + '.gif'])
-
         soup = BeautifulSoup(requests.get(self.IMAGES_URL.format(self.station_code)).text, 'html.parser')
+        image_links = [tag['href'] for tag in soup.find_all('a') if '.gif' in tag['href']]
+
+        if len([i for i in image_links[:8] if 'COMP' in i]) > 4:
+            image_string = '_'.join([self.station_code, 'COMP_PRECIPET', self.get_precip_type() + '.gif'])
+        else:
+            image_string = '_'.join([self.station_code, 'PRECIPET', self.get_precip_type() + '.gif'])
+
         images = [tag['href'] for tag in soup.find_all('a') if image_string in tag['href']]
 
         futures = []
         session = FuturesSession(max_workers=count)
 
-        for i in images[:count]:
+        for i in reversed(images[:count]):
             url = self.FRAME_URL.format(self.station_code, i)
             futures.append(session.get(url=url).result().content)
 
