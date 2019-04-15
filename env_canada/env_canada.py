@@ -91,8 +91,23 @@ class ECData(object):
         alert_elements = xml_object.findall('./warnings/event')
         alert_list = [e.attrib.get('description').strip() for e in alert_elements]
 
-        for category, pattern in self.alert_patterns.items():
-            self.alerts[category] = [re.search(pattern, a).group(0) for a in alert_list if re.search(pattern, a)]
+        if alert_list:
+            alert_url = xml_object.find('./warnings').attrib.get('url')
+            alert_html = requests.get(url=alert_url).content
+            alert_soup = BeautifulSoup(alert_html, 'html.parser')
+
+            date_pattern = 'p:contains("{}") span'
+            detail_pattern = 'p:contains("{}") ~ p'
+
+            for category, pattern in self.alert_patterns.items():
+                self.alerts[category] = []
+                for a in alert_list:
+                    if re.search(pattern, a):
+                        heading = re.search(pattern, a).group(0).capitalize()
+                        alert = {'title': heading.title(),
+                                 'date': alert_soup.select(date_pattern.format(heading))[0].text,
+                                 'detail': alert_soup.select(detail_pattern.format(heading))[0].text}
+                        self.alerts[category].append(alert)
 
         # Update daily forecasts
         self.forecast_time = xml_object.findtext('./forecastGroup/dateTime/timeStamp')
