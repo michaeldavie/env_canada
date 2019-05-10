@@ -103,10 +103,15 @@ class ECData(object):
                 self.alerts[category] = []
                 for a in alert_list:
                     if re.search(pattern, a):
-                        heading = re.search(pattern, a).group(0).capitalize()
-                        alert = {'title': heading.title(),
-                                 'date': alert_soup.select(date_pattern.format(heading))[0].text,
-                                 'detail': alert_soup.select(detail_pattern.format(heading))[0].text}
+                        alert = {'title': '',
+                                 'date': '',
+                                 'detail': ''}
+                        title = re.search(pattern, a).group(0).capitalize()
+                        alert.update({'title': title.title()})
+                        if alert_soup.select(date_pattern.format(title)):
+                            alert.update({'date': alert_soup.select(date_pattern.format(title))[0].text})
+                        if alert_soup.select(detail_pattern.format(title)):
+                            alert.update({'detail': alert_soup.select(detail_pattern.format(title))[0].text})
                         self.alerts[category].append(alert)
 
         # Update daily forecasts
