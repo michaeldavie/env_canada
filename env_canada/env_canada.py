@@ -27,6 +27,7 @@ class ECData(object):
         'wind_gust': './currentConditions/wind/gust',
         'wind_dir': './currentConditions/wind/direction',
         'wind_bearing': './currentConditions/wind/bearing',
+        'text_summary': './forecastGroup/forecast/textSummary',
         'high_temp': './forecastGroup/forecast/temperatures/temperature[@class="high"]',
         'low_temp': './forecastGroup/forecast/temperatures/temperature[@class="low"]',
         'pop': './forecastGroup/forecast/abbreviatedForecast/pop',
@@ -37,8 +38,14 @@ class ECData(object):
     }
 
     attribute_paths = {
-        'tendency': {'xpath': './currentConditions/pressure',
-                     'attribute': 'tendency'}
+        'forecast_period': {
+            'xpath': './forecastGroup/forecast/period',
+            'attribute': 'textForecastName'
+        },
+        'tendency': {
+            'xpath': './currentConditions/pressure',
+            'attribute': 'tendency'
+        }
     }
 
     alert_patterns = {
@@ -83,7 +90,7 @@ class ECData(object):
 
         for condition, v in self.attribute_paths.items():
             element = xml_object.find(v['xpath'])
-            if element:
+            if element is not None:
                 value = element.attrib.get(v['attribute'])
                 if value:
                     self.conditions[condition] = value
