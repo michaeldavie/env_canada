@@ -83,9 +83,10 @@ class ECData(object):
 
         for condition, v in self.attribute_paths.items():
             element = xml_object.find(v['xpath'])
-            value = element.attrib.get(v['attribute'])
-            if value:
-                self.conditions[condition] = value
+            if element:
+                value = element.attrib.get(v['attribute'])
+                if value:
+                    self.conditions[condition] = value
 
         # Update alerts
         alert_elements = xml_object.findall('./warnings/event')
@@ -102,16 +103,22 @@ class ECData(object):
             for category, pattern in self.alert_patterns.items():
                 self.alerts[category] = []
                 for a in alert_list:
-                    if re.search(pattern, a):
-                        alert = {'title': '',
+                    title_match = re.search(pattern, a)
+                    if title_match:
+                        alert = {'title': a,
                                  'date': '',
                                  'detail': ''}
-                        title = re.search(pattern, a).group(0).capitalize()
+                        title = title_match.group(0).capitalize()
                         alert.update({'title': title.title()})
-                        if alert_soup.select(date_pattern.format(title)):
-                            alert.update({'date': alert_soup.select(date_pattern.format(title))[0].text})
-                        if alert_soup.select(detail_pattern.format(title)):
-                            alert.update({'detail': alert_soup.select(detail_pattern.format(title))[0].text})
+
+                        date_match = alert_soup.select(date_pattern.format(title))
+                        if date_match:
+                            alert.update({'date': date_match[0].text})
+
+                        detail_match = alert_soup.select(detail_pattern.format(title))
+                        if detail_match:
+                            alert.update({'detail': detail_match[0].text})
+
                         self.alerts[category].append(alert)
 
         # Update daily forecasts
