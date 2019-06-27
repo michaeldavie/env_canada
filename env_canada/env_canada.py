@@ -13,7 +13,7 @@ from requests_futures.sessions import FuturesSession
 
 class ECData(object):
     SITE_LIST_URL = 'http://dd.weatheroffice.ec.gc.ca/citypage_weather/docs/site_list_en.csv'
-    XML_URL_BASE = 'http://dd.weatheroffice.ec.gc.ca/citypage_weather/xml/{}_e.xml'
+    XML_URL_BASE = 'http://dd.weatheroffice.ec.gc.ca/citypage_weather/xml/{}_{}.xml'
     value_paths = {
         'temperature': './currentConditions/temperature',
         'dewpoint': './currentConditions/dewpoint',
@@ -49,22 +49,32 @@ class ECData(object):
     }
 
     alert_patterns = {
-        'warnings': '.*WARNING((?!ENDED).)*$',
-        'watches': '.*WATCH((?!ENDED).)*$',
-        'advisories': '.*ADVISORY((?!ENDED).)*$',
-        'statements': '.*STATEMENT((?!ENDED).)*$',
-        'endings': '.*ENDED'
+        'e': {
+            'warnings': '.*WARNING((?!ENDED).)*$',
+            'watches': '.*WATCH((?!ENDED).)*$',
+            'advisories': '.*ADVISORY((?!ENDED).)*$',
+            'statements': '.*STATEMENT((?!ENDED).)*$',
+            'endings': '.*ENDED'
+        },
+        'f': {
+            'warnings': '.*ALERTE((?!TERMINÉ).)*$',
+            'watches': '.*VEILLE((?!TERMINÉ).)*$',
+            'advisories': '.*AVIS((?!TERMINÉ).)*$',
+            'statements': '.*BULLETIN((?!TERMINÉ).)*$',
+            'endings': '.*TERMINÉ'
+        }
     }
 
     """Get data from Environment Canada."""
 
-    def __init__(self, station_id=None, coordinates=None):
+    def __init__(self, station_id=None, coordinates=None, lang='e'):
         """Initialize the data object."""
         if station_id:
             self.station_id = station_id
         else:
             self.station_id = self.closest_site(coordinates[0],
                                                 coordinates[1])
+        self.lang = lang
         self.conditions = {}
         self.alerts = {}
         self.daily_forecasts = []
@@ -75,7 +85,8 @@ class ECData(object):
 
     def update(self):
         """Get the latest data from Environment Canada."""
-        result = requests.get(self.XML_URL_BASE.format(self.station_id),
+        result = requests.get(self.XML_URL_BASE.format(self.station_id,
+                                                       self.lang),
                               timeout=10)
         site_xml = result.content.decode('iso-8859-1')
         xml_object = et.fromstring(site_xml)
@@ -107,7 +118,7 @@ class ECData(object):
             date_pattern = 'p:contains("{}") span'
             detail_pattern = 'p:contains("{}") ~ p'
 
-            for category, pattern in self.alert_patterns.items():
+            for category, pattern in self.alert_patterns[self.lang].items():
                 self.alerts[category] = []
                 for a in alert_list:
                     title_match = re.search(pattern, a)
