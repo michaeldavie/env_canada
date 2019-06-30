@@ -56,7 +56,7 @@ class ECData(object):
             'watches': '.*VEILLE((?!TERMINÉ).)*$',
             'advisories': '.*AVIS((?!TERMINÉ).)*$',
             'statements': '.*BULLETIN((?!TERMINÉ).)*$',
-            'endings': '.*TERMINÉ'
+            'endings': '.*TERMINÉE?'
         }
     }
 
@@ -123,6 +123,9 @@ class ECData(object):
                                  'detail': ''}
                         title = title_match.group(0).capitalize()
                         alert.update({'title': title.title()})
+
+                        if 'terminé' in title:
+                            title = re.sub('terminé', 'est terminé', title)
 
                         date_match = alert_soup.select(date_pattern.format(title))
                         if date_match:
