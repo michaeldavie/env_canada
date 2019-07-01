@@ -44,14 +44,14 @@ class ECData(object):
     }
 
     alert_patterns = {
-        'e': {
+        'english': {
             'warnings': '.*WARNING((?!ENDED).)*$',
             'watches': '.*WATCH((?!ENDED).)*$',
             'advisories': '.*ADVISORY((?!ENDED).)*$',
             'statements': '.*STATEMENT((?!ENDED).)*$',
             'endings': '.*ENDED'
         },
-        'f': {
+        'french': {
             'warnings': '.*ALERTE((?!TERMINÉ).)*$',
             'watches': '.*VEILLE((?!TERMINÉ).)*$',
             'advisories': '.*AVIS((?!TERMINÉ).)*$',
@@ -62,14 +62,14 @@ class ECData(object):
 
     """Get data from Environment Canada."""
 
-    def __init__(self, station_id=None, coordinates=None, lang='e'):
+    def __init__(self, station_id=None, coordinates=None, language='english'):
         """Initialize the data object."""
         if station_id:
             self.station_id = station_id
         else:
             self.station_id = self.closest_site(coordinates[0],
                                                 coordinates[1])
-        self.lang = lang
+        self.language = language
         self.conditions = {}
         self.alerts = {}
         self.daily_forecasts = []
@@ -81,7 +81,7 @@ class ECData(object):
     def update(self):
         """Get the latest data from Environment Canada."""
         result = requests.get(self.XML_URL_BASE.format(self.station_id,
-                                                       self.lang),
+                                                       self.language[0]),
                               timeout=10)
         site_xml = result.content.decode('iso-8859-1')
         xml_object = et.fromstring(site_xml)
@@ -113,7 +113,7 @@ class ECData(object):
             date_pattern = 'p:contains("{}") span'
             detail_pattern = 'p:contains("{}") ~ p'
 
-            for category, pattern in self.alert_patterns[self.lang].items():
+            for category, pattern in self.alert_patterns[self.language].items():
                 self.alerts[category] = []
                 for a in alert_list:
                     title_match = re.search(pattern, a)
