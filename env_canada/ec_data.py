@@ -224,6 +224,10 @@ class ECData(object):
             self.conditions[c].update({'value': value})
 
         # Update alerts
+        for category, meta in self.alerts_meta.items():
+            self.alerts[category] = {'value': [],
+                                     'label': meta[self.language]['label']}
+
         alert_elements = xml_object.findall('./warnings/event')
         alert_list = [e.attrib.get('description').strip() for e in alert_elements]
 
@@ -236,12 +240,8 @@ class ECData(object):
             detail_pattern = 'p:contains("{}") ~ p'
 
             for category, meta in self.alerts_meta.items():
-                meta = meta[self.language]
-                self.alerts[category] = {'value': [],
-                                         'label': meta['label']}
-
                 for a in alert_list:
-                    title_match = re.search(meta['pattern'], a)
+                    title_match = re.search(meta[self.language]['pattern'], a)
                     if title_match:
                         alert = {'title': a,
                                  'date': '',
