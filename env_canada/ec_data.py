@@ -132,7 +132,7 @@ class ECData(object):
             },
             'french': {
                 'label': 'Alertes',
-                'pattern': '.*ALERTE((?!TERMINÉ).)*$'
+                'pattern': '.*(ALERTE|AVERTISSEMENT)((?!TERMINÉ).)*$'
             }
         },
         'watches': {
@@ -239,15 +239,20 @@ class ECData(object):
             date_pattern = 'p:contains("{}") span'
             detail_pattern = 'p:contains("{}") ~ p'
 
-            for category, meta in self.alerts_meta.items():
-                for a in alert_list:
-                    title_match = re.search(meta[self.language]['pattern'], a)
-                    if title_match:
+            for a in alert_list:
+                for category, meta in self.alerts_meta.items():
+                    category_match = re.search(meta[self.language]['pattern'], a)
+                    if category_match:
                         alert = {'title': a,
                                  'date': '',
                                  'detail': ''}
-                        title = title_match.group(0).capitalize()
+                        title = category_match.group(0)
                         alert.update({'title': title.title()})
+
+                        if title.capitalize() in alert_soup('strong')[0].text:
+                            title = title.capitalize()
+                        else:
+                            title = title.title()
 
                         if 'terminé' in title:
                             title = re.sub('terminé', 'est terminé', title)
