@@ -217,9 +217,8 @@ class ECData(object):
                     value = element.attrib.get(meta['attribute'])
                 else:
                     value = element.text
-
-                if element.attrib.get('units'):
-                    self.conditions[c].update({'unit': element.attrib.get('units')})
+                    if element.attrib.get('units'):
+                        self.conditions[c].update({'unit': element.attrib.get('units')})
 
             self.conditions[c].update({'value': value})
 
