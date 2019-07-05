@@ -249,10 +249,11 @@ class ECData(object):
                         title = category_match.group(0)
                         alert.update({'title': title.title()})
 
-                        if title.capitalize() in alert_soup('strong')[0].text:
-                            title = title.capitalize()
-                        else:
-                            title = title.title()
+                        for s in alert_soup('strong'):
+                            if title.capitalize() in s.text:
+                                title = title.capitalize()
+                            elif title.title() in s.text:
+                                title = title.title()
 
                         if 'terminé' in title:
                             title = re.sub('terminé', 'est terminé', title)
