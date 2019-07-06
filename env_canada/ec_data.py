@@ -235,35 +235,32 @@ class ECData(object):
             alert_html = requests.get(url=alert_url).content
             alert_soup = BeautifulSoup(alert_html, 'html.parser')
 
-            date_pattern = 'p:contains("{}") span'
-            detail_pattern = 'p:contains("{}") ~ p'
-
-            for a in alert_list:
+            for title in alert_list:
                 for category, meta in self.alerts_meta.items():
-                    category_match = re.search(meta[self.language]['pattern'], a)
+                    category_match = re.search(meta[self.language]['pattern'], title)
                     if category_match:
-                        alert = {'title': a,
+
+                        alert = {'title': title.title(),
                                  'date': '',
                                  'detail': ''}
-                        title = category_match.group(0)
-                        alert.update({'title': title.title()})
+
+                        html_title = ''
 
                         for s in alert_soup('strong'):
-                            if title.capitalize() in s.text:
-                                title = title.capitalize()
-                            elif title.title() in s.text:
-                                title = title.title()
+                            if re.sub('terminé', 'est terminé', title.lower()) in s.text.lower():
+                                html_title = s.text
 
-                        if 'terminé' in title:
-                            title = re.sub('terminé', 'est terminé', title)
-
-                        date_match = alert_soup.select(date_pattern.format(title))
+                        date_pattern = 'p:contains("{}") span'
+                        date_match = alert_soup.select(date_pattern.format(html_title))
                         if date_match:
                             alert.update({'date': date_match[0].text})
 
-                        detail_match = alert_soup.select(detail_pattern.format(title))
-                        if detail_match:
-                            alert.update({'detail': detail_match[0].text})
+                        if category != 'endings':
+                            detail_pattern = 'p:contains("{}") ~ p'
+                            detail_match = alert_soup.select(detail_pattern.format(html_title))
+                            if detail_match:
+                                detail = re.sub(r'\.(?=\S)', '. ', detail_match[0].text)
+                                alert.update({'detail': detail})
 
                         self.alerts[category]['value'].append(alert)
 
