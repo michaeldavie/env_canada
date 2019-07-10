@@ -76,17 +76,6 @@ class ECData(object):
             'english': 'Wind Bearing',
             'french': 'Palier de vent'
         },
-        'forecast_period': {
-            'xpath': './forecastGroup/forecast/period',
-            'attribute': 'textForecastName',
-            'english': 'Forecast Period',
-            'french': 'Période de prévision'
-        },
-        'text_summary': {
-            'xpath': './forecastGroup/forecast/textSummary',
-            'english': 'Text Summary',
-            'french': 'Résumé textuel'
-        },
         'high_temp': {
             'xpath': './forecastGroup/forecast/temperatures/temperature[@class="high"]',
             'english': 'High Temperature',
@@ -102,25 +91,24 @@ class ECData(object):
             'english': 'Chance of Precip.',
             'french': 'Probabilité d\'averses'
         },
-        'timestamp': {
-            'xpath': './currentConditions/dateTime/timeStamp',
-            'english': 'Timestamp',
-            'french': 'Horodatage'
-        },
-        'location': {
-            'xpath': './location/name',
-            'english': 'Location',
-            'french': 'Location'
-        },
-        'station': {
-            'xpath': './currentConditions/station',
-            'english': 'Station',
-            'french': 'Station'
-        },
         'icon_code': {
             'xpath': './currentConditions/iconCode',
             'english': 'Icon Code',
             'french': 'Code icône'
+        }
+    }
+
+    summary_meta = {
+        'forecast_period': {
+            'xpath': './forecastGroup/forecast/period',
+            'attribute': 'textForecastName',
+        },
+        'text_summary': {
+            'xpath': './forecastGroup/forecast/textSummary',
+        },
+        'label': {
+            'english': 'Forecast',
+            'french': 'Prévision'
         }
     }
 
@@ -177,6 +165,18 @@ class ECData(object):
         }
     }
 
+    metadata_meta = {
+        'timestamp': {
+            'xpath': './currentConditions/dateTime/timeStamp',
+        },
+        'location': {
+            'xpath': './location/name',
+        },
+        'station': {
+            'xpath': './currentConditions/station',
+        },
+    }
+
     """Get data from Environment Canada."""
 
     def __init__(self, station_id=None, coordinates=None, language='english'):
@@ -187,6 +187,7 @@ class ECData(object):
             self.station_id = self.closest_site(coordinates[0],
                                                 coordinates[1])
         self.language = language
+        self.metadata = {}
         self.conditions = {}
         self.alerts = {}
         self.daily_forecasts = []
@@ -203,24 +204,37 @@ class ECData(object):
         site_xml = result.content.decode('iso-8859-1')
         xml_object = et.fromstring(site_xml)
 
-        # Update current conditions
-        self.conditions = {}
+        # Update metadata
+        for m, meta in self.metadata_meta.items():
+            self.metadata[m] = xml_object.find(meta['xpath']).text
 
-        for c, meta in self.conditions_meta.items():
-            self.conditions[c] = {'label': meta[self.language]}
-            value = None
+        # Update current conditions
+        def get_condition(meta):
+            condition = {}
 
             element = xml_object.find(meta['xpath'])
 
             if element is not None:
                 if meta.get('attribute'):
-                    value = element.attrib.get(meta['attribute'])
+                    condition['value'] = element.attrib.get(meta['attribute'])
                 else:
-                    value = element.text
+                    condition['value'] = element.text
                     if element.attrib.get('units'):
-                        self.conditions[c].update({'unit': element.attrib.get('units')})
+                        condition['unit'] = element.attrib.get('units')
+            return condition
 
-            self.conditions[c].update({'value': value})
+        for c, meta in self.conditions_meta.items():
+            self.conditions[c] = {'label': meta[self.language]}
+            self.conditions[c].update(get_condition(meta))
+
+        # Update text summary
+        period = get_condition(self.summary_meta['forecast_period'])['value']
+        summary = get_condition(self.summary_meta['text_summary'])['value']
+
+        self.conditions['text_summary'] = {
+            'label': self.summary_meta['label'][self.language],
+            'value': '. '.join([period, summary])
+        }
 
         # Update alerts
         for category, meta in self.alerts_meta.items():
@@ -267,7 +281,6 @@ class ECData(object):
         # Update daily forecasts
         self.forecast_time = xml_object.findtext('./forecastGroup/dateTime/timeStamp')
 
-        self.daily_forecasts = []
         for f in xml_object.findall('./forecastGroup/forecast'):
             self.daily_forecasts.append({
                 'period': f.findtext('period'),
@@ -278,7 +291,6 @@ class ECData(object):
             })
 
         # Update hourly forecasts
-        self.hourly_forecasts = []
         for f in xml_object.findall('./hourlyForecastGroup/hourlyForecast'):
             self.hourly_forecasts.append({
                 'period': f.attrib.get('dateTimeUTC'),
