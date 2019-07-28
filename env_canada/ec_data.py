@@ -86,6 +86,11 @@ class ECData(object):
             'english': 'Low Temperature',
             'french': 'Basse température'
         },
+        'uv_index': {
+            'xpath': './forecastGroup/forecast/uv/index',
+            'english': 'UV Index',
+            'french': 'Indice UV'
+        },
         'pop': {
             'xpath': './forecastGroup/forecast/abbreviatedForecast/pop',
             'english': 'Chance of Precip.',
