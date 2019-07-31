@@ -100,7 +100,12 @@ class ECData(object):
             'xpath': './currentConditions/iconCode',
             'english': 'Icon Code',
             'french': 'Code icône'
-        }
+        },
+        'precip_yesterday': {
+            'xpath': './yesterdayConditions/precip',
+            'english': 'Precipitation Yesterday',
+            'french': 'Précipitation d\'hier'
+        },
     }
 
     summary_meta = {
