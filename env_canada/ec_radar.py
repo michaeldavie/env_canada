@@ -37,6 +37,8 @@ class ECRadar(object):
         roads_bytes = requests.get(self.ROADS_URL.format(self.station_code.upper())).content
         self.roads = Image.open(BytesIO(roads_bytes)).convert('RGBA')
 
+        self.timestamp = datetime.datetime.now()
+
     def get_precip_type(self):
         """Determine the precipitation type"""
         if self.user_precip_type:
@@ -58,6 +60,11 @@ class ECRadar(object):
 
         images = [tag['href'] for tag in soup.find_all('a') if image_string in tag['href']]
 
+        """Update timestamp."""
+        self.timestamp = datetime.datetime.strptime(images[0].split('_')[0],
+                                                    '%Y%m%d%H%M')
+
+        """Build GIF."""
         futures = []
         session = FuturesSession(max_workers=count)
 
