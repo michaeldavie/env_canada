@@ -3,7 +3,17 @@ import xml.etree.ElementTree as et
 
 from bs4 import BeautifulSoup
 from geopy import distance
+from ratelimit import limits, RateLimitException
 import requests
+
+
+def ignore_ratelimit_error(fun):
+    def res(*args, **kwargs):
+        try:
+            return fun(*args, **kwargs)
+        except RateLimitException:
+            return None
+    return res
 
 
 class ECData(object):
@@ -206,6 +216,8 @@ class ECData(object):
 
         self.update()
 
+    @ignore_ratelimit_error
+    @limits(calls=2, period=60)
     def update(self):
         """Get the latest data from Environment Canada."""
         result = requests.get(self.XML_URL_BASE.format(self.station_id,
