@@ -302,6 +302,8 @@ class ECData(object):
 
         # Update daily forecasts
         self.forecast_time = xml_object.findtext('./forecastGroup/dateTime/timeStamp')
+        self.daily_forecasts = []
+        self.hourly_forecasts = []
 
         for f in xml_object.findall('./forecastGroup/forecast'):
             self.daily_forecasts.append({
