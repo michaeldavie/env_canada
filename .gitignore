@@ -1,0 +1,102 @@
+# Hide sublime text stuff
+*.sublime-project
+*.sublime-workspace
+
+# Hide vscode
+.vscode
+*.code-workspace
+
+# Hide some OS X stuff
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+# Thumbnails
+._*
+
+.idea
+
+# pytest
+.cache
+htmlcov 
+
+# GitHub Proposed Python stuff:
+*.py[cod]
+
+# C extensions
+*.so
+
+# Packages
+*.egg
+*.egg-info
+dist
+build
+eggs
+.eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
+
+# Installer logs
+pip-log.txt
+
+# Unit test / coverage reports
+.coverage
+.tox
+htmlcov
+nosetests.xml
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+.python-version
+
+# emacs auto backups
+*~
+*#
+*.orig
+
+# venv stuff
+pyvenv.cfg
+pip-selfcheck.json
+venv
+.venv
+.Python
+include 
+
+# vimmy stuff
+*.swp
+*.swo
+
+ctags.tmp
+
+# vagrant stuff
+virtualization/vagrant/setup_done
+virtualization/vagrant/.vagrant
+virtualization/vagrant/config
+
+# pytest
+.pytest_cache
+
+# share/man ignore
+share
+
+# ignored to make check_dirty not fail
+travis_wait*
+.mypy_cache
+
+README.html
+pip-wheel-metadata
+.xprocess
+results.xml
