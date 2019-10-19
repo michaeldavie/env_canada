@@ -40,6 +40,31 @@ radar_coords.get_loop()
 radar_station.get_latest_frame()
 ```
 
+## Air Quality Health Index
+
+`AqhiData` provides [Air Quality Health Index](http://www.airqualityontario.com/science/aqhi_description.php) current conditions and forecast . It automatically determines which region and zone to use based on latitude/longitude provided. It is also possible to specify a specific `region_cgndb` and `zone_abreviation` based on those listed in [this XML file](https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml). For example:
+
+
+```
+from env_canada import AqhiData
+
+aqhi_en = AqhiData(coordinates=(lat, long))
+aqhi_fr = AqhiData(region_cgndb='AADCE', zone_abreviation='atl', language='french')
+
+# current
+aqhi_en.conditions
+aqhi_fr.conditions
+
+# daily forecasts
+aqhi_fr.daily_forecasts
+
+# hourly forecasts
+aqhi_en.hourly_forecasts
+
+# Update
+aqhi_fr.update()
+```
+
 # License
 
 The code is available under terms of [MIT License](LICENSE.md)
