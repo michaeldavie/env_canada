@@ -9,8 +9,8 @@ import imageio
 import requests
 from requests_futures.sessions import FuturesSession
 
-IMAGES_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/PRECIPET/GIF/{0}/?C=M;O=D'
-FRAME_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/PRECIPET/GIF/{0}/{1}'
+IMAGES_URL = 'https://dd.weather.gc.ca/radar/PRECIPET/GIF/{0}/?C=M;O=D'
+FRAME_URL = 'https://dd.weather.gc.ca/radar/PRECIPET/GIF/{0}/{1}'
 CITIES_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/default_cities/{0}_towns.gif'
 ROADS_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/roads/{0}_roads.gif'
 
