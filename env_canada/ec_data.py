@@ -6,6 +6,197 @@ from geopy import distance
 from ratelimit import limits, RateLimitException
 import requests
 
+SITE_LIST_URL = 'https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv'
+AQHI_SITE_LIST_URL = 'https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml'
+XML_URL_BASE = 'https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml'
+AQHI_OBSERVATION_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml'
+AQHI_FORECAST_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml'
+
+conditions_meta = {
+    'temperature': {
+        'xpath': './currentConditions/temperature',
+        'english': 'Temperature',
+        'french': 'Température'
+    },
+    'dewpoint': {
+        'xpath': './currentConditions/dewpoint',
+        'english': 'Dew Point',
+        'french': 'Point de rosée'
+    },
+    'wind_chill': {
+        'xpath': './currentConditions/windChill',
+        'english': 'Wind Chill',
+        'french': 'Refroidissement éolien'
+    },
+    'humidex': {
+        'xpath': './currentConditions/humidex',
+        'english': 'Humidex',
+        'french': 'Humidex'
+    },
+    'pressure': {
+        'xpath': './currentConditions/pressure',
+        'english': 'Pressure',
+        'french': 'Pression'
+    },
+    'tendency': {
+        'xpath': './currentConditions/pressure',
+        'attribute': 'tendency',
+        'english': 'Tendency',
+        'french': 'Tendance'
+    },
+    'humidity': {
+        'xpath': './currentConditions/relativeHumidity',
+        'english': 'Humidity',
+        'french': 'Humidité'
+    },
+    'visibility': {
+        'xpath': './currentConditions/visibility',
+        'english': 'Visibility',
+        'french': 'Visibilité'
+    },
+    'condition': {
+        'xpath': './currentConditions/condition',
+        'english': 'Condition',
+        'french': 'Condition'
+    },
+    'wind_speed': {
+        'xpath': './currentConditions/wind/speed',
+        'english': 'Wind Speed',
+        'french': 'Vitesse de vent'
+    },
+    'wind_gust': {
+        'xpath': './currentConditions/wind/gust',
+        'english': 'Wind Gust',
+        'french': 'Rafale de vent'
+    },
+    'wind_dir': {
+        'xpath': './currentConditions/wind/direction',
+        'english': 'Wind Direction',
+        'french': 'Direction de vent'
+    },
+    'wind_bearing': {
+        'xpath': './currentConditions/wind/bearing',
+        'english': 'Wind Bearing',
+        'french': 'Palier de vent'
+    },
+    'high_temp': {
+        'xpath': './forecastGroup/forecast/temperatures/temperature[@class="high"]',
+        'english': 'High Temperature',
+        'french': 'Haute température'
+    },
+    'low_temp': {
+        'xpath': './forecastGroup/forecast/temperatures/temperature[@class="low"]',
+        'english': 'Low Temperature',
+        'french': 'Basse température'
+    },
+    'uv_index': {
+        'xpath': './forecastGroup/forecast/uv/index',
+        'english': 'UV Index',
+        'french': 'Indice UV'
+    },
+    'pop': {
+        'xpath': './forecastGroup/forecast/abbreviatedForecast/pop',
+        'english': 'Chance of Precip.',
+        'french': 'Probabilité d\'averses'
+    },
+    'icon_code': {
+        'xpath': './currentConditions/iconCode',
+        'english': 'Icon Code',
+        'french': 'Code icône'
+    },
+    'precip_yesterday': {
+        'xpath': './yesterdayConditions/precip',
+        'english': 'Precipitation Yesterday',
+        'french': 'Précipitation d\'hier'
+    },
+}
+
+aqhi_meta = {
+    'label': {
+        'english': 'Air Quality Health Index',
+        'french': 'Cote air santé'
+    }
+}
+
+summary_meta = {
+    'forecast_period': {
+        'xpath': './forecastGroup/forecast/period',
+        'attribute': 'textForecastName',
+    },
+    'text_summary': {
+        'xpath': './forecastGroup/forecast/textSummary',
+    },
+    'label': {
+        'english': 'Forecast',
+        'french': 'Prévision'
+    }
+}
+
+alerts_meta = {
+    'warnings': {
+        'english': {
+            'label': 'Warnings',
+            'pattern': '.*WARNING((?!ENDED).)*$'
+        },
+        'french': {
+            'label': 'Alertes',
+            'pattern': '.*(ALERTE|AVERTISSEMENT)((?!TERMINÉ).)*$'
+        }
+    },
+    'watches': {
+        'english': {
+            'label': 'Watches',
+            'pattern': '.*WATCH((?!ENDED).)*$'
+        },
+        'french': {
+            'label': 'Veilles',
+            'pattern': '.*VEILLE((?!TERMINÉ).)*$'
+        }
+    },
+    'advisories': {
+        'english': {
+            'label': 'Advisories',
+            'pattern': '.*ADVISORY((?!ENDED).)*$'
+        },
+        'french': {
+            'label': 'Avis',
+            'pattern': '.*AVIS((?!TERMINÉ).)*$'
+        }
+    },
+    'statements': {
+        'english': {
+            'label': 'Statements',
+            'pattern': '.*STATEMENT((?!ENDED).)*$'
+        },
+        'french': {
+            'label': 'Bulletins',
+            'pattern': '.*BULLETIN((?!TERMINÉ).)*$'
+        }
+    },
+    'endings': {
+        'english': {
+            'label': 'Endings',
+            'pattern': '.*ENDED'
+        },
+        'french': {
+            'label': 'Terminaisons',
+            'pattern': '.*TERMINÉE?'
+        }
+    }
+}
+
+metadata_meta = {
+    'timestamp': {
+        'xpath': './currentConditions/dateTime/timeStamp',
+    },
+    'location': {
+        'xpath': './location/name',
+    },
+    'station': {
+        'xpath': './currentConditions/station',
+    },
+}
+
 
 def ignore_ratelimit_error(fun):
     def res(*args, **kwargs):
@@ -17,196 +208,6 @@ def ignore_ratelimit_error(fun):
 
 
 class ECData(object):
-    SITE_LIST_URL = 'https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv'
-    AQHI_SITE_LIST_URL = 'https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml'
-    XML_URL_BASE = 'https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml'
-    AQHI_OBSERVATION_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml'
-    AQHI_FORECAST_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml'
-
-    conditions_meta = {
-        'temperature': {
-            'xpath': './currentConditions/temperature',
-            'english': 'Temperature',
-            'french': 'Température'
-        },
-        'dewpoint': {
-            'xpath': './currentConditions/dewpoint',
-            'english': 'Dew Point',
-            'french': 'Point de rosée'
-        },
-        'wind_chill': {
-            'xpath': './currentConditions/windChill',
-            'english': 'Wind Chill',
-            'french': 'Refroidissement éolien'
-        },
-        'humidex': {
-            'xpath': './currentConditions/humidex',
-            'english': 'Humidex',
-            'french': 'Humidex'
-        },
-        'pressure': {
-            'xpath': './currentConditions/pressure',
-            'english': 'Pressure',
-            'french': 'Pression'
-        },
-        'tendency': {
-            'xpath': './currentConditions/pressure',
-            'attribute': 'tendency',
-            'english': 'Tendency',
-            'french': 'Tendance'
-        },
-        'humidity': {
-            'xpath': './currentConditions/relativeHumidity',
-            'english': 'Humidity',
-            'french': 'Humidité'
-        },
-        'visibility': {
-            'xpath': './currentConditions/visibility',
-            'english': 'Visibility',
-            'french': 'Visibilité'
-        },
-        'condition': {
-            'xpath': './currentConditions/condition',
-            'english': 'Condition',
-            'french': 'Condition'
-        },
-        'wind_speed': {
-            'xpath': './currentConditions/wind/speed',
-            'english': 'Wind Speed',
-            'french': 'Vitesse de vent'
-        },
-        'wind_gust': {
-            'xpath': './currentConditions/wind/gust',
-            'english': 'Wind Gust',
-            'french': 'Rafale de vent'
-        },
-        'wind_dir': {
-            'xpath': './currentConditions/wind/direction',
-            'english': 'Wind Direction',
-            'french': 'Direction de vent'
-        },
-        'wind_bearing': {
-            'xpath': './currentConditions/wind/bearing',
-            'english': 'Wind Bearing',
-            'french': 'Palier de vent'
-        },
-        'high_temp': {
-            'xpath': './forecastGroup/forecast/temperatures/temperature[@class="high"]',
-            'english': 'High Temperature',
-            'french': 'Haute température'
-        },
-        'low_temp': {
-            'xpath': './forecastGroup/forecast/temperatures/temperature[@class="low"]',
-            'english': 'Low Temperature',
-            'french': 'Basse température'
-        },
-        'uv_index': {
-            'xpath': './forecastGroup/forecast/uv/index',
-            'english': 'UV Index',
-            'french': 'Indice UV'
-        },
-        'pop': {
-            'xpath': './forecastGroup/forecast/abbreviatedForecast/pop',
-            'english': 'Chance of Precip.',
-            'french': 'Probabilité d\'averses'
-        },
-        'icon_code': {
-            'xpath': './currentConditions/iconCode',
-            'english': 'Icon Code',
-            'french': 'Code icône'
-        },
-        'precip_yesterday': {
-            'xpath': './yesterdayConditions/precip',
-            'english': 'Precipitation Yesterday',
-            'french': 'Précipitation d\'hier'
-        },
-    }
-
-    aqhi_meta = {
-        'label': {
-            'english': 'Air Quality Health Index',
-            'french': 'Cote air santé'
-        }
-    }
-
-    summary_meta = {
-        'forecast_period': {
-            'xpath': './forecastGroup/forecast/period',
-            'attribute': 'textForecastName',
-        },
-        'text_summary': {
-            'xpath': './forecastGroup/forecast/textSummary',
-        },
-        'label': {
-            'english': 'Forecast',
-            'french': 'Prévision'
-        }
-    }
-
-    alerts_meta = {
-        'warnings': {
-            'english': {
-                'label': 'Warnings',
-                'pattern': '.*WARNING((?!ENDED).)*$'
-            },
-            'french': {
-                'label': 'Alertes',
-                'pattern': '.*(ALERTE|AVERTISSEMENT)((?!TERMINÉ).)*$'
-            }
-        },
-        'watches': {
-            'english': {
-                'label': 'Watches',
-                'pattern': '.*WATCH((?!ENDED).)*$'
-            },
-            'french': {
-                'label': 'Veilles',
-                'pattern': '.*VEILLE((?!TERMINÉ).)*$'
-            }
-        },
-        'advisories': {
-            'english': {
-                'label': 'Advisories',
-                'pattern': '.*ADVISORY((?!ENDED).)*$'
-            },
-            'french': {
-                'label': 'Avis',
-                'pattern': '.*AVIS((?!TERMINÉ).)*$'
-            }
-        },
-        'statements': {
-            'english': {
-                'label': 'Statements',
-                'pattern': '.*STATEMENT((?!ENDED).)*$'
-            },
-            'french': {
-                'label': 'Bulletins',
-                'pattern': '.*BULLETIN((?!TERMINÉ).)*$'
-            }
-        },
-        'endings': {
-            'english': {
-                'label': 'Endings',
-                'pattern': '.*ENDED'
-            },
-            'french': {
-                'label': 'Terminaisons',
-                'pattern': '.*TERMINÉE?'
-            }
-        }
-    }
-
-    metadata_meta = {
-        'timestamp': {
-            'xpath': './currentConditions/dateTime/timeStamp',
-        },
-        'location': {
-            'xpath': './location/name',
-        },
-        'station': {
-            'xpath': './currentConditions/station',
-        },
-    }
 
     """Get data from Environment Canada."""
 
@@ -236,9 +237,11 @@ class ECData(object):
                                                 coordinates[1])
         if aqhi_id:
             self.aqhi_id = (aqhi_id.split('/'))
-        else:
+        elif coordinates:
             self.aqhi_id = self.closest_aqhi(coordinates[0],
                                              coordinates[1])
+        else:
+            self.aqhi_id = None
 
         self.update()
 
@@ -246,14 +249,14 @@ class ECData(object):
     @limits(calls=2, period=60)
     def update(self):
         """Get the latest data from Environment Canada."""
-        result = requests.get(self.XML_URL_BASE.format(self.station_id,
-                                                       self.language[0]),
+        result = requests.get(XML_URL_BASE.format(self.station_id,
+                                                  self.language[0]),
                               timeout=10)
         site_xml = result.content.decode('iso-8859-1')
         xml_object = et.fromstring(site_xml)
 
         # Update metadata
-        for m, meta in self.metadata_meta.items():
+        for m, meta in metadata_meta.items():
             self.metadata[m] = xml_object.find(meta['xpath']).text
 
         # Update current conditions
@@ -271,21 +274,21 @@ class ECData(object):
                         condition['unit'] = element.attrib.get('units')
             return condition
 
-        for c, meta in self.conditions_meta.items():
+        for c, meta in conditions_meta.items():
             self.conditions[c] = {'label': meta[self.language]}
             self.conditions[c].update(get_condition(meta))
 
         # Update text summary
-        period = get_condition(self.summary_meta['forecast_period'])['value']
-        summary = get_condition(self.summary_meta['text_summary'])['value']
+        period = get_condition(summary_meta['forecast_period'])['value']
+        summary = get_condition(summary_meta['text_summary'])['value']
 
         self.conditions['text_summary'] = {
-            'label': self.summary_meta['label'][self.language],
+            'label': summary_meta['label'][self.language],
             'value': '. '.join([period, summary])
         }
 
         # Update alerts
-        for category, meta in self.alerts_meta.items():
+        for category, meta in alerts_meta.items():
             self.alerts[category] = {'value': [],
                                      'label': meta[self.language]['label']}
 
@@ -298,7 +301,7 @@ class ECData(object):
             alert_soup = BeautifulSoup(alert_html, 'html.parser')
 
             for title in alert_list:
-                for category, meta in self.alerts_meta.items():
+                for category, meta in alerts_meta.items():
                     category_match = re.search(meta[self.language]['pattern'], title)
                     if category_match:
 
@@ -350,58 +353,59 @@ class ECData(object):
                 'precip_probability': f.findtext('./lop'),
             })
 
-        # Update AQHI current condition
-        result = requests.get(self.AQHI_OBSERVATION_URL.format(self.aqhi_id[0],
-                                                               self.aqhi_id[1]),
-                              timeout=10)
-        site_xml = result.content.decode("utf-8")
-        xml_object = et.fromstring(site_xml)
+        if self.aqhi_id:
+            # Update AQHI current condition
+            result = requests.get(AQHI_OBSERVATION_URL.format(self.aqhi_id[0],
+                                                              self.aqhi_id[1]),
+                                  timeout=10)
+            site_xml = result.content.decode("utf-8")
+            xml_object = et.fromstring(site_xml)
 
-        element = xml_object.find('airQualityHealthIndex')
-        if element is not None:
-            self.aqhi['current'] = element.text
-        else:
-            self.aqhi['current'] = None
+            element = xml_object.find('airQualityHealthIndex')
+            if element is not None:
+                self.aqhi['current'] = element.text
+            else:
+                self.aqhi['current'] = None
 
-        self.conditions['air_quality'] = {
-            'label': self.aqhi_meta['label'][self.language],
-            'value': self.aqhi['current']
-        }
+            self.conditions['air_quality'] = {
+                'label': aqhi_meta['label'][self.language],
+                'value': self.aqhi['current']
+            }
 
-        element = xml_object.find('./dateStamp/UTCStamp')
-        if element is not None:
-            self.aqhi['utc_time'] = element.text
-        else:
-            self.aqhi['utc_time'] = None
+            element = xml_object.find('./dateStamp/UTCStamp')
+            if element is not None:
+                self.aqhi['utc_time'] = element.text
+            else:
+                self.aqhi['utc_time'] = None
 
-        # Update AQHI forecasts
-        result = requests.get(self.AQHI_FORECAST_URL.format(self.aqhi_id[0],
-                                                            self.aqhi_id[1]),
-                              timeout=10)
-        site_xml = result.content.decode("ISO-8859-1")
-        xml_object = et.fromstring(site_xml)
+            # Update AQHI forecasts
+            result = requests.get(AQHI_FORECAST_URL.format(self.aqhi_id[0],
+                                                           self.aqhi_id[1]),
+                                  timeout=10)
+            site_xml = result.content.decode("ISO-8859-1")
+            xml_object = et.fromstring(site_xml)
 
-        self.aqhi['forecasts'] = {'daily': [],
-                                  'hourly': []}
+            self.aqhi['forecasts'] = {'daily': [],
+                                      'hourly': []}
 
-        # Update daily forecasts
-        period = None
-        for f in xml_object.findall("./forecastGroup/forecast"):
-            for p in f.findall("./period"):
-                if self.language_abr == p.attrib["lang"]:
-                    period = p.attrib["forecastName"]
-            self.aqhi['forecasts']['daily'].append(
-                {
-                    "period": period,
-                    "aqhi": f.findtext("./airQualityHealthIndex"),
-                }
-            )
+            # Update daily forecasts
+            period = None
+            for f in xml_object.findall("./forecastGroup/forecast"):
+                for p in f.findall("./period"):
+                    if self.language_abr == p.attrib["lang"]:
+                        period = p.attrib["forecastName"]
+                self.aqhi['forecasts']['daily'].append(
+                    {
+                        "period": period,
+                        "aqhi": f.findtext("./airQualityHealthIndex"),
+                    }
+                )
 
-        # Update hourly forecasts
-        for f in xml_object.findall("./hourlyForecastGroup/hourlyForecast"):
-            self.aqhi['forecasts']['hourly'].append(
-                {"period": f.attrib["UTCTime"], "aqhi": f.text}
-            )
+            # Update hourly forecasts
+            for f in xml_object.findall("./hourlyForecastGroup/hourlyForecast"):
+                self.aqhi['forecasts']['hourly'].append(
+                    {"period": f.attrib["UTCTime"], "aqhi": f.text}
+                )
 
     def get_ec_sites(self):
         """Get list of all sites from Environment Canada, for auto-config."""
@@ -410,7 +414,7 @@ class ECData(object):
 
         sites = []
 
-        sites_csv_string = requests.get(self.SITE_LIST_URL, timeout=10).text
+        sites_csv_string = requests.get(SITE_LIST_URL, timeout=10).text
         sites_csv_stream = io.StringIO(sites_csv_string)
 
         sites_csv_stream.seek(0)
@@ -440,7 +444,7 @@ class ECData(object):
 
     def get_aqhi_regions(self):
         """Get list of all AQHI regions from Environment Canada, for auto-config."""
-        result = requests.get(self.AQHI_SITE_LIST_URL, timeout=10)
+        result = requests.get(AQHI_SITE_LIST_URL, timeout=10)
         site_xml = result.content.decode("utf-8")
         xml_object = et.fromstring(site_xml)
 
