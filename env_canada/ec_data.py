@@ -18,7 +18,11 @@ def ignore_ratelimit_error(fun):
 
 class ECData(object):
     SITE_LIST_URL = 'https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv'
+    AQHI_SITE_LIST_URL = 'https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml'
     XML_URL_BASE = 'https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml'
+    AQHI_OBSERVATION_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml'
+    AQHI_FORECAST_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml'
+
     conditions_meta = {
         'temperature': {
             'xpath': './currentConditions/temperature',
@@ -118,6 +122,13 @@ class ECData(object):
         },
     }
 
+    aqhi_meta = {
+        'label': {
+            'english': 'Air Quality Health Index',
+            'french': 'Cote air santé'
+        }
+    }
+
     summary_meta = {
         'forecast_period': {
             'xpath': './forecastGroup/forecast/period',
@@ -199,20 +210,35 @@ class ECData(object):
 
     """Get data from Environment Canada."""
 
-    def __init__(self, station_id=None, coordinates=None, language='english'):
+    def __init__(self,
+                 station_id=None,
+                 aqhi_id=None,
+                 coordinates=None,
+                 language='english'):
         """Initialize the data object."""
-        if station_id:
-            self.station_id = station_id
-        else:
-            self.station_id = self.closest_site(coordinates[0],
-                                                coordinates[1])
         self.language = language
+        self.language_abr = language[:2].upper()
+        self.zone_name_tag = 'name_%s_CA' % self.language_abr.lower()
+        self.region_name_tag = 'name%s' % self.language_abr.title()
+
         self.metadata = {}
         self.conditions = {}
         self.alerts = {}
         self.daily_forecasts = []
         self.hourly_forecasts = []
+        self.aqhi = {}
         self.forecast_time = ''
+
+        if station_id:
+            self.station_id = station_id
+        else:
+            self.station_id = self.closest_site(coordinates[0],
+                                                coordinates[1])
+        if aqhi_id:
+            self.aqhi_id = (aqhi_id.split('/'))
+        else:
+            self.aqhi_id = self.closest_aqhi(coordinates[0],
+                                             coordinates[1])
 
         self.update()
 
@@ -324,6 +350,59 @@ class ECData(object):
                 'precip_probability': f.findtext('./lop'),
             })
 
+        # Update AQHI current condition
+        result = requests.get(self.AQHI_OBSERVATION_URL.format(self.aqhi_id[0],
+                                                               self.aqhi_id[1]),
+                              timeout=10)
+        site_xml = result.content.decode("utf-8")
+        xml_object = et.fromstring(site_xml)
+
+        element = xml_object.find('airQualityHealthIndex')
+        if element is not None:
+            self.aqhi['current'] = element.text
+        else:
+            self.aqhi['current'] = None
+
+        self.conditions['air_quality'] = {
+            'label': self.aqhi_meta['label'][self.language],
+            'value': self.aqhi['current']
+        }
+
+        element = xml_object.find('./dateStamp/UTCStamp')
+        if element is not None:
+            self.aqhi['utc_time'] = element.text
+        else:
+            self.aqhi['utc_time'] = None
+
+        # Update AQHI forecasts
+        result = requests.get(self.AQHI_FORECAST_URL.format(self.aqhi_id[0],
+                                                            self.aqhi_id[1]),
+                              timeout=10)
+        site_xml = result.content.decode("ISO-8859-1")
+        xml_object = et.fromstring(site_xml)
+
+        self.aqhi['forecasts'] = {'daily': [],
+                                  'hourly': []}
+
+        # Update daily forecasts
+        period = None
+        for f in xml_object.findall("./forecastGroup/forecast"):
+            for p in f.findall("./period"):
+                if self.language_abr == p.attrib["lang"]:
+                    period = p.attrib["forecastName"]
+            self.aqhi['forecasts']['daily'].append(
+                {
+                    "period": period,
+                    "aqhi": f.findtext("./airQualityHealthIndex"),
+                }
+            )
+
+        # Update hourly forecasts
+        for f in xml_object.findall("./hourlyForecastGroup/hourlyForecast"):
+            self.aqhi['forecasts']['hourly'].append(
+                {"period": f.attrib["UTCTime"], "aqhi": f.text}
+            )
+
     def get_ec_sites(self):
         """Get list of all sites from Environment Canada, for auto-config."""
         import csv
@@ -358,3 +437,43 @@ class ECData(object):
         closest = min(site_list, key=site_distance)
 
         return '{}/{}'.format(closest['Province Codes'], closest['Codes'])
+
+    def get_aqhi_regions(self):
+        """Get list of all AQHI regions from Environment Canada, for auto-config."""
+        result = requests.get(self.AQHI_SITE_LIST_URL, timeout=10)
+        site_xml = result.content.decode("utf-8")
+        xml_object = et.fromstring(site_xml)
+
+        regions = []
+        for zone in xml_object.findall("./EC_administrativeZone"):
+            _zone_attribs = zone.attrib
+            _zone_attrib = {
+                "abbreviation": _zone_attribs["abreviation"],
+                "zone_name": _zone_attribs[self.zone_name_tag],
+            }
+            for region in zone.findall("./regionList/region"):
+                _region_attribs = region.attrib
+
+                _region_attrib = {"region_name": _region_attribs[self.region_name_tag],
+                                  "cgndb": _region_attribs["cgndb"],
+                                  "latitude": float(_region_attribs["latitude"]),
+                                  "longitude": float(_region_attribs["longitude"])}
+                _children = region.getchildren()
+                for child in _children:
+                    _region_attrib[child.tag] = child.text
+                _region_attrib.update(_zone_attrib)
+                regions.append(_region_attrib)
+        return regions
+
+    def closest_aqhi(self, lat, lon):
+        """Return the AQHI region and site ID of the closest site."""
+        region_list = self.get_aqhi_regions()
+
+        def site_distance(site):
+            """Calculate distance to a region."""
+            return distance.distance(
+                (lat, lon), (site["latitude"], site["longitude"])
+            )
+        closest = min(region_list, key=site_distance)
+
+        return closest['abbreviation'], closest['cgndb']
