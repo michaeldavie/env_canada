@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="env_canada",
-    version="0.0.28",
+    version="0.0.29",
     author="Michael Davie",
     author_email="michael.davie@gmail.com",
     description="A package to access meteorological data from Environment Canada",
@@ -13,6 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/michaeldavie/env_canada",
     packages=setuptools.find_packages(),
+    include_package_data=True,
     install_requires=['requests>=2.19.1',
                       'geopy>=1.16.0',
                       'imageio>=2.3.0',

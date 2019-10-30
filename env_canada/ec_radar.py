@@ -1,11 +1,10 @@
 import datetime
 from io import BytesIO
-import importlib.resources as pkg_resources
 import json
+import os
 from PIL import Image
 
 from bs4 import BeautifulSoup
-import env_canada
 from geopy import distance
 import imageio
 import requests
@@ -17,7 +16,8 @@ CITIES_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/default_cities
 ROADS_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/roads/{0}_roads.gif'
 
 """Load list of radar sites."""
-site_dict = json.loads(pkg_resources.read_text(env_canada, 'radar_sites.json'))
+with open(os.path.join(os.path.dirname(__file__), 'radar_sites.json')) as sites_file:
+    site_dict = json.loads(sites_file.read())
 
 
 def closest_site(lat, lon):
