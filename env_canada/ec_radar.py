@@ -1,7 +1,8 @@
 import datetime
 from io import BytesIO
+import json
+import os
 from PIL import Image
-import xml.etree.ElementTree as et
 
 from bs4 import BeautifulSoup
 from geopy import distance
@@ -9,36 +10,14 @@ import imageio
 import requests
 from requests_futures.sessions import FuturesSession
 
-IMAGES_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/PRECIPET/GIF/{0}/?C=M;O=D'
-FRAME_URL = 'http://dd.weatheroffice.ec.gc.ca/radar/PRECIPET/GIF/{0}/{1}'
+IMAGES_URL = 'https://dd.weather.gc.ca/radar/PRECIPET/GIF/{0}/?C=M;O=D'
+FRAME_URL = 'https://dd.weather.gc.ca/radar/PRECIPET/GIF/{0}/{1}'
 CITIES_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/default_cities/{0}_towns.gif'
 ROADS_URL = 'https://weather.gc.ca/cacheable/images/radar/layers/roads/{0}_roads.gif'
 
-
-"""Get list of radar sites from Wikipedia."""
-xml_string = requests.get('https://tools.wmflabs.org/kmlexport?article=Canadian_weather_radar_network').text
-root = et.fromstring(xml_string)
-namespace = {'ns': 'http://earth.google.com/kml/2.1'}
-folder = root.find('ns:Document/ns:Folder', namespace)
-
-site_dict = {}
-
-for site in folder.findall('ns:Placemark', namespace):
-    name_parts = site.find('ns:name', namespace).text.split(' - ')
-    name = name_parts[1]
-    code = name_parts[0]
-    if len(code) == 4:
-        code = code[1:]
-
-    if code == 'WMN':
-        continue
-
-    site_lat = float(site.find('ns:Point/ns:coordinates', namespace).text.split(',')[1])
-    site_lon = float(site.find('ns:Point/ns:coordinates', namespace).text.split(',')[0])
-
-    site_dict[code] = {'name': name,
-                       'lat': site_lat,
-                       'lon': site_lon}
+"""Load list of radar sites."""
+with open(os.path.join(os.path.dirname(__file__), 'radar_sites.json')) as sites_file:
+    site_dict = json.loads(sites_file.read())
 
 
 def closest_site(lat, lon):

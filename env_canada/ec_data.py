@@ -17,8 +17,8 @@ def ignore_ratelimit_error(fun):
 
 
 class ECData(object):
-    SITE_LIST_URL = 'http://dd.weatheroffice.ec.gc.ca/citypage_weather/docs/site_list_en.csv'
-    XML_URL_BASE = 'http://dd.weatheroffice.ec.gc.ca/citypage_weather/xml/{}_{}.xml'
+    SITE_LIST_URL = 'https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv'
+    XML_URL_BASE = 'https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml'
     conditions_meta = {
         'temperature': {
             'xpath': './currentConditions/temperature',
