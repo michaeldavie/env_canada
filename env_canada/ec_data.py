@@ -8,7 +8,8 @@ import requests
 
 SITE_LIST_URL = 'https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv'
 AQHI_SITE_LIST_URL = 'https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml'
-XML_URL_BASE = 'https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml'
+
+WEATHER_URL = 'https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml'
 AQHI_OBSERVATION_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml'
 AQHI_FORECAST_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml'
 
@@ -209,11 +210,10 @@ def ignore_ratelimit_error(fun):
 
 class ECData(object):
 
-    """Get data from Environment Canada."""
+    """Get weather data from Environment Canada."""
 
     def __init__(self,
                  station_id=None,
-                 aqhi_id=None,
                  coordinates=None,
                  language='english'):
         """Initialize the data object."""
@@ -235,13 +235,6 @@ class ECData(object):
         else:
             self.station_id = self.closest_site(coordinates[0],
                                                 coordinates[1])
-        if aqhi_id:
-            self.aqhi_id = (aqhi_id.split('/'))
-        elif coordinates:
-            self.aqhi_id = self.closest_aqhi(coordinates[0],
-                                             coordinates[1])
-        else:
-            self.aqhi_id = None
 
         self.update()
 
@@ -249,21 +242,21 @@ class ECData(object):
     @limits(calls=2, period=60)
     def update(self):
         """Get the latest data from Environment Canada."""
-        result = requests.get(XML_URL_BASE.format(self.station_id,
-                                                  self.language[0]),
-                              timeout=10)
-        site_xml = result.content.decode('iso-8859-1')
-        xml_object = et.fromstring(site_xml)
+        weather_result = requests.get(WEATHER_URL.format(self.station_id,
+                                                         self.language[0]),
+                                      timeout=10)
+        weather_xml = weather_result.content.decode('iso-8859-1')
+        weather_tree = et.fromstring(weather_xml)
 
         # Update metadata
         for m, meta in metadata_meta.items():
-            self.metadata[m] = xml_object.find(meta['xpath']).text
+            self.metadata[m] = weather_tree.find(meta['xpath']).text
 
         # Update current conditions
         def get_condition(meta):
             condition = {}
 
-            element = xml_object.find(meta['xpath'])
+            element = weather_tree.find(meta['xpath'])
 
             if element is not None:
                 if meta.get('attribute'):
@@ -292,11 +285,11 @@ class ECData(object):
             self.alerts[category] = {'value': [],
                                      'label': meta[self.language]['label']}
 
-        alert_elements = xml_object.findall('./warnings/event')
+        alert_elements = weather_tree.findall('./warnings/event')
         alert_list = [e.attrib.get('description').strip() for e in alert_elements]
 
         if alert_list:
-            alert_url = xml_object.find('./warnings').attrib.get('url')
+            alert_url = weather_tree.find('./warnings').attrib.get('url')
             alert_html = requests.get(url=alert_url).content
             alert_soup = BeautifulSoup(alert_html, 'html.parser')
 
@@ -330,11 +323,11 @@ class ECData(object):
                         self.alerts[category]['value'].append(alert)
 
         # Update daily forecasts
-        self.forecast_time = xml_object.findtext('./forecastGroup/dateTime/timeStamp')
+        self.forecast_time = weather_tree.findtext('./forecastGroup/dateTime/timeStamp')
         self.daily_forecasts = []
         self.hourly_forecasts = []
 
-        for f in xml_object.findall('./forecastGroup/forecast'):
+        for f in weather_tree.findall('./forecastGroup/forecast'):
             self.daily_forecasts.append({
                 'period': f.findtext('period'),
                 'text_summary': f.findtext('textSummary'),
@@ -344,7 +337,7 @@ class ECData(object):
             })
 
         # Update hourly forecasts
-        for f in xml_object.findall('./hourlyForecastGroup/hourlyForecast'):
+        for f in weather_tree.findall('./hourlyForecastGroup/hourlyForecast'):
             self.hourly_forecasts.append({
                 'period': f.attrib.get('dateTimeUTC'),
                 'condition': f.findtext('./condition'),
@@ -353,15 +346,24 @@ class ECData(object):
                 'precip_probability': f.findtext('./lop'),
             })
 
-        if self.aqhi_id:
-            # Update AQHI current condition
-            result = requests.get(AQHI_OBSERVATION_URL.format(self.aqhi_id[0],
-                                                              self.aqhi_id[1]),
-                                  timeout=10)
-            site_xml = result.content.decode("utf-8")
-            xml_object = et.fromstring(site_xml)
+        # Update AQHI current condition
 
-            element = xml_object.find('airQualityHealthIndex')
+        lat = weather_tree.find('./location/name').attrib.get('lat')[:-1]
+        lon = weather_tree.find('./location/name').attrib.get('lon')[:-1]
+        aqhi_coordinates = (float(lat), float(lon) * -1)
+
+        aqhi_id = self.closest_aqhi(aqhi_coordinates[0], aqhi_coordinates[1])
+
+        aqhi_result = requests.get(AQHI_OBSERVATION_URL.format(aqhi_id[0],
+                                                          aqhi_id[1]),
+                                   timeout=10)
+        if aqhi_result.status_code == 404:
+            self.aqhi['current'] = None
+        else:
+            aqhi_xml = aqhi_result.content.decode("utf-8")
+            aqhi_tree = et.fromstring(aqhi_xml)
+
+            element = aqhi_tree.find('airQualityHealthIndex')
             if element is not None:
                 self.aqhi['current'] = element.text
             else:
@@ -372,25 +374,28 @@ class ECData(object):
                 'value': self.aqhi['current']
             }
 
-            element = xml_object.find('./dateStamp/UTCStamp')
+            element = aqhi_tree.find('./dateStamp/UTCStamp')
             if element is not None:
                 self.aqhi['utc_time'] = element.text
             else:
                 self.aqhi['utc_time'] = None
 
-            # Update AQHI forecasts
-            result = requests.get(AQHI_FORECAST_URL.format(self.aqhi_id[0],
-                                                           self.aqhi_id[1]),
-                                  timeout=10)
-            site_xml = result.content.decode("ISO-8859-1")
-            xml_object = et.fromstring(site_xml)
+        # Update AQHI forecasts
+        aqhi_result = requests.get(AQHI_FORECAST_URL.format(aqhi_id[0],
+                                                            aqhi_id[1]),
+                                   timeout=10)
+        if aqhi_result.status_code == 404:
+            self.aqhi['forecasts'] = None
+        else:
+            aqhi_xml = aqhi_result.content.decode("ISO-8859-1")
+            aqhi_tree = et.fromstring(aqhi_xml)
 
             self.aqhi['forecasts'] = {'daily': [],
                                       'hourly': []}
 
-            # Update daily forecasts
+            # Update AQHI daily forecasts
             period = None
-            for f in xml_object.findall("./forecastGroup/forecast"):
+            for f in aqhi_tree.findall("./forecastGroup/forecast"):
                 for p in f.findall("./period"):
                     if self.language_abr == p.attrib["lang"]:
                         period = p.attrib["forecastName"]
@@ -401,8 +406,8 @@ class ECData(object):
                     }
                 )
 
-            # Update hourly forecasts
-            for f in xml_object.findall("./hourlyForecastGroup/hourlyForecast"):
+            # Update AQHI hourly forecasts
+            for f in aqhi_tree.findall("./hourlyForecastGroup/hourlyForecast"):
                 self.aqhi['forecasts']['hourly'].append(
                     {"period": f.attrib["UTCTime"], "aqhi": f.text}
                 )
