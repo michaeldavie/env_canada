@@ -229,6 +229,7 @@ class ECData(object):
         self.hourly_forecasts = []
         self.aqhi = {}
         self.forecast_time = ''
+        self.aqhi_id = None
 
         if station_id:
             self.station_id = station_id
@@ -348,14 +349,14 @@ class ECData(object):
 
         # Update AQHI current condition
 
-        lat = weather_tree.find('./location/name').attrib.get('lat')[:-1]
-        lon = weather_tree.find('./location/name').attrib.get('lon')[:-1]
-        aqhi_coordinates = (float(lat), float(lon) * -1)
+        if self.aqhi_id is None:
+            lat = weather_tree.find('./location/name').attrib.get('lat')[:-1]
+            lon = weather_tree.find('./location/name').attrib.get('lon')[:-1]
+            aqhi_coordinates = (float(lat), float(lon) * -1)
+            self.aqhi_id = self.closest_aqhi(aqhi_coordinates[0], aqhi_coordinates[1])
 
-        aqhi_id = self.closest_aqhi(aqhi_coordinates[0], aqhi_coordinates[1])
-
-        aqhi_result = requests.get(AQHI_OBSERVATION_URL.format(aqhi_id[0],
-                                                          aqhi_id[1]),
+        aqhi_result = requests.get(AQHI_OBSERVATION_URL.format(self.aqhi_id[0],
+                                                               self.aqhi_id[1]),
                                    timeout=10)
         if aqhi_result.status_code == 404:
             self.aqhi['current'] = None
@@ -381,8 +382,8 @@ class ECData(object):
                 self.aqhi['utc_time'] = None
 
         # Update AQHI forecasts
-        aqhi_result = requests.get(AQHI_FORECAST_URL.format(aqhi_id[0],
-                                                            aqhi_id[1]),
+        aqhi_result = requests.get(AQHI_FORECAST_URL.format(self.aqhi_id[0],
+                                                            self.aqhi_id[1]),
                                    timeout=10)
         if aqhi_result.status_code == 404:
             self.aqhi['forecasts'] = None
