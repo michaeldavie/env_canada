@@ -251,7 +251,11 @@ class ECData(object):
 
         # Update metadata
         for m, meta in metadata_meta.items():
-            self.metadata[m] = weather_tree.find(meta['xpath']).text
+            element = weather_tree.find(meta['xpath'])
+            if element is not None:
+                self.metadata[m] = weather_tree.find(meta['xpath']).text
+            else:
+                self.metadata[m] = None
 
         # Update current conditions
         def get_condition(meta):
