@@ -28,8 +28,7 @@ class ECHydro(object):
                  station=None,
                  coordinates=None):
         """Initialize the data object."""
-        self.water_level = None
-        self.discharge = None
+        self.measurements = {}
         self.timestamp = None
         self.location = None
 
@@ -58,12 +57,23 @@ class ECHydro(object):
         readings_reader = csv.DictReader(hydro_csv_stream, fieldnames=header)
 
         readings = [r for r in readings_reader]
-
         if len(readings) > 0:
-            if readings[-1]['Water Level'] != '':
-                self.water_level = float(readings[-1]['Water Level'])
-            if readings[-1]['Discharge'] != '':
-                self.discharge = float(readings[-1]['Discharge'])
+            latest = readings[-1]
+
+            if latest['Water Level'] != '':
+                self.measurements['water_level'] = {
+                    'label': 'Water Level',
+                    'value': float(latest['Water Level']),
+                    'unit': 'm'
+                }
+
+            if latest['Discharge'] != '':
+                self.measurements['discharge'] = {
+                    'label': 'Discharge',
+                    'value': float(latest['Discharge']),
+                    'unit': 'm³/s'
+                }
+
             self.timestamp = isoparse(readings[-1]['Date'])
 
     @staticmethod
