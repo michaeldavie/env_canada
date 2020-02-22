@@ -1,7 +1,6 @@
 import re
 import xml.etree.ElementTree as et
 
-from bs4 import BeautifulSoup
 from geopy import distance
 from ratelimit import limits, RateLimitException
 import requests
@@ -291,41 +290,16 @@ class ECData(object):
                                      'label': meta[self.language]['label']}
 
         alert_elements = weather_tree.findall('./warnings/event')
-        alert_list = [e.attrib.get('description').strip() for e in alert_elements]
 
-        if alert_list:
-            alert_url = weather_tree.find('./warnings').attrib.get('url')
-            alert_html = requests.get(url=alert_url).content
-            alert_soup = BeautifulSoup(alert_html, 'html.parser')
-
-            for title in alert_list:
-                for category, meta in alerts_meta.items():
-                    category_match = re.search(meta[self.language]['pattern'], title)
-                    if category_match:
-
-                        alert = {'title': title.title(),
-                                 'date': '',
-                                 'detail': ''}
-
-                        html_title = ''
-
-                        for s in alert_soup('strong'):
-                            if re.sub('terminé', 'est terminé', title.lower()) in s.text.lower():
-                                html_title = s.text
-
-                        date_pattern = 'p:contains("{}") span'
-                        date_match = alert_soup.select(date_pattern.format(html_title))
-                        if date_match:
-                            alert.update({'date': date_match[0].text})
-
-                        if category != 'endings':
-                            detail_pattern = 'p:contains("{}") ~ p'
-                            detail_match = alert_soup.select(detail_pattern.format(html_title))
-                            if detail_match:
-                                detail = re.sub(r'\.(?=\S)', '. ', detail_match[0].text)
-                                alert.update({'detail': detail})
-
-                        self.alerts[category]['value'].append(alert)
+        for a in alert_elements:
+            title = a.attrib.get('description').strip()
+            for category, meta in alerts_meta.items():
+                category_match = re.search(meta[self.language]['pattern'], title)
+                if category_match:
+                    alert = {'title': title.title(),
+                             'date': a.find('./dateTime[last()]/textSummary').text,
+                             }
+                    self.alerts[category]['value'].append(alert)
 
         # Update daily forecasts
         self.forecast_time = weather_tree.findtext('./forecastGroup/dateTime/timeStamp')
