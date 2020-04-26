@@ -19,7 +19,7 @@ setuptools.setup(
                       'imageio',
                       'requests_futures',
                       'ratelimit',
-                      'python-dateutil,'
+                      'python-dateutil',
                       'mercantile'],
     classifiers=(
         "Programming Language :: Python :: 3",
