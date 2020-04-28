@@ -38,8 +38,7 @@ ec_en.update()
 ```
 from env_canada import ECRadar
 
-radar_coords = ECRadar(coordinates=(lat, long))
-radar_station = ECRadar(station_id='XFT')
+radar_coords = ECRadar(coordinates=(lat, lon))
 
 # Conditions Available
 radar_coords.get_loop()
