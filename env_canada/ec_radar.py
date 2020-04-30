@@ -6,17 +6,13 @@ import xml.etree.ElementTree as et
 
 import dateutil.parser
 import imageio
-import mercantile
+import numpy as np
 import requests
 from requests_futures.sessions import FuturesSession
 
-zoom = 6
-width, height = (500, 500)
+# Natural Resources Canada
 
-# Mapbox
-
-access_token = 'pk.eyJ1IjoibWljaGFlbGRhdmllIiwiYSI6ImNrOWI5Z3Y2aDBjY2ozZm50NHhpdXR6M28ifQ.IfNY1iN_NgMI9f8dj-7HKw'
-mapbox_url = 'https://api.mapbox.com/styles/v1/mapbox/light-v10/static/{lng},{lat},{zoom},0/{width}x{height}?access_token={token}'
+basemap_url = 'https://maps.geogratis.gc.ca/wms/CBMT?service=wms&version=1.3.0&request=GetMap&layers=CBMT&styles=&CRS=epsg:4326&BBOX={south},{west},{north},{east}&width={width}&height={height}&format=image/png'
 
 # Environment Canada
 
@@ -32,11 +28,34 @@ dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension'
 radar_url = 'https://geo.weather.gc.ca/geomet?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={south},{west},{north},{east}&CRS=EPSG:4326&WIDTH={width}&HEIGHT={height}&LAYERS={layer}&FORMAT=image/png&TIME={time}'
 
 
+def get_bounding_box(distance, latittude, longitude):
+    """
+    Modified from https://gist.github.com/alexcpn/f95ae83a7ee0293a5225
+    """
+    latittude = np.radians(latittude)
+    longitude = np.radians(longitude)
+
+    distance_from_point_km = distance
+    angular_distance = distance_from_point_km / 6371.01
+
+    lat_min = latittude - angular_distance
+    lat_max = latittude + angular_distance
+
+    delta_longitude = np.arcsin(np.sin(angular_distance) / np.cos(latittude))
+
+    lon_min = longitude - delta_longitude
+    lon_max = longitude + delta_longitude
+    lon_min = np.degrees(lon_min)
+    lat_max = np.degrees(lat_max)
+    lon_max = np.degrees(lon_max)
+    lat_min = np.degrees(lat_min)
+
+    return lat_min, lon_min, lat_max, lon_max
+
+
 class ECRadar(object):
-    def __init__(self, coordinates=None, precip_type=None):
+    def __init__(self, coordinates=None, radius=200, precip_type=None, width=800, height=800):
         """Initialize the data object."""
-        self.tile = mercantile.tile(lng=coordinates[1], lat=coordinates[0], zoom=zoom)
-        self.bounds = mercantile.bounds(self.tile)
 
         if precip_type:
             self.layer = layer[precip_type]
@@ -45,12 +64,18 @@ class ECRadar(object):
         else:
             self.layer = layer['snow']
 
-        self.base_bytes = requests.get(mapbox_url.format(lng=coordinates[1],
-                                                         lat=coordinates[0],
-                                                         zoom=zoom,
-                                                         width=width,
-                                                         height=height,
-                                                         token=access_token)).content
+        self.bbox = get_bounding_box(radius, coordinates[0], coordinates[1])
+        self.width = width
+        self.height = height
+
+        url = basemap_url.format(south=self.bbox[0],
+                                 west=self.bbox[1],
+                                 north=self.bbox[2],
+                                 east=self.bbox[3],
+                                 width=self.width,
+                                 height=self.height)
+        self.base_bytes = requests.get(url).content
+
         self.timestamp = datetime.datetime.now()
 
     def get_dimensions(self):
@@ -65,12 +90,12 @@ class ECRadar(object):
 
     def assemble_url(self, url_time):
         """Construct WMS query URL."""
-        url = radar_url.format(south=self.bounds.south,
-                               west=self.bounds.west,
-                               north=self.bounds.north,
-                               east=self.bounds.east,
-                               width=width,
-                               height=height,
+        url = radar_url.format(south=self.bbox[0],
+                               west=self.bbox[1],
+                               north=self.bbox[2],
+                               east=self.bbox[3],
+                               width=self.width,
+                               height=self.height,
                                layer=self.layer,
                                time=url_time.strftime('%Y-%m-%dT%H:%M:00Z'))
         return url
@@ -114,7 +139,9 @@ class ECRadar(object):
                 responses.append(future.result())
 
         frames = [self.combine_layers(f.content) for f in sorted(responses, key=lambda f: f.url)]
-        frames.append(frames[-1])
+
+        for f in range(3):
+            frames.append(frames[-1])
 
         """Assemble animated GIF."""
         gif_frames = [imageio.imread(f) for f in frames]
