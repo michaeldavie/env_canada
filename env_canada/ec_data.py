@@ -312,7 +312,8 @@ class ECData(object):
                 'text_summary': f.findtext('textSummary'),
                 'icon_code': f.findtext('./abbreviatedForecast/iconCode'),
                 'temperature': f.findtext('./temperatures/temperature'),
-                'temperature_class': f.find('./temperatures/temperature').attrib.get('class')
+                'temperature_class': f.find('./temperatures/temperature').attrib.get('class'),
+                'precip_probability': f.findtext('./abbreviatedForecast/pop') or "0"
             })
 
         # Update hourly forecasts
@@ -322,7 +323,7 @@ class ECData(object):
                 'condition': f.findtext('./condition'),
                 'temperature': f.findtext('./temperature'),
                 'icon_code': f.findtext('./iconCode'),
-                'precip_probability': f.findtext('./lop'),
+                'precip_probability': f.findtext('./lop')  or "0",
             })
 
         # Update AQHI current condition
