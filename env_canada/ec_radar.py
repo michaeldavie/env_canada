@@ -1,6 +1,8 @@
 from concurrent.futures import as_completed
 import datetime
 from io import BytesIO
+import json
+import os
 from PIL import Image
 import xml.etree.ElementTree as et
 
@@ -26,6 +28,12 @@ wms_namespace = {'wms': 'http://www.opengis.net/wms'}
 dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension'
 
 radar_url = 'https://geo.weather.gc.ca/geomet?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={south},{west},{north},{east}&CRS=EPSG:4326&WIDTH={width}&HEIGHT={height}&LAYERS={layer}&FORMAT=image/png&TIME={time}'
+
+
+def get_station_coords(station_id):
+    with open(os.path.join(os.path.dirname(__file__), 'radar_sites.json')) as sites_file:
+        site_dict = json.loads(sites_file.read())
+    return site_dict[station_id]['lat'], site_dict[station_id]['lon']
 
 
 def get_bounding_box(distance, latittude, longitude):
@@ -54,11 +62,14 @@ def get_bounding_box(distance, latittude, longitude):
 
 
 class ECRadar(object):
-    def __init__(self, coordinates=None, radius=200, precip_type=None, width=800, height=800):
+    def __init__(self, station_id=None, coordinates=None, radius=200, precip_type=None, width=800, height=800):
         """Initialize the data object."""
 
+        if station_id:
+            coordinates = get_station_coords(station_id)
+
         if precip_type:
-            self.layer = layer[precip_type]
+            self.layer = layer[precip_type.lower()]
         elif datetime.date.today().month in range(4, 11):
             self.layer = layer['rain']
         else:

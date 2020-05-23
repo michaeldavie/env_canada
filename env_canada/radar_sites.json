@@ -1,0 +1,157 @@
+{
+    "WUJ": {
+        "name": "Aldergrove",
+        "lat": 49.01662,
+        "lon": -122.48698
+    },
+    "XBE": {
+        "name": "Bethune",
+        "lat": 50.57108,
+        "lon": -105.18268
+    },
+    "CASBV": {
+        "name": "Blainville",
+        "lat": 45.70634,
+        "lon": -73.85852
+    },
+    "WBI": {
+        "name": "Britt",
+        "lat": 45.79317,
+        "lon": -80.53385
+    },
+    "WHK": {
+        "name": "Carvel",
+        "lat": 53.56056,
+        "lon": -114.14495
+    },
+    "XNC": {
+        "name": "Chipman",
+        "lat": 46.22222,
+        "lon": -65.69861
+    },
+    "XDR": {
+        "name": "Dryden",
+        "lat": 49.85823,
+        "lon": -92.79698
+    },
+    "WSO": {
+        "name": "Exeter",
+        "lat": 43.37028,
+        "lon": -81.38417
+    },
+    "CASFW": {
+        "name": "Foxwarren",
+        "lat": 50.54887,
+        "lon": -101.08570
+    },
+    "XFT": {
+        "name": "Franktown",
+        "lat": 45.04101,
+        "lon": -76.11617
+    },
+    "XGO": {
+        "name": "Gore",
+        "lat": 45.09850,
+        "lon": -63.70433
+    },
+    "WTP": {
+        "name": "Holyrood",
+        "lat": 47.32644,
+        "lon": -53.12658
+    },
+    "WHN": {
+        "name": "Jimmy Lake",
+        "lat": 54.91333,
+        "lon": -109.95528
+    },
+    "WKR": {
+        "name": "King City",
+        "lat": 43.96393,
+        "lon": -79.57388
+    },
+    "WMB": {
+        "name": "Lac Castor",
+        "lat": 48.57581,
+        "lon": -70.66784
+    },
+    "XLA": {
+        "name": "Landrienne",
+        "lat": 48.55152,
+        "lon": -77.80815
+    },
+    "XME": {
+        "name": "Marble Mountain",
+        "lat": 48.93028,
+        "lon": -57.83417
+    },
+    "CASMB": {
+        "name": "Marion Bridge",
+        "lat": 45.94947,
+        "lon": -60.20578
+    },
+    "WGJ": {
+        "name": "Montreal River",
+        "lat": 47.24778,
+        "lon": -84.59583
+    },
+    "XSI": {
+        "name": "Mount Sicker",
+        "lat": 48.86099,
+        "lon": -123.75654
+    },
+    "XSS": {
+        "name": "Mount Silver Star",
+        "lat": 50.36950,
+        "lon": -119.06436
+    },
+    "XPG": {
+        "name": "Prince George",
+        "lat": 53.61308,
+        "lon": -122.95441
+    },
+    "CASRA": {
+        "name": "Radisson",
+        "lat": 52.52048,
+        "lon": -107.44269
+    },
+    "XBU": {
+        "name": "Schuler",
+        "lat": 50.31250,
+        "lon": -110.19556
+    },
+    "CASRF": {
+        "name": "Smooth Rock Falls",
+        "lat": 49.28146,
+        "lon": -81.79406
+    },
+    "CASSR": {
+        "name": "Spirit River",
+        "lat": 55.69494,
+        "lon": -119.23043
+    },
+    "XSM": {
+        "name": "Strathmore",
+        "lat": 51.20628,
+        "lon": -113.39906
+    },
+    "XNI": {
+        "name": "Lasseter Lake",
+        "lat": 48.85352,
+        "lon": -89.12150
+    },
+    "XAM": {
+        "name": "Val d'Ir\u00e8ne",
+        "lat": 48.48028,
+        "lon": -67.60111
+    },
+    "WVY": {
+        "name": "Villeroy",
+        "lat": 46.45000,
+        "lon": -71.91528
+    },
+    "XWL": {
+        "name": "Woodlands",
+        "lat": 50.15389,
+        "lon": -97.77833
+    }
+}
