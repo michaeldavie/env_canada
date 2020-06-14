@@ -19,6 +19,8 @@ setuptools.setup(
                       'python-dateutil',
                       'requests',
                       'requests_futures',
+                      'ratelimit',
+                      'geopy',
                       ],
     classifiers=(
         "Programming Language :: Python :: 3",
