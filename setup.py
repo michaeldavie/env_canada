@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="env_canada",
-    version="0.0.38",
+    version="0.0.39",
     author="Michael Davie",
     author_email="michael.davie@gmail.com",
     description="A package to access meteorological data from Environment Canada",
@@ -14,14 +14,15 @@ setuptools.setup(
     url="https://github.com/michaeldavie/env_canada",
     packages=setuptools.find_packages(),
     include_package_data=True,
-    install_requires=['imageio',
-                      'numpy',
-                      'python-dateutil',
-                      'requests',
-                      'requests_futures',
-                      'ratelimit',
-                      'geopy',
-                      ],
+    install_requires=[
+        "imageio",
+        "geopy",
+        "numpy",
+        "python-dateutil",
+        "ratelimit",
+        "requests",
+        "requests_futures",
+    ],
     classifiers=(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
