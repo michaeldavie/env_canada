@@ -3,7 +3,7 @@ import datetime
 from io import BytesIO
 import json
 import os
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import xml.etree.ElementTree as et
 
 import dateutil.parser
@@ -88,6 +88,7 @@ class ECRadar(object):
         self.base_bytes = requests.get(url).content
 
         self.timestamp = datetime.datetime.now()
+        self.font = ImageFont.truetype('Arial.ttf', size=40)
 
     def get_dimensions(self):
         """Get time range of available data."""
@@ -111,13 +112,19 @@ class ECRadar(object):
                                time=url_time.strftime('%Y-%m-%dT%H:%M:00Z'))
         return url
 
-    def combine_layers(self, radar_bytes):
-        """Add radar overlay to base layer."""
+    def combine_layers(self, radar_bytes, frame_time):
+        """Add radar overlay to base layer and add timestamp."""
         frame_bytesio = BytesIO()
+
         base = Image.open(BytesIO(self.base_bytes)).convert('RGBA')
         radar = Image.open(BytesIO(radar_bytes)).convert('RGBA')
         base.alpha_composite(radar)
         blend = Image.blend(base, radar, 0)
+
+        timestamp = frame_time.astimezone().strftime('%H:%M')
+        draw = ImageDraw.Draw(blend)
+        draw.text((20, 20), timestamp, fill='dimgrey', font=self.font)
+
         blend.save(frame_bytesio, 'GIF')
         return frame_bytesio.getvalue()
 
@@ -125,7 +132,7 @@ class ECRadar(object):
         """Get the latest image from Environment Canada."""
         start, end = self.get_dimensions()
         radar = requests.get(self.assemble_url(end)).content
-        return self.combine_layers(radar)
+        return self.combine_layers(radar, end)
 
     def get_loop(self):
         """Build an animated GIF of recent radar images."""
@@ -149,12 +156,17 @@ class ECRadar(object):
             for future in as_completed(futures):
                 responses.append(future.result())
 
-        frames = [self.combine_layers(f.content) for f in sorted(responses, key=lambda f: f.url)]
+        responses = sorted(responses, key=lambda r: r.url)
+
+        frames = []
+
+        for i, f in enumerate(responses):
+            frames.append(self.combine_layers(f.content, frame_times[i]))
 
         for f in range(3):
             frames.append(frames[-1])
 
         """Assemble animated GIF."""
         gif_frames = [imageio.imread(f) for f in frames]
-        gif_bytes = imageio.mimwrite(imageio.RETURN_BYTES, gif_frames, format='GIF', fps=10)
+        gif_bytes = imageio.mimwrite(imageio.RETURN_BYTES, gif_frames, format='GIF', fps=5)
         return gif_bytes
