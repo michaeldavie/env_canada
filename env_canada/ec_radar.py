@@ -23,11 +23,19 @@ layer = {
     'snow': 'RADAR_1KM_RSNO'
 }
 
-capabilities_url = 'https://geo.weather.gc.ca/geomet/?lang=en&service=WMS&version=1.3.0&request=GetCapabilities&LAYER={layer}'
+legend_style = {
+    'rain': 'RADARURPPRECIPR',
+    'snow': 'RADARURPPRECIPS14'
+}
+
+capabilities_path = 'https://geo.weather.gc.ca/geomet/?lang=en&service=WMS&version=1.3.0&request=GetCapabilities&LAYER={layer}'
 wms_namespace = {'wms': 'http://www.opengis.net/wms'}
 dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension'
 
-radar_url = 'https://geo.weather.gc.ca/geomet?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={south},{west},{north},{east}&CRS=EPSG:4326&WIDTH={width}&HEIGHT={height}&LAYERS={layer}&FORMAT=image/png&TIME={time}'
+radar_path = 'https://geo.weather.gc.ca/geomet?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={south},{west},{north},{east}&CRS=EPSG:4326&WIDTH={width}&HEIGHT={height}&LAYERS={layer}&FORMAT=image/png&TIME={time}'
+legend_path = 'https://geo.weather.gc.ca/geomet?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer={layer}&format=image/png&STYLE={style}'
+
+font = ImageFont.truetype('Arial.ttf', size=40)
 
 
 def get_station_coords(station_id):
@@ -65,19 +73,35 @@ class ECRadar(object):
     def __init__(self, station_id=None, coordinates=None, radius=200, precip_type=None, width=800, height=800):
         """Initialize the data object."""
 
-        if station_id:
-            coordinates = get_station_coords(station_id)
+        # Set precipitation type
 
         if precip_type:
-            self.layer = layer[precip_type.lower()]
+            self.precip_type = precip_type.lower()
         elif datetime.date.today().month in range(4, 11):
-            self.layer = layer['rain']
+            self.precip_type = 'rain'
         else:
-            self.layer = layer['snow']
+            self.precip_type = 'snow'
+
+        self.layer = layer[self.precip_type]
+
+        # Get legend
+
+        legend_url = legend_path.format(layer=self.layer, style=legend_style[self.precip_type])
+        legend_bytes = requests.get(url=legend_url).content
+        self.legend_image = Image.open(BytesIO(legend_bytes)).convert('RGBA')
+        legend_width, legend_height = self.legend_image.size
+        self.legend_position = (width - legend_width, height - legend_height)
+
+        # Get coordinates
+
+        if station_id:
+            coordinates = get_station_coords(station_id)
 
         self.bbox = get_bounding_box(radius, coordinates[0], coordinates[1])
         self.width = width
         self.height = height
+
+        # Get basemap
 
         url = basemap_url.format(south=self.bbox[0],
                                  west=self.bbox[1],
@@ -88,11 +112,10 @@ class ECRadar(object):
         self.base_bytes = requests.get(url).content
 
         self.timestamp = datetime.datetime.now()
-        self.font = ImageFont.truetype('Arial.ttf', size=40)
 
     def get_dimensions(self):
         """Get time range of available data."""
-        capabilities_xml = requests.get(capabilities_url.format(layer=self.layer)).text
+        capabilities_xml = requests.get(capabilities_path.format(layer=self.layer)).text
         capabilities_tree = et.fromstring(capabilities_xml, parser=et.XMLParser(encoding="utf-8"))
         dimension_string = capabilities_tree.find(dimension_xpath.format(layer=self.layer),
                                                   namespaces=wms_namespace).text
@@ -102,29 +125,31 @@ class ECRadar(object):
 
     def assemble_url(self, url_time):
         """Construct WMS query URL."""
-        url = radar_url.format(south=self.bbox[0],
-                               west=self.bbox[1],
-                               north=self.bbox[2],
-                               east=self.bbox[3],
-                               width=self.width,
-                               height=self.height,
-                               layer=self.layer,
-                               time=url_time.strftime('%Y-%m-%dT%H:%M:00Z'))
+        url = radar_path.format(south=self.bbox[0],
+                                west=self.bbox[1],
+                                north=self.bbox[2],
+                                east=self.bbox[3],
+                                width=self.width,
+                                height=self.height,
+                                layer=self.layer,
+                                time=url_time.strftime('%Y-%m-%dT%H:%M:00Z'))
         return url
 
     def combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
-        frame_bytesio = BytesIO()
 
         base = Image.open(BytesIO(self.base_bytes)).convert('RGBA')
         radar = Image.open(BytesIO(radar_bytes)).convert('RGBA')
         base.alpha_composite(radar)
         blend = Image.blend(base, radar, 0)
+        blend.paste(self.legend_image, self.legend_position)
 
-        timestamp = frame_time.astimezone().strftime('%H:%M')
+        timestamp = self.precip_type.title() + ' @ ' + frame_time.astimezone().strftime('%H:%M')
         draw = ImageDraw.Draw(blend)
-        draw.text((20, 20), timestamp, fill='dimgrey', font=self.font)
+        draw.rectangle([(0, 0), draw.textsize(timestamp, font=font)], fill='white')
+        draw.text((0, 0), timestamp, fill='black', font=font)
 
+        frame_bytesio = BytesIO()
         blend.save(frame_bytesio, 'GIF')
         return frame_bytesio.getvalue()
 
