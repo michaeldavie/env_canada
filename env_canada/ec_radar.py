@@ -3,9 +3,10 @@ import datetime
 from io import BytesIO
 import json
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 import xml.etree.ElementTree as et
 
+import cv2
 import dateutil.parser
 import imageio
 import numpy as np
@@ -34,8 +35,6 @@ dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension'
 
 radar_path = 'https://geo.weather.gc.ca/geomet?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={south},{west},{north},{east}&CRS=EPSG:4326&WIDTH={width}&HEIGHT={height}&LAYERS={layer}&FORMAT=image/png&TIME={time}'
 legend_path = 'https://geo.weather.gc.ca/geomet?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer={layer}&format=image/png&STYLE={style}'
-
-font = ImageFont.truetype('Arial.ttf', size=40)
 
 
 def get_station_coords(station_id):
@@ -144,14 +143,22 @@ class ECRadar(object):
         blend = Image.blend(base, radar, 0)
         blend.paste(self.legend_image, self.legend_position)
 
-        timestamp = self.precip_type.title() + ' @ ' + frame_time.astimezone().strftime('%H:%M')
-        draw = ImageDraw.Draw(blend)
-        draw.rectangle([(0, 0), draw.textsize(timestamp, font=font)], fill='white')
-        draw.text((0, 0), timestamp, fill='black', font=font)
+        # Add timestamp
 
-        frame_bytesio = BytesIO()
-        blend.save(frame_bytesio, 'GIF')
-        return frame_bytesio.getvalue()
+        font_face = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 1.5
+        font_thickness = 2
+
+        timestamp = self.precip_type.title() + ' @ ' + frame_time.astimezone().strftime('%H:%M')
+        text_size = cv2.getTextSize(text=timestamp, fontFace=font_face, fontScale=font_scale, thickness=font_thickness)[0]
+
+        cv_image = cv2.cvtColor(np.array(blend), cv2.COLOR_RGBA2BGR)
+        cv2.rectangle(img=cv_image, pt1=(0, 0), pt2=(text_size[0] + 10, text_size[1] + 10), color=(255, 255, 255), thickness=-1)
+        cv2.putText(cv_image, timestamp, (5, text_size[1] + 5), font_face, fontScale=font_scale, color=(0, 0, 0), thickness=font_thickness)
+
+        frame_bytes = cv2.imencode('.png', cv_image)[1].tobytes()
+
+        return frame_bytes
 
     def get_latest_frame(self):
         """Get the latest image from Environment Canada."""

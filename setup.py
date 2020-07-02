@@ -18,6 +18,7 @@ setuptools.setup(
         "imageio",
         "geopy",
         "numpy",
+        "opencv-python-headless",
         "python-dateutil",
         "ratelimit",
         "requests",
