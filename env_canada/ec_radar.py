@@ -15,32 +15,28 @@ from requests_futures.sessions import FuturesSession
 
 # Natural Resources Canada
 
-basemap_url = 'https://maps.geogratis.gc.ca/wms/CBMT?service=wms&version=1.3.0&request=GetMap&layers=CBMT&styles=&CRS=epsg:4326&BBOX={south},{west},{north},{east}&width={width}&height={height}&format=image/png'
+basemap_url = "https://maps.geogratis.gc.ca/wms/CBMT?service=wms&version=1.3.0&request=GetMap&layers=CBMT&styles=&CRS=epsg:4326&BBOX={south},{west},{north},{east}&width={width}&height={height}&format=image/png"
 
 # Environment Canada
 
-layer = {
-    'rain': 'RADAR_1KM_RRAI',
-    'snow': 'RADAR_1KM_RSNO'
-}
+layer = {"rain": "RADAR_1KM_RRAI", "snow": "RADAR_1KM_RSNO"}
 
-legend_style = {
-    'rain': 'RADARURPPRECIPR',
-    'snow': 'RADARURPPRECIPS14'
-}
+legend_style = {"rain": "RADARURPPRECIPR", "snow": "RADARURPPRECIPS14"}
 
-capabilities_path = 'https://geo.weather.gc.ca/geomet/?lang=en&service=WMS&version=1.3.0&request=GetCapabilities&LAYER={layer}'
-wms_namespace = {'wms': 'http://www.opengis.net/wms'}
+capabilities_path = "https://geo.weather.gc.ca/geomet/?lang=en&service=WMS&version=1.3.0&request=GetCapabilities&LAYER={layer}"
+wms_namespace = {"wms": "http://www.opengis.net/wms"}
 dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension'
 
-radar_path = 'https://geo.weather.gc.ca/geomet?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={south},{west},{north},{east}&CRS=EPSG:4326&WIDTH={width}&HEIGHT={height}&LAYERS={layer}&FORMAT=image/png&TIME={time}'
-legend_path = 'https://geo.weather.gc.ca/geomet?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer={layer}&format=image/png&STYLE={style}'
+radar_path = "https://geo.weather.gc.ca/geomet?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={south},{west},{north},{east}&CRS=EPSG:4326&WIDTH={width}&HEIGHT={height}&LAYERS={layer}&FORMAT=image/png&TIME={time}"
+legend_path = "https://geo.weather.gc.ca/geomet?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer={layer}&format=image/png&STYLE={style}"
 
 
 def get_station_coords(station_id):
-    with open(os.path.join(os.path.dirname(__file__), 'radar_sites.json')) as sites_file:
+    with open(
+        os.path.join(os.path.dirname(__file__), "radar_sites.json")
+    ) as sites_file:
         site_dict = json.loads(sites_file.read())
-    return site_dict[station_id]['lat'], site_dict[station_id]['lon']
+    return site_dict[station_id]["lat"], site_dict[station_id]["lon"]
 
 
 def get_bounding_box(distance, latittude, longitude):
@@ -69,7 +65,15 @@ def get_bounding_box(distance, latittude, longitude):
 
 
 class ECRadar(object):
-    def __init__(self, station_id=None, coordinates=None, radius=200, precip_type=None, width=800, height=800):
+    def __init__(
+        self,
+        station_id=None,
+        coordinates=None,
+        radius=200,
+        precip_type=None,
+        width=800,
+        height=800,
+    ):
         """Initialize the data object."""
 
         # Set precipitation type
@@ -77,17 +81,19 @@ class ECRadar(object):
         if precip_type:
             self.precip_type = precip_type.lower()
         elif datetime.date.today().month in range(4, 11):
-            self.precip_type = 'rain'
+            self.precip_type = "rain"
         else:
-            self.precip_type = 'snow'
+            self.precip_type = "snow"
 
         self.layer = layer[self.precip_type]
 
         # Get legend
 
-        legend_url = legend_path.format(layer=self.layer, style=legend_style[self.precip_type])
+        legend_url = legend_path.format(
+            layer=self.layer, style=legend_style[self.precip_type]
+        )
         legend_bytes = requests.get(url=legend_url).content
-        self.legend_image = Image.open(BytesIO(legend_bytes)).convert('RGBA')
+        self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGBA")
         legend_width, legend_height = self.legend_image.size
         self.legend_position = (width - legend_width, height - legend_height)
 
@@ -102,12 +108,14 @@ class ECRadar(object):
 
         # Get basemap
 
-        url = basemap_url.format(south=self.bbox[0],
-                                 west=self.bbox[1],
-                                 north=self.bbox[2],
-                                 east=self.bbox[3],
-                                 width=self.width,
-                                 height=self.height)
+        url = basemap_url.format(
+            south=self.bbox[0],
+            west=self.bbox[1],
+            north=self.bbox[2],
+            east=self.bbox[3],
+            width=self.width,
+            height=self.height,
+        )
         self.base_bytes = requests.get(url).content
 
         self.timestamp = datetime.datetime.now()
@@ -115,30 +123,37 @@ class ECRadar(object):
     def get_dimensions(self):
         """Get time range of available data."""
         capabilities_xml = requests.get(capabilities_path.format(layer=self.layer)).text
-        capabilities_tree = et.fromstring(capabilities_xml, parser=et.XMLParser(encoding="utf-8"))
-        dimension_string = capabilities_tree.find(dimension_xpath.format(layer=self.layer),
-                                                  namespaces=wms_namespace).text
-        start, end = [dateutil.parser.isoparse(t) for t in dimension_string.split('/')[:2]]
+        capabilities_tree = et.fromstring(
+            capabilities_xml, parser=et.XMLParser(encoding="utf-8")
+        )
+        dimension_string = capabilities_tree.find(
+            dimension_xpath.format(layer=self.layer), namespaces=wms_namespace
+        ).text
+        start, end = [
+            dateutil.parser.isoparse(t) for t in dimension_string.split("/")[:2]
+        ]
         self.timestamp = end.isoformat()
         return start, end
 
     def assemble_url(self, url_time):
         """Construct WMS query URL."""
-        url = radar_path.format(south=self.bbox[0],
-                                west=self.bbox[1],
-                                north=self.bbox[2],
-                                east=self.bbox[3],
-                                width=self.width,
-                                height=self.height,
-                                layer=self.layer,
-                                time=url_time.strftime('%Y-%m-%dT%H:%M:00Z'))
+        url = radar_path.format(
+            south=self.bbox[0],
+            west=self.bbox[1],
+            north=self.bbox[2],
+            east=self.bbox[3],
+            width=self.width,
+            height=self.height,
+            layer=self.layer,
+            time=url_time.strftime("%Y-%m-%dT%H:%M:00Z"),
+        )
         return url
 
     def combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
-        base = Image.open(BytesIO(self.base_bytes)).convert('RGBA')
-        radar = Image.open(BytesIO(radar_bytes)).convert('RGBA')
+        base = Image.open(BytesIO(self.base_bytes)).convert("RGBA")
+        radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
         base.alpha_composite(radar)
         blend = Image.blend(base, radar, 0)
         blend.paste(self.legend_image, self.legend_position)
@@ -149,14 +164,35 @@ class ECRadar(object):
         font_scale = 1.5
         font_thickness = 2
 
-        timestamp = self.precip_type.title() + ' @ ' + frame_time.astimezone().strftime('%H:%M')
-        text_size = cv2.getTextSize(text=timestamp, fontFace=font_face, fontScale=font_scale, thickness=font_thickness)[0]
+        timestamp = (
+            self.precip_type.title() + " @ " + frame_time.astimezone().strftime("%H:%M")
+        )
+        text_size = cv2.getTextSize(
+            text=timestamp,
+            fontFace=font_face,
+            fontScale=font_scale,
+            thickness=font_thickness,
+        )[0]
 
         cv_image = cv2.cvtColor(np.array(blend), cv2.COLOR_RGBA2BGR)
-        cv2.rectangle(img=cv_image, pt1=(0, 0), pt2=(text_size[0] + 10, text_size[1] + 10), color=(255, 255, 255), thickness=-1)
-        cv2.putText(cv_image, timestamp, (5, text_size[1] + 5), font_face, fontScale=font_scale, color=(0, 0, 0), thickness=font_thickness)
+        cv2.rectangle(
+            img=cv_image,
+            pt1=(0, 0),
+            pt2=(text_size[0] + 10, text_size[1] + 10),
+            color=(255, 255, 255),
+            thickness=-1,
+        )
+        cv2.putText(
+            cv_image,
+            timestamp,
+            (5, text_size[1] + 5),
+            font_face,
+            fontScale=font_scale,
+            color=(0, 0, 0),
+            thickness=font_thickness,
+        )
 
-        frame_bytes = cv2.imencode('.png', cv_image)[1].tobytes()
+        frame_bytes = cv2.imencode(".png", cv_image)[1].tobytes()
 
         return frame_bytes
 
@@ -200,5 +236,7 @@ class ECRadar(object):
 
         """Assemble animated GIF."""
         gif_frames = [imageio.imread(f) for f in frames]
-        gif_bytes = imageio.mimwrite(imageio.RETURN_BYTES, gif_frames, format='GIF', fps=5)
+        gif_bytes = imageio.mimwrite(
+            imageio.RETURN_BYTES, gif_frames, format="GIF", fps=5
+        )
         return gif_bytes
