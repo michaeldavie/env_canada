@@ -93,9 +93,9 @@ class ECRadar(object):
             layer=self.layer, style=legend_style[self.precip_type]
         )
         legend_bytes = requests.get(url=legend_url).content
-        self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGBA")
+        self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
         legend_width, legend_height = self.legend_image.size
-        self.legend_position = (width - legend_width, height - legend_height)
+        self.legend_position = (width - legend_width, 0)
 
         # Get coordinates
 
@@ -154,9 +154,8 @@ class ECRadar(object):
 
         base = Image.open(BytesIO(self.base_bytes)).convert("RGBA")
         radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
-        base.alpha_composite(radar)
-        blend = Image.blend(base, radar, 0)
-        blend.paste(self.legend_image, self.legend_position)
+        frame = Image.alpha_composite(base, radar)
+        frame.paste(self.legend_image, self.legend_position)
 
         # Add timestamp
 
@@ -174,7 +173,7 @@ class ECRadar(object):
             thickness=font_thickness,
         )[0]
 
-        cv_image = cv2.cvtColor(np.array(blend), cv2.COLOR_RGBA2BGR)
+        cv_image = cv2.cvtColor(np.array(frame), cv2.COLOR_RGBA2BGR)
         cv2.rectangle(
             img=cv_image,
             pt1=(0, 0),
@@ -183,10 +182,10 @@ class ECRadar(object):
             thickness=-1,
         )
         cv2.putText(
-            cv_image,
-            timestamp,
-            (5, text_size[1] + 5),
-            font_face,
+            img=cv_image,
+            text=timestamp,
+            org=(5, text_size[1] + 5),
+            fontFace=font_face,
             fontScale=font_scale,
             color=(0, 0, 0),
             thickness=font_thickness,
