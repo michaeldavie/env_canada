@@ -15,7 +15,7 @@ from requests_futures.sessions import FuturesSession
 
 # Natural Resources Canada
 
-basemap_url = "https://maps.geogratis.gc.ca/wms/CBMT?service=wms&version=1.3.0&request=GetMap&layers=CBMT&styles=&CRS=epsg:4326&BBOX={south},{west},{north},{east}&width={width}&height={height}&format=image/png"
+basemap_url = "http://maps.geogratis.gc.ca/wms/CBMT?service=wms&version=1.3.0&request=GetMap&layers=CBMT&styles=&CRS=epsg:4326&BBOX={south},{west},{north},{east}&width={width}&height={height}&format=image/png"
 
 # Environment Canada
 
