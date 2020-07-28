@@ -447,7 +447,7 @@ class ECData(object):
                                   "cgndb": _region_attribs["cgndb"],
                                   "latitude": float(_region_attribs["latitude"]),
                                   "longitude": float(_region_attribs["longitude"])}
-                _children = region.getchildren()
+                _children = region
                 for child in _children:
                     _region_attrib[child.tag] = child.text
                 _region_attrib.update(_zone_attrib)
