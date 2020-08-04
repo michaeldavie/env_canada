@@ -1,3 +1,4 @@
+import logging
 import re
 import xml.etree.ElementTree as et
 
@@ -11,6 +12,8 @@ AQHI_SITE_LIST_URL = 'https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_Lis
 WEATHER_URL = 'https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml'
 AQHI_OBSERVATION_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml'
 AQHI_FORECAST_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml'
+
+LOG = logging.getLogger(__name__)
 
 conditions_meta = {
     'temperature': {
@@ -242,9 +245,14 @@ class ECData(object):
     @limits(calls=2, period=60)
     def update(self):
         """Get the latest data from Environment Canada."""
-        weather_result = requests.get(WEATHER_URL.format(self.station_id,
+        try:
+            weather_result = requests.get(WEATHER_URL.format(self.station_id,
                                                          self.language[0]),
                                       timeout=10)
+        except requests.exceptions.RequestException as e:
+            LOG.warning("Unable to retrieve weather forecast: %s", e)
+            return
+
         weather_xml = weather_result.content.decode('iso-8859-1')
         weather_tree = et.fromstring(weather_xml)
 
@@ -334,10 +342,16 @@ class ECData(object):
             aqhi_coordinates = (float(lat), float(lon) * -1)
             self.aqhi_id = self.closest_aqhi(aqhi_coordinates[0], aqhi_coordinates[1])
 
-        aqhi_result = requests.get(AQHI_OBSERVATION_URL.format(self.aqhi_id[0],
+        success = True
+        try:
+            aqhi_result = requests.get(AQHI_OBSERVATION_URL.format(self.aqhi_id[0],
                                                                self.aqhi_id[1]),
                                    timeout=10)
-        if aqhi_result.status_code == 404:
+        except requests.exceptions.RequestException as e:
+            LOG.warning("Unable to retrieve current AQHI observation: %s", e)
+            success = False
+
+        if not success or aqhi_result.status_code == 404:
             self.aqhi['current'] = None
         else:
             aqhi_xml = aqhi_result.content.decode("utf-8")
@@ -361,10 +375,16 @@ class ECData(object):
                 self.aqhi['utc_time'] = None
 
         # Update AQHI forecasts
-        aqhi_result = requests.get(AQHI_FORECAST_URL.format(self.aqhi_id[0],
+        success = True
+        try:
+            aqhi_result = requests.get(AQHI_FORECAST_URL.format(self.aqhi_id[0],
                                                             self.aqhi_id[1]),
                                    timeout=10)
-        if aqhi_result.status_code == 404:
+        except requests.exceptions.RequestException as e:
+            LOG.warning("Unable to retrieve forecast AQHI observation: %s", e)
+            success = False
+
+        if not success or aqhi_result.status_code == 404:
             self.aqhi['forecasts'] = None
         else:
             aqhi_xml = aqhi_result.content.decode("ISO-8859-1")
@@ -399,7 +419,13 @@ class ECData(object):
 
         sites = []
 
-        sites_csv_string = requests.get(SITE_LIST_URL, timeout=10).text
+        try:
+            sites_result = requests.get(SITE_LIST_URL, timeout=10)
+            sites_csv_string = sites_result.text
+        except requests.exceptions.RequestException as e:
+            LOG.warning("Unable to retrieve site list csv: %s", e)
+            return sites
+
         sites_csv_stream = io.StringIO(sites_csv_string)
 
         sites_csv_stream.seek(0)
@@ -429,11 +455,16 @@ class ECData(object):
 
     def get_aqhi_regions(self):
         """Get list of all AQHI regions from Environment Canada, for auto-config."""
-        result = requests.get(AQHI_SITE_LIST_URL, timeout=10)
+        regions = []
+        try:
+            result = requests.get(AQHI_SITE_LIST_URL, timeout=10)
+        except requests.exceptions.RequestException as e:
+            LOG.warning("Unable to retrieve AQHI regions: %s", e)
+            return regions
+
         site_xml = result.content.decode("utf-8")
         xml_object = et.fromstring(site_xml)
 
-        regions = []
         for zone in xml_object.findall("./EC_administrativeZone"):
             _zone_attribs = zone.attrib
             _zone_attrib = {
