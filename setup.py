@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="env_canada",
-    version="0.2.0",
+    version="0.2.1",
     author="Michael Davie",
     author_email="michael.davie@gmail.com",
     description="A package to access meteorological data from Environment Canada",
@@ -18,7 +18,7 @@ setuptools.setup(
         "imageio",
         "geopy",
         "numpy",
-        "opencv-python-headless",
+        "opencv-python-headless==4.2.0.34",
         "python-dateutil",
         "ratelimit",
         "requests",
