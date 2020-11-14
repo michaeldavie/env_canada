@@ -3,10 +3,9 @@ import datetime
 from io import BytesIO
 import json
 import os
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import xml.etree.ElementTree as et
 
-import cv2
 import dateutil.parser
 import imageio
 import numpy as np
@@ -152,6 +151,8 @@ class ECRadar(object):
     def combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
+        # Overlay radar on basemap
+
         base = Image.open(BytesIO(self.base_bytes)).convert("RGBA")
         radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
         frame = Image.alpha_composite(base, radar)
@@ -159,39 +160,27 @@ class ECRadar(object):
 
         # Add timestamp
 
-        font_face = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 1.5
-        font_thickness = 2
-
         timestamp = (
             self.precip_type.title() + " @ " + frame_time.astimezone().strftime("%H:%M")
         )
-        text_size = cv2.getTextSize(
-            text=timestamp,
-            fontFace=font_face,
-            fontScale=font_scale,
-            thickness=font_thickness,
-        )[0]
+        with open(
+            os.path.join(os.path.dirname(__file__), "Roboto-Regular.ttf"), "rb"
+        ) as font_file:
+            font = ImageFont.truetype(font_file, 40)
+        text_size = font.getsize(timestamp)
+        box_size = (text_size[0] + 10, text_size[1] + 10)
+        text_box = Image.new("RGBA", box_size, "white")
 
-        cv_image = cv2.cvtColor(np.array(frame), cv2.COLOR_RGBA2BGR)
-        cv2.rectangle(
-            img=cv_image,
-            pt1=(0, 0),
-            pt2=(text_size[0] + 10, text_size[1] + 10),
-            color=(255, 255, 255),
-            thickness=-1,
-        )
-        cv2.putText(
-            img=cv_image,
-            text=timestamp,
-            org=(5, text_size[1] + 5),
-            fontFace=font_face,
-            fontScale=font_scale,
-            color=(0, 0, 0),
-            thickness=font_thickness,
-        )
+        box_draw = ImageDraw.Draw(text_box)
+        box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=font)
 
-        frame_bytes = cv2.imencode(".png", cv_image)[1].tobytes()
+        frame.paste(text_box)
+
+        # Return frame as PNG bytes
+
+        img_byte_arr = BytesIO()
+        frame.save(img_byte_arr, format="PNG")
+        frame_bytes = img_byte_arr.getvalue()
 
         return frame_bytes
 
