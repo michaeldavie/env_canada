@@ -163,18 +163,14 @@ class ECRadar(object):
         timestamp = (
             self.precip_type.title() + " @ " + frame_time.astimezone().strftime("%H:%M")
         )
-        with open(
-            os.path.join(os.path.dirname(__file__), "Roboto-Regular.ttf"), "rb"
-        ) as font_file:
-            font = ImageFont.truetype(font_file, 40)
-        text_size = font.getsize(timestamp)
-        box_size = (text_size[0] + 10, text_size[1] + 10)
-        text_box = Image.new("RGBA", box_size, "white")
+        font = ImageFont.load(os.path.join(os.path.dirname(__file__), "10x20.pil"))
+        text_box = Image.new("RGBA", font.getsize(timestamp), "white")
 
         box_draw = ImageDraw.Draw(text_box)
         box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=font)
+        double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
 
-        frame.paste(text_box)
+        frame.paste(double_box)
 
         # Return frame as PNG bytes
 
