@@ -55,10 +55,10 @@ def get_bounding_box(distance, latittude, longitude):
 
     lon_min = longitude - delta_longitude
     lon_max = longitude + delta_longitude
-    lon_min = np.degrees(lon_min)
-    lat_max = np.degrees(lat_max)
-    lon_max = np.degrees(lon_max)
-    lat_min = np.degrees(lat_min)
+    lon_min = round(np.degrees(lon_min), 5)
+    lat_max = round(np.degrees(lat_max), 5)
+    lon_max = round(np.degrees(lon_max), 5)
+    lat_min = round(np.degrees(lat_min), 5)
 
     return lat_min, lon_min, lat_max, lon_max
 
@@ -99,7 +99,7 @@ class ECRadar(object):
         # Get coordinates
 
         if station_id:
-            coordinates = get_station_coords(station_id)
+            coordinates = get_station_coords(station_id.upper())
 
         self.bbox = get_bounding_box(radius, coordinates[0], coordinates[1])
         self.width = width
