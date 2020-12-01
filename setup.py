@@ -17,7 +17,6 @@ setuptools.setup(
     install_requires=[
         "imageio",
         "geopy",
-        "numpy",
         "python-dateutil",
         "ratelimit",
         "requests",

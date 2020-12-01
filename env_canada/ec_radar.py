@@ -1,6 +1,7 @@
 from concurrent.futures import as_completed
 import datetime
 from io import BytesIO
+import math
 import json
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -8,13 +9,21 @@ import xml.etree.ElementTree as et
 
 import dateutil.parser
 import imageio
-import numpy as np
 import requests
 from requests_futures.sessions import FuturesSession
 
 # Natural Resources Canada
 
-basemap_url = "http://maps.geogratis.gc.ca/wms/CBMT?service=wms&version=1.3.0&request=GetMap&layers=CBMT&styles=&CRS=epsg:4326&BBOX={south},{west},{north},{east}&width={width}&height={height}&format=image/png"
+basemap_url = "http://maps.geogratis.gc.ca/wms/CBMT"
+basemap_params = {
+    "service": "wms",
+    "version": "1.3.0",
+    "request": "GetMap",
+    "layers": "CBMT",
+    "styles": "",
+    "CRS": "epsg:4326",
+    "format": "image/png",
+}
 
 # Environment Canada
 
@@ -22,12 +31,29 @@ layer = {"rain": "RADAR_1KM_RRAI", "snow": "RADAR_1KM_RSNO"}
 
 legend_style = {"rain": "RADARURPPRECIPR", "snow": "RADARURPPRECIPS14"}
 
-capabilities_path = "https://geo.weather.gc.ca/geomet/?lang=en&service=WMS&version=1.3.0&request=GetCapabilities&LAYER={layer}"
+geomet_url = "https://geo.weather.gc.ca/geomet"
+capabilities_params = {
+    "lang": "en",
+    "service": "WMS",
+    "version": "1.3.0",
+    "request": "GetCapabilities",
+}
 wms_namespace = {"wms": "http://www.opengis.net/wms"}
 dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension'
-
-radar_path = "https://geo.weather.gc.ca/geomet?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={south},{west},{north},{east}&CRS=EPSG:4326&WIDTH={width}&HEIGHT={height}&LAYERS={layer}&FORMAT=image/png&TIME={time}"
-legend_path = "https://geo.weather.gc.ca/geomet?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer={layer}&format=image/png&STYLE={style}"
+radar_params = {
+    "service": "WMS",
+    "version": "1.3.0",
+    "request": "GetMap",
+    "crs": "EPSG:4326",
+    "format": "image/png",
+}
+legend_params = {
+    "service": "WMS",
+    "version": "1.3.0",
+    "request": "GetLegendGraphic",
+    "sld_version": "1.1.0",
+    "format": "image/png",
+}
 
 
 def get_station_coords(station_id):
@@ -42,8 +68,8 @@ def get_bounding_box(distance, latittude, longitude):
     """
     Modified from https://gist.github.com/alexcpn/f95ae83a7ee0293a5225
     """
-    latittude = np.radians(latittude)
-    longitude = np.radians(longitude)
+    latittude = math.radians(latittude)
+    longitude = math.radians(longitude)
 
     distance_from_point_km = distance
     angular_distance = distance_from_point_km / 6371.01
@@ -51,14 +77,14 @@ def get_bounding_box(distance, latittude, longitude):
     lat_min = latittude - angular_distance
     lat_max = latittude + angular_distance
 
-    delta_longitude = np.arcsin(np.sin(angular_distance) / np.cos(latittude))
+    delta_longitude = math.asin(math.sin(angular_distance) / math.cos(latittude))
 
     lon_min = longitude - delta_longitude
     lon_max = longitude + delta_longitude
-    lon_min = round(np.degrees(lon_min), 5)
-    lat_max = round(np.degrees(lat_max), 5)
-    lon_max = round(np.degrees(lon_max), 5)
-    lat_min = round(np.degrees(lat_min), 5)
+    lon_min = round(math.degrees(lon_min), 5)
+    lat_max = round(math.degrees(lat_max), 5)
+    lon_max = round(math.degrees(lon_max), 5)
+    lat_min = round(math.degrees(lat_min), 5)
 
     return lat_min, lon_min, lat_max, lon_max
 
@@ -73,7 +99,7 @@ class ECRadar(object):
         width=800,
         height=800,
     ):
-        """Initialize the data object."""
+        """Initialize the radar object."""
 
         # Set precipitation type
 
@@ -88,40 +114,40 @@ class ECRadar(object):
 
         # Get legend
 
-        legend_url = legend_path.format(
-            layer=self.layer, style=legend_style[self.precip_type]
+        legend_params.update(
+            dict(layer=self.layer, style=legend_style[self.precip_type])
         )
-        legend_bytes = requests.get(url=legend_url).content
+        legend_bytes = requests.get(url=geomet_url, params=legend_params).content
         self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
         legend_width, legend_height = self.legend_image.size
         self.legend_position = (width - legend_width, 0)
 
-        # Get coordinates
+        # Get map parameters
 
         if station_id:
             coordinates = get_station_coords(station_id.upper())
 
         self.bbox = get_bounding_box(radius, coordinates[0], coordinates[1])
+        self.map_params = {
+            "bbox": ",".join([str(coord) for coord in self.bbox]),
+            "width": width,
+            "height": height,
+        }
+
         self.width = width
         self.height = height
 
         # Get basemap
 
-        url = basemap_url.format(
-            south=self.bbox[0],
-            west=self.bbox[1],
-            north=self.bbox[2],
-            east=self.bbox[3],
-            width=self.width,
-            height=self.height,
-        )
-        self.base_bytes = requests.get(url).content
+        basemap_params.update(self.map_params)
+        self.base_bytes = requests.get(url=basemap_url, params=basemap_params).content
 
         self.timestamp = datetime.datetime.now()
 
     def get_dimensions(self):
         """Get time range of available data."""
-        capabilities_xml = requests.get(capabilities_path.format(layer=self.layer)).text
+        capabilities_params["layer"] = self.layer
+        capabilities_xml = requests.get(url=geomet_url, params=capabilities_params).text
         capabilities_tree = et.fromstring(
             capabilities_xml, parser=et.XMLParser(encoding="utf-8")
         )
@@ -134,19 +160,14 @@ class ECRadar(object):
         self.timestamp = end.isoformat()
         return start, end
 
-    def assemble_url(self, url_time):
-        """Construct WMS query URL."""
-        url = radar_path.format(
-            south=self.bbox[0],
-            west=self.bbox[1],
-            north=self.bbox[2],
-            east=self.bbox[3],
-            width=self.width,
-            height=self.height,
-            layer=self.layer,
-            time=url_time.strftime("%Y-%m-%dT%H:%M:00Z"),
+    def get_frame_params(self, frame_time):
+        """Assemble parameters for WMS query."""
+        return dict(
+            **radar_params,
+            **self.map_params,
+            layers=self.layer,
+            time=frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
         )
-        return url
 
     def combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
@@ -182,9 +203,11 @@ class ECRadar(object):
 
     def get_latest_frame(self):
         """Get the latest image from Environment Canada."""
-        start, end = self.get_dimensions()
-        radar = requests.get(self.assemble_url(end)).content
-        return self.combine_layers(radar, end)
+        latest = self.get_dimensions()[1]
+        frame = requests.get(
+            url=geomet_url, params=self.get_frame_params(frame_time=latest)
+        ).content
+        return self.combine_layers(frame, latest)
 
     def get_loop(self):
         """Build an animated GIF of recent radar images."""
@@ -204,7 +227,10 @@ class ECRadar(object):
         responses = []
 
         with FuturesSession(max_workers=len(frame_times)) as session:
-            futures = [session.get(self.assemble_url(t)) for t in frame_times]
+            futures = [
+                session.get(url=geomet_url, params=self.get_frame_params(frame_time=t))
+                for t in frame_times
+            ]
             for future in as_completed(futures):
                 responses.append(future.result())
 
