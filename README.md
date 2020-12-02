@@ -4,13 +4,13 @@ This package provides access meteorological data published by [Environment Canad
 
 ## Weather
 
-`ECData` provides current conditions and forecast. It automatically determines which weather station to use based on latitude/longitude provided. It is also possible to specify a specific station code of the form `AB/s0000123` based on those listed in [this CSV file](http://dd.weatheroffice.ec.gc.ca/citypage_weather/docs/site_list_towns_en.csv). For example:
+`ECWeather` provides current conditions and forecast. It automatically determines which weather station to use based on latitude/longitude provided. It is also possible to specify a specific station code of the form `AB/s0000123` based on those listed in [this CSV file](http://dd.weatheroffice.ec.gc.ca/citypage_weather/docs/site_list_towns_en.csv). For example:
 
 ```
-from env_canada import ECData
+from env_canada import ECWeather
 
-ec_en = ECData(coordinates=(lat, long))
-ec_fr = ECData(station_id='ON/s0000430', language='french')
+ec_en = ECWeather(coordinates=(lat, long))
+ec_fr = ECWeather(station_id='ON/s0000430', language='french')
 
 # current conditions
 ec_en.conditions

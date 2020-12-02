@@ -3,15 +3,11 @@ import re
 import xml.etree.ElementTree as et
 
 from geopy import distance
-from ratelimit import limits, RateLimitException
 import requests
 
 SITE_LIST_URL = 'https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv'
-AQHI_SITE_LIST_URL = 'https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml'
 
 WEATHER_URL = 'https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml'
-AQHI_OBSERVATION_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml'
-AQHI_FORECAST_URL = 'https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml'
 
 LOG = logging.getLogger(__name__)
 
@@ -114,13 +110,6 @@ conditions_meta = {
     },
 }
 
-aqhi_meta = {
-    'label': {
-        'english': 'Air Quality Health Index',
-        'french': 'Cote air santé'
-    }
-}
-
 summary_meta = {
     'forecast_period': {
         'xpath': './forecastGroup/forecast/period',
@@ -201,16 +190,7 @@ metadata_meta = {
 }
 
 
-def ignore_ratelimit_error(fun):
-    def res(*args, **kwargs):
-        try:
-            return fun(*args, **kwargs)
-        except RateLimitException:
-            return None
-    return res
-
-
-class ECData(object):
+class ECWeather(object):
 
     """Get weather data from Environment Canada."""
 
@@ -241,8 +221,6 @@ class ECData(object):
 
         self.update()
 
-    @ignore_ratelimit_error
-    @limits(calls=2, period=60)
     def update(self):
         """Get the latest data from Environment Canada."""
         try:
@@ -334,84 +312,6 @@ class ECData(object):
                 'precip_probability': f.findtext('./lop')  or "0",
             })
 
-        # Update AQHI current condition
-
-        if self.aqhi_id is None:
-            lat = weather_tree.find('./location/name').attrib.get('lat')[:-1]
-            lon = weather_tree.find('./location/name').attrib.get('lon')[:-1]
-            aqhi_coordinates = (float(lat), float(lon) * -1)
-            self.aqhi_id = self.closest_aqhi(aqhi_coordinates[0], aqhi_coordinates[1])
-
-        success = True
-        try:
-            aqhi_result = requests.get(AQHI_OBSERVATION_URL.format(self.aqhi_id[0],
-                                                               self.aqhi_id[1]),
-                                   timeout=10)
-        except requests.exceptions.RequestException as e:
-            LOG.warning("Unable to retrieve current AQHI observation: %s", e)
-            success = False
-
-        if not success or aqhi_result.status_code == 404:
-            self.aqhi['current'] = None
-        else:
-            aqhi_xml = aqhi_result.content.decode("utf-8")
-            aqhi_tree = et.fromstring(aqhi_xml)
-
-            element = aqhi_tree.find('airQualityHealthIndex')
-            if element is not None:
-                self.aqhi['current'] = element.text
-            else:
-                self.aqhi['current'] = None
-
-            self.conditions['air_quality'] = {
-                'label': aqhi_meta['label'][self.language],
-                'value': self.aqhi['current']
-            }
-
-            element = aqhi_tree.find('./dateStamp/UTCStamp')
-            if element is not None:
-                self.aqhi['utc_time'] = element.text
-            else:
-                self.aqhi['utc_time'] = None
-
-        # Update AQHI forecasts
-        success = True
-        try:
-            aqhi_result = requests.get(AQHI_FORECAST_URL.format(self.aqhi_id[0],
-                                                            self.aqhi_id[1]),
-                                   timeout=10)
-        except requests.exceptions.RequestException as e:
-            LOG.warning("Unable to retrieve forecast AQHI observation: %s", e)
-            success = False
-
-        if not success or aqhi_result.status_code == 404:
-            self.aqhi['forecasts'] = None
-        else:
-            aqhi_xml = aqhi_result.content.decode("ISO-8859-1")
-            aqhi_tree = et.fromstring(aqhi_xml)
-
-            self.aqhi['forecasts'] = {'daily': [],
-                                      'hourly': []}
-
-            # Update AQHI daily forecasts
-            period = None
-            for f in aqhi_tree.findall("./forecastGroup/forecast"):
-                for p in f.findall("./period"):
-                    if self.language_abr == p.attrib["lang"]:
-                        period = p.attrib["forecastName"]
-                self.aqhi['forecasts']['daily'].append(
-                    {
-                        "period": period,
-                        "aqhi": f.findtext("./airQualityHealthIndex"),
-                    }
-                )
-
-            # Update AQHI hourly forecasts
-            for f in aqhi_tree.findall("./hourlyForecastGroup/hourlyForecast"):
-                self.aqhi['forecasts']['hourly'].append(
-                    {"period": f.attrib["UTCTime"], "aqhi": f.text}
-                )
-
     def get_ec_sites(self):
         """Get list of all sites from Environment Canada, for auto-config."""
         import csv
@@ -452,48 +352,3 @@ class ECData(object):
         closest = min(site_list, key=site_distance)
 
         return '{}/{}'.format(closest['Province Codes'], closest['Codes'])
-
-    def get_aqhi_regions(self):
-        """Get list of all AQHI regions from Environment Canada, for auto-config."""
-        regions = []
-        try:
-            result = requests.get(AQHI_SITE_LIST_URL, timeout=10)
-        except requests.exceptions.RequestException as e:
-            LOG.warning("Unable to retrieve AQHI regions: %s", e)
-            return regions
-
-        site_xml = result.content.decode("utf-8")
-        xml_object = et.fromstring(site_xml)
-
-        for zone in xml_object.findall("./EC_administrativeZone"):
-            _zone_attribs = zone.attrib
-            _zone_attrib = {
-                "abbreviation": _zone_attribs["abreviation"],
-                "zone_name": _zone_attribs[self.zone_name_tag],
-            }
-            for region in zone.findall("./regionList/region"):
-                _region_attribs = region.attrib
-
-                _region_attrib = {"region_name": _region_attribs[self.region_name_tag],
-                                  "cgndb": _region_attribs["cgndb"],
-                                  "latitude": float(_region_attribs["latitude"]),
-                                  "longitude": float(_region_attribs["longitude"])}
-                _children = region.getchildren()
-                for child in _children:
-                    _region_attrib[child.tag] = child.text
-                _region_attrib.update(_zone_attrib)
-                regions.append(_region_attrib)
-        return regions
-
-    def closest_aqhi(self, lat, lon):
-        """Return the AQHI region and site ID of the closest site."""
-        region_list = self.get_aqhi_regions()
-
-        def site_distance(site):
-            """Calculate distance to a region."""
-            return distance.distance(
-                (lat, lon), (site["latitude"], site["longitude"])
-            )
-        closest = min(region_list, key=site_distance)
-
-        return closest['abbreviation'], closest['cgndb']
