@@ -10,7 +10,6 @@ import xml.etree.ElementTree as et
 from aiohttp import ClientSession
 import dateutil.parser
 import imageio
-import requests
 
 # Natural Resources Canada
 
@@ -99,7 +98,7 @@ class ECRadar(object):
         width=800,
         height=800,
         legend=True,
-        timestamp=True
+        timestamp=True,
     ):
         """Initialize the radar object."""
 
@@ -136,7 +135,11 @@ class ECRadar(object):
             self.legend_image = None
             self.legend_position = None
 
-        self.timestamp = datetime.datetime.now()
+        if timestamp:
+            self.font = ImageFont.load(
+                os.path.join(os.path.dirname(__file__), "10x20.pil")
+            )
+            self.timestamp = datetime.datetime.now()
 
     async def get_basemap(self):
         """Fetch the background map image."""
@@ -160,9 +163,11 @@ class ECRadar(object):
     async def get_dimensions(self):
         """Get time range of available data."""
         capabilities_params["layer"] = self.layer
+
         async with ClientSession() as session:
             response = await session.get(url=geomet_url, params=capabilities_params)
             capabilities_xml = await response.text()
+
         capabilities_tree = et.fromstring(
             capabilities_xml, parser=et.XMLParser(encoding="utf-8")
         )
@@ -198,15 +203,14 @@ class ECRadar(object):
 
         if self.timestamp:
             timestamp = (
-                self.precip_type.title() + " @ " + frame_time.astimezone().strftime("%H:%M")
+                self.precip_type.title()
+                + " @ "
+                + frame_time.astimezone().strftime("%H:%M")
             )
-            font = ImageFont.load(os.path.join(os.path.dirname(__file__), "10x20.pil"))
-            text_box = Image.new("RGBA", font.getsize(timestamp), "white")
-
+            text_box = Image.new("RGBA", self.font.getsize(timestamp), "white")
             box_draw = ImageDraw.Draw(text_box)
-            box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=font)
+            box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font)
             double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
-
             frame.paste(double_box)
 
         # Return frame as PNG bytes
