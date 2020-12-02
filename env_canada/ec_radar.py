@@ -141,14 +141,14 @@ class ECRadar(object):
             )
             self.timestamp = datetime.datetime.now()
 
-    async def get_basemap(self):
+    async def _get_basemap(self):
         """Fetch the background map image."""
         basemap_params.update(self.map_params)
         async with ClientSession() as session:
             response = await session.get(url=basemap_url, params=basemap_params)
             self.base_bytes = await response.read()
 
-    async def get_legend(self):
+    async def _get_legend(self):
         """Fetch legend image."""
         legend_params.update(
             dict(layer=self.layer, style=legend_style[self.precip_type])
@@ -160,7 +160,7 @@ class ECRadar(object):
         legend_width, legend_height = self.legend_image.size
         self.legend_position = (self.width - legend_width, 0)
 
-    async def get_dimensions(self):
+    async def _get_dimensions(self):
         """Get time range of available data."""
         capabilities_params["layer"] = self.layer
 
@@ -180,13 +180,13 @@ class ECRadar(object):
         self.timestamp = end.isoformat()
         return start, end
 
-    async def combine_layers(self, radar_bytes, frame_time):
+    async def _combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
         # Overlay radar on basemap
 
         if not self.base_bytes:
-            await self.get_basemap()
+            await self._get_basemap()
 
         base = Image.open(BytesIO(self.base_bytes)).convert("RGBA")
         radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
@@ -196,7 +196,7 @@ class ECRadar(object):
 
         if self.legend:
             if not self.legend_image:
-                await self.get_legend()
+                await self._get_legend()
             frame.paste(self.legend_image, self.legend_position)
 
         # Add timestamp
@@ -221,7 +221,7 @@ class ECRadar(object):
 
         return frame_bytes
 
-    async def get_radar_image(self, session, frame_time):
+    async def _get_radar_image(self, session, frame_time):
         params = dict(
             **radar_params,
             **self.map_params,
@@ -233,17 +233,17 @@ class ECRadar(object):
 
     async def get_latest_frame(self):
         """Get the latest image from Environment Canada."""
-        dimensions = await self.get_dimensions()
+        dimensions = await self._get_dimensions()
         latest = dimensions[1]
         async with ClientSession() as session:
-            frame = await self.get_radar_image(session=session, frame_time=latest)
-        return await self.combine_layers(frame, latest)
+            frame = await self._get_radar_image(session=session, frame_time=latest)
+        return await self._combine_layers(frame, latest)
 
     async def get_loop(self):
         """Build an animated GIF of recent radar images."""
 
         """Build list of frame timestamps."""
-        start, end = await self.get_dimensions()
+        start, end = await self._get_dimensions()
         frame_times = [start]
 
         while True:
@@ -258,13 +258,13 @@ class ECRadar(object):
         tasks = []
         async with ClientSession() as session:
             for t in frame_times:
-                tasks.append(self.get_radar_image(session=session, frame_time=t))
+                tasks.append(self._get_radar_image(session=session, frame_time=t))
             radar_layers = await asyncio.gather(*tasks)
 
         frames = []
 
         for i, f in enumerate(radar_layers):
-            frames.append(await self.combine_layers(f, frame_times[i]))
+            frames.append(await self._combine_layers(f, frame_times[i]))
 
         for f in range(3):
             frames.append(frames[-1])

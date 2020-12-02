@@ -36,7 +36,7 @@ def test_radar():
 
 
 def test_get_dimensions(test_radar):
-    dimensions = asyncio.run(test_radar.get_dimensions())
+    dimensions = asyncio.run(test_radar._get_dimensions())
     assert isinstance(dimensions[0], datetime) and isinstance(dimensions[1], datetime)
 
 
