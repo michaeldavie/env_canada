@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="env_canada",
-    version="0.2.4",
+    version="0.3.0",
     author="Michael Davie",
     author_email="michael.davie@gmail.com",
     description="A package to access meteorological data from Environment Canada",
@@ -20,8 +20,6 @@ setuptools.setup(
         "imageio",
         "Pillow",
         "python-dateutil",
-        "ratelimit",
-        "requests",
     ],
     classifiers=(
         "Programming Language :: Python :: 3",
