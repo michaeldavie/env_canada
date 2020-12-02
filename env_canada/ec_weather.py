@@ -1,9 +1,10 @@
+import csv
 import logging
 import re
 import xml.etree.ElementTree as et
 
+from aiohttp import ClientSession
 from geopy import distance
-import requests
 
 SITE_LIST_URL = "https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv"
 
@@ -152,6 +153,38 @@ metadata_meta = {
 }
 
 
+async def get_ec_sites():
+    """Get list of all sites from Environment Canada, for auto-config."""
+    sites = []
+
+    async with ClientSession() as session:
+        response = await session.get(SITE_LIST_URL, timeout=10)
+        sites_csv_string = await response.text()
+
+    sites_reader = csv.DictReader(sites_csv_string.splitlines()[1:])
+
+    for site in sites_reader:
+        if site["Province Codes"] != "HEF":
+            site["Latitude"] = float(site["Latitude"].replace("N", ""))
+            site["Longitude"] = -1 * float(site["Longitude"].replace("W", ""))
+            sites.append(site)
+
+    return sites
+
+
+async def closest_site(lat, lon):
+    """Return the province/site_code of the closest station to our lat/lon."""
+    site_list = await get_ec_sites()
+
+    def site_distance(site):
+        """Calculate distance to a site."""
+        return distance.distance((lat, lon), (site["Latitude"], site["Longitude"]))
+
+    closest = min(site_list, key=site_distance)
+
+    return "{}/{}".format(closest["Province Codes"], closest["Codes"])
+
+
 class ECWeather(object):
 
     """Get weather data from Environment Canada."""
@@ -159,37 +192,35 @@ class ECWeather(object):
     def __init__(self, station_id=None, coordinates=None, language="english"):
         """Initialize the data object."""
         self.language = language
-        self.language_abr = language[:2].upper()
-        self.zone_name_tag = "name_%s_CA" % self.language_abr.lower()
-        self.region_name_tag = "name%s" % self.language_abr.title()
-
         self.metadata = {}
         self.conditions = {}
         self.alerts = {}
         self.daily_forecasts = []
         self.hourly_forecasts = []
-        self.aqhi = {}
         self.forecast_time = ""
-        self.aqhi_id = None
 
         if station_id:
             self.station_id = station_id
-        else:
-            self.station_id = self.closest_site(coordinates[0], coordinates[1])
+        elif coordinates:
+            self.station_id = None
+            self.coordinates = coordinates
 
-        self.update()
-
-    def update(self):
+    async def update(self):
         """Get the latest data from Environment Canada."""
-        try:
-            weather_result = requests.get(
+
+        # Determine station ID if not provided
+
+        if not self.station_id and self.coordinates:
+            self.station_id = await closest_site(*self.coordinates)
+
+        # Get weather data
+
+        async with ClientSession() as session:
+            response = await session.get(
                 WEATHER_URL.format(self.station_id, self.language[0]), timeout=10
             )
-        except requests.exceptions.RequestException as e:
-            LOG.warning("Unable to retrieve weather forecast: %s", e)
-            return
-
-        weather_xml = weather_result.content.decode("iso-8859-1")
+            result = await response.read()
+        weather_xml = result.decode("iso-8859-1")
         weather_tree = et.fromstring(weather_xml)
 
         # Update metadata
@@ -276,44 +307,3 @@ class ECWeather(object):
                     "precip_probability": f.findtext("./lop") or "0",
                 }
             )
-
-    def get_ec_sites(self):
-        """Get list of all sites from Environment Canada, for auto-config."""
-        import csv
-        import io
-
-        sites = []
-
-        try:
-            sites_result = requests.get(SITE_LIST_URL, timeout=10)
-            sites_csv_string = sites_result.text
-        except requests.exceptions.RequestException as e:
-            LOG.warning("Unable to retrieve site list csv: %s", e)
-            return sites
-
-        sites_csv_stream = io.StringIO(sites_csv_string)
-
-        sites_csv_stream.seek(0)
-        next(sites_csv_stream)
-
-        sites_reader = csv.DictReader(sites_csv_stream)
-
-        for site in sites_reader:
-            if site["Province Codes"] != "HEF":
-                site["Latitude"] = float(site["Latitude"].replace("N", ""))
-                site["Longitude"] = -1 * float(site["Longitude"].replace("W", ""))
-                sites.append(site)
-
-        return sites
-
-    def closest_site(self, lat, lon):
-        """Return the province/site_code of the closest station to our lat/lon."""
-        site_list = self.get_ec_sites()
-
-        def site_distance(site):
-            """Calculate distance to a site."""
-            return distance.distance((lat, lon), (site["Latitude"], site["Longitude"]))
-
-        closest = min(site_list, key=site_distance)
-
-        return "{}/{}".format(closest["Province Codes"], closest["Codes"])
