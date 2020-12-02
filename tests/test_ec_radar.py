@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
@@ -37,10 +38,12 @@ def test_get_dimensions(test_radar):
 
 
 def test_get_latest_frame(test_radar):
-    frame = Image.open(BytesIO(test_radar.get_latest_frame()))
-    assert frame.format == "PNG"
+    frame = asyncio.run(test_radar.get_latest_frame())
+    image = Image.open(BytesIO(frame))
+    assert image.format == "PNG"
 
 
 def test_get_loop(test_radar):
-    loop = Image.open(BytesIO(test_radar.get_loop()))
-    assert loop.format == "GIF" and loop.is_animated
+    loop = asyncio.run(test_radar.get_loop())
+    image = Image.open(BytesIO(loop))
+    assert image.format == "GIF" and image.is_animated

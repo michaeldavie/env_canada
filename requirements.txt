@@ -1,6 +1,6 @@
+aiohttp
 geopy
 imageio
 python-dateutil
 ratelimit
 requests
-requests_futures

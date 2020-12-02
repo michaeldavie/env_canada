@@ -1,4 +1,4 @@
-from concurrent.futures import as_completed
+import asyncio
 import datetime
 from io import BytesIO
 import math
@@ -7,10 +7,10 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 import xml.etree.ElementTree as et
 
+from aiohttp import ClientSession
 import dateutil.parser
 import imageio
 import requests
-from requests_futures.sessions import FuturesSession
 
 # Natural Resources Canada
 
@@ -160,15 +160,6 @@ class ECRadar(object):
         self.timestamp = end.isoformat()
         return start, end
 
-    def get_frame_params(self, frame_time):
-        """Assemble parameters for WMS query."""
-        return dict(
-            **radar_params,
-            **self.map_params,
-            layers=self.layer,
-            time=frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
-        )
-
     def combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
@@ -201,15 +192,24 @@ class ECRadar(object):
 
         return frame_bytes
 
-    def get_latest_frame(self):
+    async def get_radar_image(self, session, frame_time):
+        params = dict(
+            **radar_params,
+            **self.map_params,
+            layers=self.layer,
+            time=frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
+        )
+        response = await session.get(url=geomet_url, params=params)
+        return await response.read()
+
+    async def get_latest_frame(self):
         """Get the latest image from Environment Canada."""
         latest = self.get_dimensions()[1]
-        frame = requests.get(
-            url=geomet_url, params=self.get_frame_params(frame_time=latest)
-        ).content
+        async with ClientSession() as session:
+            frame = await self.get_radar_image(session=session, frame_time=latest)
         return self.combine_layers(frame, latest)
 
-    def get_loop(self):
+    async def get_loop(self):
         """Build an animated GIF of recent radar images."""
 
         """Build list of frame timestamps."""
@@ -224,22 +224,17 @@ class ECRadar(object):
                 frame_times.append(next_frame)
 
         """Fetch frames."""
-        responses = []
 
-        with FuturesSession(max_workers=len(frame_times)) as session:
-            futures = [
-                session.get(url=geomet_url, params=self.get_frame_params(frame_time=t))
-                for t in frame_times
-            ]
-            for future in as_completed(futures):
-                responses.append(future.result())
-
-        responses = sorted(responses, key=lambda r: r.url)
+        tasks = []
+        async with ClientSession() as session:
+            for t in frame_times:
+                tasks.append(self.get_radar_image(session=session, frame_time=t))
+            radar_layers = await asyncio.gather(*tasks)
 
         frames = []
 
-        for i, f in enumerate(responses):
-            frames.append(self.combine_layers(f.content, frame_times[i]))
+        for i, f in enumerate(radar_layers):
+            frames.append(self.combine_layers(f, frame_times[i]))
 
         for f in range(3):
             frames.append(frames[-1])
