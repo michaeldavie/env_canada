@@ -14,7 +14,7 @@ def test_get_station_coords():
 
 
 def test_get_bounding_box():
-    box_corners = ec_radar.get_bounding_box(200, 45.04101, -76.11617)
+    box_corners = ec_radar.compute_bounding_box(200, 45.04101, -76.11617)
     assert box_corners == (43.24237, -78.66207, 46.83965, -73.57027)
 
 
@@ -33,7 +33,7 @@ def test_radar():
 
 
 def test_get_dimensions(test_radar):
-    dimensions = ECRadar.get_dimensions(test_radar)
+    dimensions = asyncio.run(test_radar.get_dimensions())
     assert isinstance(dimensions[0], datetime) and isinstance(dimensions[1], datetime)
 
 

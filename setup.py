@@ -18,6 +18,7 @@ setuptools.setup(
         "aiohttp",
         "geopy",
         "imageio",
+        "Pillow",
         "python-dateutil",
         "ratelimit",
         "requests",
