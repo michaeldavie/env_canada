@@ -129,10 +129,10 @@
         "lat": 55.69494,
         "lon": -119.23043
     },
-    "XSM": {
+    "CASSM": {
         "name": "Strathmore",
-        "lat": 51.20628,
-        "lon": -113.39906
+        "lat": 51.20613,
+        "lon": -113.39937
     },
     "XNI": {
         "name": "Lasseter Lake",
