@@ -6,10 +6,10 @@ import pytest
 from env_canada import ECAirQuality
 
 
-@pytest.mark.parametrize("init_parameters", [
-    {"coordinates": (50, -100)},
-    {"zone_id": 'ont', "region_id": 'FEVNT'}
-])
+@pytest.mark.parametrize(
+    "init_parameters",
+    [{"coordinates": (50, -100)}, {"zone_id": "ont", "region_id": "FEVNT"}],
+)
 def test_ecaqhi(init_parameters):
     aqhi = ECAirQuality(**init_parameters)
     assert isinstance(aqhi, ECAirQuality)

@@ -18,10 +18,13 @@ def test_get_bounding_box():
     assert box_corners == (43.24237, -78.66207, 46.83965, -73.57027)
 
 
-@pytest.mark.parametrize("init_parameters", [
-    {"station_id": "xft", "precip_type": "rain"},
-    {"coordinates": (50, -100), "precip_type": "snow"},
-])
+@pytest.mark.parametrize(
+    "init_parameters",
+    [
+        {"station_id": "xft", "precip_type": "rain"},
+        {"coordinates": (50, -100), "precip_type": "snow"},
+    ],
+)
 def test_ecradar(init_parameters):
     radar = ECRadar(**init_parameters)
     assert isinstance(radar, ECRadar)
