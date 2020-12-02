@@ -4,7 +4,6 @@ import xml.etree.ElementTree as et
 
 from aiohttp import ClientSession
 from geopy import distance
-import requests
 
 AQHI_SITE_LIST_URL = "https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml"
 AQHI_OBSERVATION_URL = "https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml"
@@ -17,6 +16,53 @@ def timestamp_to_datetime(timestamp):
     dt = datetime.strptime(timestamp, "%Y%m%d%H%M%S")
     dt = dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+async def get_aqhi_regions(language):
+    """Get list of all AQHI regions from Environment Canada, for auto-config."""
+    zone_name_tag = "name_%s_CA" % language.lower()
+    region_name_tag = "name%s" % language.title()
+
+    regions = []
+    async with ClientSession() as session:
+        response = await session.get(AQHI_SITE_LIST_URL, timeout=10)
+        result = await response.read()
+
+    site_xml = result.decode("utf-8")
+    xml_object = et.fromstring(site_xml)
+
+    for zone in xml_object.findall("./EC_administrativeZone"):
+        _zone_attribs = zone.attrib
+        _zone_attrib = {
+            "abbreviation": _zone_attribs["abreviation"],
+            "zone_name": _zone_attribs[zone_name_tag],
+        }
+        for region in zone.findall("./regionList/region"):
+            _region_attribs = region.attrib
+
+            _region_attrib = {
+                "region_name": _region_attribs[region_name_tag],
+                "cgndb": _region_attribs["cgndb"],
+                "latitude": float(_region_attribs["latitude"]),
+                "longitude": float(_region_attribs["longitude"]),
+            }
+            _children = list(region)
+            for child in _children:
+                _region_attrib[child.tag] = child.text
+            _region_attrib.update(_zone_attrib)
+            regions.append(_region_attrib)
+    return regions
+
+
+async def find_closest_region(language, lat, lon):
+    """Return the AQHI region and site ID of the closest site."""
+    region_list = await get_aqhi_regions(language)
+
+    def site_distance(site):
+        """Calculate distance to a region."""
+        return distance.distance((lat, lon), (site["latitude"], site["longitude"]))
+
+    return min(region_list, key=site_distance)
 
 
 class ECAirQuality(object):
@@ -54,8 +100,12 @@ class ECAirQuality(object):
 
     async def update(self):
 
+        # Find closest site if not identified
+
         if not (self.zone_id and self.region_id):
-            await self.find_closest_region(*self.coordinates)
+            closest = await find_closest_region(self.language, *self.coordinates)
+            self.zone_id = closest["abbreviation"]
+            self.region_id = closest["cgndb"]
 
         # Update AQHI current condition
 
@@ -87,54 +137,3 @@ class ECAirQuality(object):
             self.forecasts["hourly"][timestamp_to_datetime(f.attrib["UTCTime"])] = int(
                 f.text
             )
-
-    async def get_aqhi_regions(self):
-        """Get list of all AQHI regions from Environment Canada, for auto-config."""
-        zone_name_tag = "name_%s_CA" % self.language.lower()
-        region_name_tag = "name%s" % self.language.title()
-
-        regions = []
-        try:
-            async with ClientSession() as session:
-                response = await session.get(AQHI_SITE_LIST_URL, timeout=10)
-                result = await response.read()
-        except requests.exceptions.RequestException as e:
-            LOG.warning("Unable to retrieve AQHI regions: %s", e)
-            return None
-
-        site_xml = result.decode("utf-8")
-        xml_object = et.fromstring(site_xml)
-
-        for zone in xml_object.findall("./EC_administrativeZone"):
-            _zone_attribs = zone.attrib
-            _zone_attrib = {
-                "abbreviation": _zone_attribs["abreviation"],
-                "zone_name": _zone_attribs[zone_name_tag],
-            }
-            for region in zone.findall("./regionList/region"):
-                _region_attribs = region.attrib
-
-                _region_attrib = {
-                    "region_name": _region_attribs[region_name_tag],
-                    "cgndb": _region_attribs["cgndb"],
-                    "latitude": float(_region_attribs["latitude"]),
-                    "longitude": float(_region_attribs["longitude"]),
-                }
-                _children = list(region)
-                for child in _children:
-                    _region_attrib[child.tag] = child.text
-                _region_attrib.update(_zone_attrib)
-                regions.append(_region_attrib)
-        return regions
-
-    async def find_closest_region(self, lat, lon):
-        """Return the AQHI region and site ID of the closest site."""
-        region_list = await self.get_aqhi_regions()
-
-        def site_distance(site):
-            """Calculate distance to a region."""
-            return distance.distance((lat, lon), (site["latitude"], site["longitude"]))
-
-        closest = min(region_list, key=site_distance)
-        self.zone_id = closest["abbreviation"]
-        self.region_id = closest["cgndb"]

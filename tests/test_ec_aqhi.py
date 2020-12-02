@@ -3,7 +3,12 @@ from datetime import datetime
 
 import pytest
 
-from env_canada import ECAirQuality
+from env_canada import ec_aqhi, ECAirQuality
+
+
+def test_get_aqhi_regions():
+    regions = asyncio.run(ec_aqhi.get_aqhi_regions("EN"))
+    assert len(regions) > 0
 
 
 @pytest.mark.parametrize(
