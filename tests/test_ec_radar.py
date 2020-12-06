@@ -8,21 +8,11 @@ import pytest
 from env_canada import ec_radar, ECRadar
 
 
-def test_get_station_coords():
-    coords = ec_radar.get_station_coords("XFT")
-    assert coords == (45.04101, -76.11617)
-
-
-def test_get_bounding_box():
-    box_corners = ec_radar.compute_bounding_box(200, 45.04101, -76.11617)
-    assert box_corners == (43.24237, -78.66207, 46.83965, -73.57027)
-
-
 @pytest.mark.parametrize(
     "init_parameters",
     [
-        {"station_id": "xft", "precip_type": "rain"},
         {"coordinates": (50, -100), "precip_type": "snow"},
+        {"coordinates": (50, -100), "precip_type": "rain"},
     ],
 )
 def test_ecradar(init_parameters):
@@ -32,7 +22,7 @@ def test_ecradar(init_parameters):
 
 @pytest.fixture
 def test_radar():
-    return ECRadar(station_id="XFT")
+    return ECRadar(coordinates=(50, -100))
 
 
 def test_get_dimensions(test_radar):

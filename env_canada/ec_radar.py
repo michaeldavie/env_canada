@@ -2,7 +2,6 @@ import asyncio
 import datetime
 from io import BytesIO
 import math
-import json
 import os
 from PIL import Image, ImageDraw, ImageFont
 import xml.etree.ElementTree as et
@@ -55,14 +54,6 @@ legend_params = {
 }
 
 
-def get_station_coords(station_id):
-    with open(
-        os.path.join(os.path.dirname(__file__), "radar_sites.json")
-    ) as sites_file:
-        site_dict = json.loads(sites_file.read())
-    return site_dict[station_id]["lat"], site_dict[station_id]["lon"]
-
-
 def compute_bounding_box(distance, latittude, longitude):
     """
     Modified from https://gist.github.com/alexcpn/f95ae83a7ee0293a5225
@@ -91,7 +82,6 @@ def compute_bounding_box(distance, latittude, longitude):
 class ECRadar(object):
     def __init__(
         self,
-        station_id=None,
         coordinates=None,
         radius=200,
         precip_type=None,
@@ -114,9 +104,6 @@ class ECRadar(object):
         self.layer = layer[self.precip_type]
 
         # Get map parameters
-
-        if station_id:
-            coordinates = get_station_coords(station_id.upper())
 
         self.bbox = compute_bounding_box(radius, coordinates[0], coordinates[1])
         self.map_params = {
