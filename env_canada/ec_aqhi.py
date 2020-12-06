@@ -81,6 +81,7 @@ class ECAirQuality(object):
             self.region_id = None
             self.coordinates = coordinates
 
+        self.region_name = None
         self.current = None
         self.current_timestamp = None
         self.forecasts = dict(daily={}, hourly={})
@@ -107,9 +108,14 @@ class ECAirQuality(object):
             self.zone_id = closest["abbreviation"]
             self.region_id = closest["cgndb"]
 
-        # Update AQHI current condition
-
+        # Fetch current measurement
         aqhi_current = await self.get_aqhi_data(url=AQHI_OBSERVATION_URL)
+
+        # Update region name
+        element = aqhi_current.find("region")
+        self.region_name = element.attrib["name{lang}".format(lang=self.language.title())]
+
+        # Update AQHI current condition
         element = aqhi_current.find("airQualityHealthIndex")
         if element is not None:
             self.current = float(element.text)
