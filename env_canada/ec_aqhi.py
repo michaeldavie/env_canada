@@ -111,35 +111,37 @@ class ECAirQuality(object):
         # Fetch current measurement
         aqhi_current = await self.get_aqhi_data(url=AQHI_OBSERVATION_URL)
 
-        # Update region name
-        element = aqhi_current.find("region")
-        self.region_name = element.attrib["name{lang}".format(lang=self.language.title())]
+        if aqhi_current:
+            # Update region name
+            element = aqhi_current.find("region")
+            self.region_name = element.attrib["name{lang}".format(lang=self.language.title())]
 
-        # Update AQHI current condition
-        element = aqhi_current.find("airQualityHealthIndex")
-        if element is not None:
-            self.current = float(element.text)
-        else:
-            self.current = None
+            # Update AQHI current condition
+            element = aqhi_current.find("airQualityHealthIndex")
+            if element is not None:
+                self.current = float(element.text)
+            else:
+                self.current = None
 
-        element = aqhi_current.find("./dateStamp/UTCStamp")
-        if element is not None:
-            self.current_timestamp = timestamp_to_datetime(element.text)
-        else:
-            self.current_timestamp = None
+            element = aqhi_current.find("./dateStamp/UTCStamp")
+            if element is not None:
+                self.current_timestamp = timestamp_to_datetime(element.text)
+            else:
+                self.current_timestamp = None
 
         # Update AQHI forecasts
         aqhi_forecast = await self.get_aqhi_data(url=AQHI_FORECAST_URL)
 
-        # Update AQHI daily forecasts
-        for f in aqhi_forecast.findall("./forecastGroup/forecast"):
-            for p in f.findall("./period"):
-                if self.language == p.attrib["lang"]:
-                    period = p.attrib["forecastName"]
-            self.forecasts["daily"][period] = int(f.findtext("./airQualityHealthIndex"))
+        if aqhi_forecast:
+            # Update AQHI daily forecasts
+            for f in aqhi_forecast.findall("./forecastGroup/forecast"):
+                for p in f.findall("./period"):
+                    if self.language == p.attrib["lang"]:
+                        period = p.attrib["forecastName"]
+                self.forecasts["daily"][period] = int(f.findtext("./airQualityHealthIndex"))
 
-        # Update AQHI hourly forecasts
-        for f in aqhi_forecast.findall("./hourlyForecastGroup/hourlyForecast"):
-            self.forecasts["hourly"][timestamp_to_datetime(f.attrib["UTCTime"])] = int(
-                f.text
-            )
+            # Update AQHI hourly forecasts
+            for f in aqhi_forecast.findall("./hourlyForecastGroup/hourlyForecast"):
+                self.forecasts["hourly"][timestamp_to_datetime(f.attrib["UTCTime"])] = int(
+                    f.text
+                )
