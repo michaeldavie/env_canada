@@ -89,7 +89,7 @@ class ECRadar(object):
         height=800,
         legend=True,
         timestamp=True,
-        radar_opacity=100,
+        radar_opacity=65,
     ):
         """Initialize the radar object."""
 
