@@ -239,7 +239,7 @@ class ECRadar(object):
             frame = await self._get_radar_image(session=session, frame_time=latest)
         return await self._combine_layers(frame, latest)
 
-    async def get_loop(self):
+    async def get_loop(self, fps=5):
         """Build an animated GIF of recent radar images."""
 
         """Build list of frame timestamps."""
@@ -272,6 +272,6 @@ class ECRadar(object):
         """Assemble animated GIF."""
         gif_frames = [imageio.imread(f) for f in frames]
         gif_bytes = imageio.mimwrite(
-            imageio.RETURN_BYTES, gif_frames, format="GIF", fps=5, subrectangles=True
+            imageio.RETURN_BYTES, gif_frames, format="GIF", fps=fps, subrectangles=True
         )
         return gif_bytes
