@@ -211,6 +211,7 @@ class ECRadar(object):
             box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font)
             double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
             frame.paste(double_box)
+            frame = frame.quantize()
 
         # Return frame as PNG bytes
 
