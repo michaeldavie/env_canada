@@ -22,7 +22,7 @@ def test_ecaqhi(init_parameters):
 
 @pytest.fixture()
 def test_aqhi():
-    return ECAirQuality(coordinates=(50, -100))
+    return ECAirQuality(coordinates=(49.91, -97.24))
 
 
 def test_update(test_aqhi):
