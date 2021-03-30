@@ -271,6 +271,6 @@ class ECRadar(object):
         """Assemble animated GIF."""
         gif_frames = [imageio.imread(f) for f in frames]
         gif_bytes = imageio.mimwrite(
-            imageio.RETURN_BYTES, gif_frames, format="GIF", fps=5
+            imageio.RETURN_BYTES, gif_frames, format="GIF", fps=5, subrectangles=True
         )
         return gif_bytes
