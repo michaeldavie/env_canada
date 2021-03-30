@@ -89,6 +89,7 @@ class ECRadar(object):
         height=800,
         legend=True,
         timestamp=True,
+        radar_opacity=100,
     ):
         """Initialize the radar object."""
 
@@ -127,6 +128,8 @@ class ECRadar(object):
                 os.path.join(os.path.dirname(__file__), "10x20.pil")
             )
             self.timestamp = datetime.datetime.now()
+
+        self.radar_opacity = radar_opacity
 
     async def _get_basemap(self):
         """Fetch the background map image."""
@@ -177,6 +180,15 @@ class ECRadar(object):
 
         base = Image.open(BytesIO(self.base_bytes)).convert("RGBA")
         radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
+
+        # Add transparency to radar
+
+        if self.radar_opacity < 100:
+            alpha = round((self.radar_opacity / 100) * 255)
+            radar_copy = radar.copy()
+            radar_copy.putalpha(alpha)
+            radar.paste(radar_copy, radar)
+
         frame = Image.alpha_composite(base, radar)
 
         # Add legend
