@@ -4,6 +4,7 @@ import re
 import xml.etree.ElementTree as et
 
 from aiohttp import ClientSession
+from dateutil import parser, tz
 from geopy import distance
 
 SITE_LIST_URL = "https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv"
@@ -153,6 +154,10 @@ metadata_meta = {
 }
 
 
+def parse_timestamp(t):
+    return parser.parse(t).replace(tzinfo=tz.UTC)
+
+
 async def get_ec_sites():
     """Get list of all sites from Environment Canada, for auto-config."""
     sites = []
@@ -228,6 +233,8 @@ class ECWeather(object):
             element = weather_tree.find(meta["xpath"])
             if element is not None:
                 self.metadata[m] = weather_tree.find(meta["xpath"]).text
+                if m == "timestamp":
+                    self.metadata[m] = parse_timestamp(self.metadata[m])
             else:
                 self.metadata[m] = None
 
@@ -276,23 +283,27 @@ class ECWeather(object):
                     }
                     self.alerts[category]["value"].append(alert)
 
-        # Update daily forecasts
-        self.forecast_time = weather_tree.findtext("./forecastGroup/dateTime/timeStamp")
+        # Update forecasts
+        self.forecast_time = parse_timestamp(
+            weather_tree.findtext("./forecastGroup/dateTime/timeStamp")
+        )
         self.daily_forecasts = []
         self.hourly_forecasts = []
 
+        # Update daily forecasts
         for f in weather_tree.findall("./forecastGroup/forecast"):
             self.daily_forecasts.append(
                 {
                     "period": f.findtext("period"),
                     "text_summary": f.findtext("textSummary"),
-                    "icon_code": f.findtext("./abbreviatedForecast/iconCode"),
-                    "temperature": f.findtext("./temperatures/temperature"),
+                    "icon_code": int(f.findtext("./abbreviatedForecast/iconCode")),
+                    "temperature": int(f.findtext("./temperatures/temperature")),
                     "temperature_class": f.find(
                         "./temperatures/temperature"
                     ).attrib.get("class"),
-                    "precip_probability": f.findtext("./abbreviatedForecast/pop")
-                    or "0",
+                    "precip_probability": int(
+                        f.findtext("./abbreviatedForecast/pop") or "0"
+                    ),
                 }
             )
 
@@ -300,10 +311,10 @@ class ECWeather(object):
         for f in weather_tree.findall("./hourlyForecastGroup/hourlyForecast"):
             self.hourly_forecasts.append(
                 {
-                    "period": f.attrib.get("dateTimeUTC"),
+                    "period": parse_timestamp(f.attrib.get("dateTimeUTC")),
                     "condition": f.findtext("./condition"),
-                    "temperature": f.findtext("./temperature"),
-                    "icon_code": f.findtext("./iconCode"),
-                    "precip_probability": f.findtext("./lop") or "0",
+                    "temperature": int(f.findtext("./temperature")),
+                    "icon_code": int(f.findtext("./iconCode")),
+                    "precip_probability": int(f.findtext("./lop") or "0"),
                 }
             )
