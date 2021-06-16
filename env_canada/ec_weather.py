@@ -16,97 +16,116 @@ LOG = logging.getLogger(__name__)
 conditions_meta = {
     "temperature": {
         "xpath": "./currentConditions/temperature",
+        "type": "float",
         "english": "Temperature",
         "french": "Température",
     },
     "dewpoint": {
         "xpath": "./currentConditions/dewpoint",
+        "type": "float",
         "english": "Dew Point",
         "french": "Point de rosée",
     },
     "wind_chill": {
         "xpath": "./currentConditions/windChill",
+        "type": "int",
         "english": "Wind Chill",
         "french": "Refroidissement éolien",
     },
     "humidex": {
         "xpath": "./currentConditions/humidex",
+        "type": "int",
         "english": "Humidex",
         "french": "Humidex",
     },
     "pressure": {
         "xpath": "./currentConditions/pressure",
+        "type": "float",
         "english": "Pressure",
         "french": "Pression",
     },
     "tendency": {
         "xpath": "./currentConditions/pressure",
         "attribute": "tendency",
+        "type": "str",
         "english": "Tendency",
         "french": "Tendance",
     },
     "humidity": {
         "xpath": "./currentConditions/relativeHumidity",
+        "type": "int",
         "english": "Humidity",
         "french": "Humidité",
     },
     "visibility": {
         "xpath": "./currentConditions/visibility",
+        "type": "float",
         "english": "Visibility",
         "french": "Visibilité",
     },
     "condition": {
         "xpath": "./currentConditions/condition",
+        "type": "str",
         "english": "Condition",
         "french": "Condition",
     },
     "wind_speed": {
         "xpath": "./currentConditions/wind/speed",
+        "type": "int",
         "english": "Wind Speed",
         "french": "Vitesse de vent",
     },
     "wind_gust": {
         "xpath": "./currentConditions/wind/gust",
+        "type": "int",
         "english": "Wind Gust",
         "french": "Rafale de vent",
     },
     "wind_dir": {
         "xpath": "./currentConditions/wind/direction",
+        "type": "str",
         "english": "Wind Direction",
         "french": "Direction de vent",
     },
     "wind_bearing": {
         "xpath": "./currentConditions/wind/bearing",
+        "type": "float",
         "english": "Wind Bearing",
         "french": "Palier de vent",
     },
     "high_temp": {
         "xpath": './forecastGroup/forecast/temperatures/temperature[@class="high"]',
+        "type": "int",
         "english": "High Temperature",
         "french": "Haute température",
     },
     "low_temp": {
         "xpath": './forecastGroup/forecast/temperatures/temperature[@class="low"]',
+        "type": "int",
         "english": "Low Temperature",
         "french": "Basse température",
     },
     "uv_index": {
         "xpath": "./forecastGroup/forecast/uv/index",
+        "type": "int",
         "english": "UV Index",
         "french": "Indice UV",
     },
     "pop": {
         "xpath": "./forecastGroup/forecast/abbreviatedForecast/pop",
+        "type": "int",
         "english": "Chance of Precip.",
         "french": "Probabilité d'averses",
     },
     "icon_code": {
         "xpath": "./currentConditions/iconCode",
+        "type": "str",
         "english": "Icon Code",
         "french": "Code icône",
     },
     "precip_yesterday": {
         "xpath": "./yesterdayConditions/precip",
+        "type": "float",
         "english": "Precipitation Yesterday",
         "french": "Précipitation d'hier",
     },
@@ -115,9 +134,10 @@ conditions_meta = {
 summary_meta = {
     "forecast_period": {
         "xpath": "./forecastGroup/forecast/period",
+        "type": "str",
         "attribute": "textForecastName",
     },
-    "text_summary": {"xpath": "./forecastGroup/forecast/textSummary"},
+    "text_summary": {"xpath": "./forecastGroup/forecast/textSummary", "type": "str"},
     "label": {"english": "Forecast", "french": "Prévision"},
 }
 
@@ -244,11 +264,19 @@ class ECWeather(object):
 
             element = weather_tree.find(meta["xpath"])
 
-            if element is not None:
+            if element is None or element.text is None:
+                condition["value"] = None
+            else:
                 if meta.get("attribute"):
                     condition["value"] = element.attrib.get(meta["attribute"])
                 else:
-                    condition["value"] = element.text
+                    if meta["type"] == "int":
+                        condition["value"] = int(element.text)
+                    elif meta["type"] == "float":
+                        condition["value"] = float(element.text)
+                    else:
+                        condition["value"] = element.text
+
                     if element.attrib.get("units"):
                         condition["unit"] = element.attrib.get("units")
             return condition
@@ -296,7 +324,7 @@ class ECWeather(object):
                 {
                     "period": f.findtext("period"),
                     "text_summary": f.findtext("textSummary"),
-                    "icon_code": int(f.findtext("./abbreviatedForecast/iconCode")),
+                    "icon_code": f.findtext("./abbreviatedForecast/iconCode"),
                     "temperature": int(f.findtext("./temperatures/temperature")),
                     "temperature_class": f.find(
                         "./temperatures/temperature"
@@ -314,7 +342,7 @@ class ECWeather(object):
                     "period": parse_timestamp(f.attrib.get("dateTimeUTC")),
                     "condition": f.findtext("./condition"),
                     "temperature": int(f.findtext("./temperature")),
-                    "icon_code": int(f.findtext("./iconCode")),
+                    "icon_code": f.findtext("./iconCode"),
                     "precip_probability": int(f.findtext("./lop") or "0"),
                 }
             )
