@@ -9,6 +9,7 @@ setuptools.setup(
     author="Michael Davie",
     author_email="michael.davie@gmail.com",
     description="A package to access meteorological data from Environment Canada",
+    license="MIT",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/michaeldavie/env_canada",
