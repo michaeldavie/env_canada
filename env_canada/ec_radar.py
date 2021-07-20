@@ -118,8 +118,8 @@ class ECRadar(object):
 
         self.base_bytes = None
 
+        self.legend = legend
         if legend:
-            self.legend = True
             self.legend_image = None
             self.legend_position = None
 
