@@ -106,30 +106,29 @@ class ECRadar(object):
 
         # Get map parameters
 
+        self.width = width
+        self.height = height
         self.bbox = compute_bounding_box(radius, coordinates[0], coordinates[1])
         self.map_params = {
             "bbox": ",".join([str(coord) for coord in self.bbox]),
-            "width": width,
-            "height": height,
+            "width": self.width,
+            "height": self.height,
         }
-
-        self.width = width
-        self.height = height
-
         self.base_bytes = None
+        self.radar_opacity = radar_opacity
 
-        if legend:
-            self.legend = True
+        # Get overlay parameters
+
+        self.show_legend = legend
+        if self.show_legend:
             self.legend_image = None
             self.legend_position = None
 
-        if timestamp:
+        self.show_timestamp = timestamp
+        if self.show_timestamp:
             self.font = ImageFont.load(
                 os.path.join(os.path.dirname(__file__), "10x20.pil")
             )
-            self.timestamp = datetime.datetime.now()
-
-        self.radar_opacity = radar_opacity
 
     async def _get_basemap(self):
         """Fetch the background map image."""
@@ -193,14 +192,14 @@ class ECRadar(object):
 
         # Add legend
 
-        if self.legend:
+        if self.show_legend:
             if not self.legend_image:
                 await self._get_legend()
             frame.paste(self.legend_image, self.legend_position)
 
         # Add timestamp
 
-        if self.timestamp:
+        if self.show_timestamp:
             timestamp = (
                 self.precip_type.title()
                 + " @ "

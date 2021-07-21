@@ -11,13 +11,15 @@ from env_canada import ec_radar, ECRadar
 @pytest.mark.parametrize(
     "init_parameters",
     [
-        {"coordinates": (50, -100), "precip_type": "snow"},
-        {"coordinates": (50, -100), "precip_type": "rain"},
+        {"coordinates": (50, -100), "precip_type": "snow", "legend": False},
+        {"coordinates": (50, -100), "precip_type": "rain", "timestamp": False},
     ],
 )
 def test_ecradar(init_parameters):
     radar = ECRadar(**init_parameters)
-    assert isinstance(radar, ECRadar)
+    frame = asyncio.run(radar.get_latest_frame())
+    image = Image.open(BytesIO(frame))
+    assert image.format == "PNG"
 
 
 @pytest.fixture
