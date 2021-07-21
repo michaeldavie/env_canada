@@ -272,8 +272,13 @@ class ECWeather(object):
                 else:
                     if meta["type"] == "int":
                         condition["value"] = int(element.text)
+
                     elif meta["type"] == "float":
-                        condition["value"] = float(element.text)
+                        if element.text == "Trace":
+                            condition["value"] = float(0)
+                        else:
+                            condition["value"] = float(element.text)
+
                     else:
                         condition["value"] = element.text
 
