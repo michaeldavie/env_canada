@@ -80,6 +80,44 @@ asyncio.run(hydro_coords.update())
 hydro_coords.measurements
 ```
 
+## Historical Weather Data
+
+`ECHistorical` provides historical daily weather data. The ECHistorical object is instantiated with a station ID, year, language, and format (one of xml or csv). Once updated asynchronously, historical weather data is contained with the `station_data` property. If `xml` is requested, `station_data` will appear in a dictionary form. If `csv` is requested, `station_data` will contain a CSV-readable buffer. For example:
+
+```python
+import asyncio
+
+from env_canada import ECHistorical, get_historical_stations
+
+# search for stations, response contains station_ids
+coordinates = [53.916944, -122.749444] # [lat, long]
+
+# coordinates: [lat, long]
+# radius: km
+# limit: response limit, value one of [10, 25, 50, 100]
+# The result contains station names and ID values.
+stations = asyncio.run(get_historical_stations(coordinates, radius=200, limit=100))
+
+ec_en_xml = ECHistorical(station_id=31688, year=2020, language="english", format="xml")
+ec_fr_xml = ECHistorical(station_id=31688, year=2020, language="french", format="xml")
+ec_en_csv = ECHistorical(station_id=31688, year=2020, language="english", format="csv")
+ec_fr_csv = ECHistorical(station_id=31688, year=2020, language="french", format="csv")
+
+asyncio.run(ec_en_xml.update())
+asyncio.run(ec_en_csv.update())
+
+# metadata describing the station
+ec_en_xml.metadata
+
+# historical weather data, in dictionary form
+ec_en_xml.station_data
+
+# csv-generated responses return csv-like station data
+import pandas as pd
+df = pd.read_csv(ec_en_csv.station_data)
+
+```
+
 # License
 
 The code is available under terms of [MIT License](LICENSE.md)

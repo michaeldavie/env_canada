@@ -1,5 +1,6 @@
 aiohttp
 geopy
 imageio
+lxml
 Pillow
 python-dateutil
