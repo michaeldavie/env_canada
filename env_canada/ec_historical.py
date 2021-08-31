@@ -1,13 +1,13 @@
 import copy
 import csv
+from io import StringIO
 import logging
 import xml.etree.ElementTree as et
-import lxml.html
 
 from aiohttp import ClientSession
 from dateutil import parser, tz
+import lxml.html
 
-from io import StringIO
 
 STATIONS_URL = "https://climate.weather.gc.ca/historical_data/search_historic_data_stations_{}.html"
 
@@ -112,7 +112,9 @@ def parse_timestamp(t):
     return parser.parse(t).replace(tzinfo=tz.UTC)
 
 
-async def get_historical_stations(coordinates, radius=25, start_year=1840, end_year=2021, limit=25, language="english"):
+async def get_historical_stations(
+    coordinates, radius=25, start_year=1840, end_year=2021, limit=25, language="english"
+):
     """Get list of all historical stations from Environment Canada"""
     lat, lng = coordinates
     params = {
@@ -147,18 +149,36 @@ async def get_historical_stations(coordinates, radius=25, start_year=1840, end_y
 
         station_html = result.decode("utf-8")
         station_tree = lxml.html.fromstring(station_html)
-        station_req_forms = station_tree.xpath("//form[starts-with(@id, 'stnRequest') and '-sm' = substring(@id, string-length(@id) - string-length('-sm') +1)]")
-        
+        station_req_forms = station_tree.xpath(
+            "//form[starts-with(@id, 'stnRequest') and '-sm' = substring(@id, string-length(@id) - string-length('-sm') +1)]"
+        )
+
         stations = {}
         for station_req_form in station_req_forms:
             station = {}
-            station_name = station_req_form.xpath('.//div[@class="col-md-10 col-sm-8 col-xs-8"]')[0].text
-            station["prov"] = station_req_form.xpath('.//div[@class="col-md-10 col-sm-8 col-xs-8"]')[1].text
-            station["proximity"] = float(station_req_form.xpath('.//div[@class="col-md-10 col-sm-8 col-xs-8"]')[2].text)
-            station["id"] = station_req_form.find("input[@name='StationID']").attrib.get("value")
-            station["hlyRange"] = station_req_form.find("input[@name='hlyRange']").attrib.get("value")
-            station["dlyRange"] = station_req_form.find("input[@name='dlyRange']").attrib.get("value")
-            station["mlyRange"] = station_req_form.find("input[@name='mlyRange']").attrib.get("value")
+            station_name = station_req_form.xpath(
+                './/div[@class="col-md-10 col-sm-8 col-xs-8"]'
+            )[0].text
+            station["prov"] = station_req_form.xpath(
+                './/div[@class="col-md-10 col-sm-8 col-xs-8"]'
+            )[1].text
+            station["proximity"] = float(
+                station_req_form.xpath('.//div[@class="col-md-10 col-sm-8 col-xs-8"]')[
+                    2
+                ].text
+            )
+            station["id"] = station_req_form.find(
+                "input[@name='StationID']"
+            ).attrib.get("value")
+            station["hlyRange"] = station_req_form.find(
+                "input[@name='hlyRange']"
+            ).attrib.get("value")
+            station["dlyRange"] = station_req_form.find(
+                "input[@name='dlyRange']"
+            ).attrib.get("value")
+            station["mlyRange"] = station_req_form.find(
+                "input[@name='mlyRange']"
+            ).attrib.get("value")
             stations[station_name] = station
 
         return stations
@@ -176,7 +196,7 @@ class ECHistorical(object):
         self.format = format
         self.timeframe = 2
         self.submit = "Download+Data"
-        
+
         self.metadata = {}
         self.station_data = {}
 
@@ -188,7 +208,7 @@ class ECHistorical(object):
             "Year": self.year,
             "format": self.format,
             "timeframe": self.timeframe,
-            "submit": self.submit
+            "submit": self.submit,
         }
 
         # Get historical weather data
@@ -204,8 +224,8 @@ class ECHistorical(object):
 
                 self.station_data = copy.deepcopy(f)
 
-                reader = csv.reader(f, delimiter=',')
-                
+                reader = csv.reader(f, delimiter=",")
+
                 # headers
                 next(reader)
 
@@ -216,9 +236,9 @@ class ECHistorical(object):
                     "longitude": firstrow[0],
                     "latitude": firstrow[1],
                     "name": firstrow[2],
-                    "climate_identifier": firstrow[3]
+                    "climate_identifier": firstrow[3],
                 }
-                
+
             else:
                 result = await response.read()
 
@@ -248,7 +268,9 @@ class ECHistorical(object):
                             if meta["type"] == "int":
                                 stationdata["value"] = int(element.text)
                             elif meta["type"] == "float":
-                                stationdata["value"] = float(element.text.replace(",", "."))
+                                stationdata["value"] = float(
+                                    element.text.replace(",", ".")
+                                )
                             else:
                                 stationdata["value"] = element.text
 
@@ -264,10 +286,12 @@ class ECHistorical(object):
                     month = stationdata_element.attrib.get("month")
                     year = stationdata_element.attrib.get("year")
                     dt = parse_timestamp(f"{year}-{month}-{day}").date()
-                    
+
                     cur_station_data = {}
-                    
+
                     for s, meta in stationdata_meta.items():
-                        cur_station_data[s] = get_stationdata(meta, stationdata_element, self.language)
+                        cur_station_data[s] = get_stationdata(
+                            meta, stationdata_element, self.language
+                        )
 
                     self.station_data[str(dt)] = cur_station_data
