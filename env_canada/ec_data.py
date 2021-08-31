@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import logging
 import re
 import xml.etree.ElementTree as et
@@ -9,7 +10,7 @@ import requests
 SITE_LIST_URL = "https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv"
 AQHI_SITE_LIST_URL = "https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml"
 
-WEATHER_URL = "https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml"
+WEATHER_URL = "https://hpfx.collab.science.gc.ca/{date}/WXO-DD/citypage_weather/xml/{site}_{language}.xml"
 AQHI_OBSERVATION_URL = "https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml"
 AQHI_FORECAST_URL = "https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml"
 
@@ -211,7 +212,11 @@ class ECData(object):
         """Get the latest data from Environment Canada."""
         try:
             weather_result = requests.get(
-                WEATHER_URL.format(self.station_id, self.language[0]), timeout=10
+                WEATHER_URL.format(
+                    date=datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
+                    site=self.station_id,
+                    language=self.language[0],
+                ),
             )
         except requests.exceptions.RequestException as e:
             LOG.warning("Unable to retrieve weather forecast: %s", e)
