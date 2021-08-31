@@ -1,4 +1,5 @@
 import csv
+from datetime import datetime, timezone
 import logging
 import re
 import xml.etree.ElementTree as et
@@ -9,7 +10,7 @@ from geopy import distance
 
 SITE_LIST_URL = "https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv"
 
-WEATHER_URL = "https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml"
+WEATHER_URL = "https://hpfx.collab.science.gc.ca/{date}/WXO-DD/citypage_weather/xml/{site}_{language}.xml"
 
 LOG = logging.getLogger(__name__)
 
@@ -242,7 +243,12 @@ class ECWeather(object):
 
         async with ClientSession() as session:
             response = await session.get(
-                WEATHER_URL.format(self.station_id, self.language[0]), timeout=10
+                WEATHER_URL.format(
+                    date=datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
+                    site=self.station_id,
+                    language=self.language[0],
+                ),
+                timeout=10,
             )
             result = await response.read()
         weather_xml = result.decode("iso-8859-1")
