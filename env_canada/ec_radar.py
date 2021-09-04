@@ -9,6 +9,7 @@ import xml.etree.ElementTree as et
 from aiohttp import ClientSession
 import dateutil.parser
 import imageio
+import voluptuous as vol
 
 # Natural Resources Canada
 
@@ -80,23 +81,33 @@ def compute_bounding_box(distance, latittude, longitude):
 
 
 class ECRadar(object):
-    def __init__(
-        self,
-        coordinates=None,
-        radius=200,
-        precip_type=None,
-        width=800,
-        height=800,
-        legend=True,
-        timestamp=True,
-        radar_opacity=65,
-    ):
+    def __init__(self, **kwargs):
         """Initialize the radar object."""
+
+        init_schema = vol.Schema(
+            {
+                vol.Required("coordinates"): (
+                    vol.All(vol.Or(int, float), vol.Range(-90, 90)),
+                    vol.All(vol.Or(int, float), vol.Range(-180, 180)),
+                ),
+                vol.Required("radius", default=200): vol.All(int, vol.Range(min=10)),
+                vol.Required("width", default=800): vol.All(int, vol.Range(min=10)),
+                vol.Required("height", default=800): vol.All(int, vol.Range(min=10)),
+                vol.Required("legend", default=True): bool,
+                vol.Required("timestamp", default=True): bool,
+                vol.Required("radar_opacity", default=65): vol.All(
+                    int, vol.Range(0, 100)
+                ),
+                vol.Optional("precip_type"): vol.In(["rain", "snow"]),
+            }
+        )
+
+        kwargs = init_schema(kwargs)
 
         # Set precipitation type
 
-        if precip_type:
-            self.precip_type = precip_type.lower()
+        if "precip_type" in kwargs:
+            self.precip_type = kwargs["precip_type"]
         elif datetime.date.today().month in range(4, 11):
             self.precip_type = "rain"
         else:
@@ -106,25 +117,25 @@ class ECRadar(object):
 
         # Get map parameters
 
-        self.width = width
-        self.height = height
-        self.bbox = compute_bounding_box(radius, coordinates[0], coordinates[1])
+        self.width = kwargs["width"]
+        self.height = kwargs["height"]
+        self.bbox = compute_bounding_box(kwargs["radius"], *kwargs["coordinates"])
         self.map_params = {
             "bbox": ",".join([str(coord) for coord in self.bbox]),
             "width": self.width,
             "height": self.height,
         }
         self.base_bytes = None
-        self.radar_opacity = radar_opacity
+        self.radar_opacity = kwargs["radar_opacity"]
 
         # Get overlay parameters
 
-        self.show_legend = legend
+        self.show_legend = kwargs["legend"]
         if self.show_legend:
             self.legend_image = None
             self.legend_position = None
 
-        self.show_timestamp = timestamp
+        self.show_timestamp = kwargs["timestamp"]
         if self.show_timestamp:
             self.font = ImageFont.load(
                 os.path.join(os.path.dirname(__file__), "10x20.pil")
@@ -133,7 +144,7 @@ class ECRadar(object):
     async def _get_basemap(self):
         """Fetch the background map image."""
         basemap_params.update(self.map_params)
-        async with ClientSession() as session:
+        async with ClientSession(raise_for_status=True) as session:
             response = await session.get(url=basemap_url, params=basemap_params)
             self.base_bytes = await response.read()
 
@@ -142,7 +153,7 @@ class ECRadar(object):
         legend_params.update(
             dict(layer=self.layer, style=legend_style[self.precip_type])
         )
-        async with ClientSession() as session:
+        async with ClientSession(raise_for_status=True) as session:
             response = await session.get(url=geomet_url, params=legend_params)
             legend_bytes = await response.read()
         self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
@@ -153,7 +164,7 @@ class ECRadar(object):
         """Get time range of available data."""
         capabilities_params["layer"] = self.layer
 
-        async with ClientSession() as session:
+        async with ClientSession(raise_for_status=True) as session:
             response = await session.get(url=geomet_url, params=capabilities_params)
             capabilities_xml = await response.text()
 
@@ -234,7 +245,7 @@ class ECRadar(object):
         """Get the latest image from Environment Canada."""
         dimensions = await self._get_dimensions()
         latest = dimensions[1]
-        async with ClientSession() as session:
+        async with ClientSession(raise_for_status=True) as session:
             frame = await self._get_radar_image(session=session, frame_time=latest)
         return await self._combine_layers(frame, latest)
 
@@ -255,7 +266,7 @@ class ECRadar(object):
         """Fetch frames."""
 
         tasks = []
-        async with ClientSession() as session:
+        async with ClientSession(raise_for_status=True) as session:
             for t in frame_times:
                 tasks.append(self._get_radar_image(session=session, frame_time=t))
             radar_layers = await asyncio.gather(*tasks)

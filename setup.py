@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="env_canada",
-    version="0.5.1",
+    version="0.5.2",
     author="Michael Davie",
     author_email="michael.davie@gmail.com",
     description="A package to access meteorological data from Environment Canada",
@@ -22,6 +22,7 @@ setuptools.setup(
         "lxml",
         "Pillow",
         "python-dateutil",
+        "voluptuous",
     ],
     classifiers=(
         "Programming Language :: Python :: 3",

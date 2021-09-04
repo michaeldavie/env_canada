@@ -4,6 +4,7 @@ import xml.etree.ElementTree as et
 
 from aiohttp import ClientSession
 from geopy import distance
+import voluptuous as vol
 
 AQHI_SITE_LIST_URL = "https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml"
 AQHI_OBSERVATION_URL = "https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml"
@@ -24,7 +25,7 @@ async def get_aqhi_regions(language):
     region_name_tag = "name%s" % language.title()
 
     regions = []
-    async with ClientSession() as session:
+    async with ClientSession(raise_for_status=True) as session:
         response = await session.get(AQHI_SITE_LIST_URL, timeout=10)
         result = await response.read()
 
@@ -69,17 +70,47 @@ class ECAirQuality(object):
 
     """Get air quality data from Environment Canada."""
 
-    def __init__(self, zone_id=None, region_id=None, coordinates=None, language="EN"):
+    def __init__(self, **kwargs):
         """Initialize the data object."""
-        self.language = language.upper()
 
-        if zone_id and region_id:
-            self.zone_id = zone_id
-            self.region_id = region_id.upper()
+        init_schema = vol.Schema(
+            vol.All(
+                vol.Any(
+                    {
+                        vol.Required("coordinates"): object,
+                        vol.Optional("language"): object,
+                    },
+                    {
+                        vol.Required("zone_id"): object,
+                        vol.Required("region_id"): object,
+                        vol.Optional("language"): object,
+                    },
+                ),
+                {
+                    vol.Optional("zone_id"): vol.In(
+                        ["atl", "ont", "pnr", "pyr", "que"]
+                    ),
+                    vol.Optional("region_id"): vol.All(str, vol.Length(5)),
+                    vol.Optional("coordinates"): (
+                        vol.All(vol.Or(int, float), vol.Range(-90, 90)),
+                        vol.All(vol.Or(int, float), vol.Range(-180, 180)),
+                    ),
+                    vol.Optional("language", default="EN"): vol.In(["EN", "FR"]),
+                },
+            )
+        )
+
+        kwargs = init_schema(kwargs)
+
+        self.language = kwargs["language"]
+
+        if "zone_id" in kwargs and "region_id" in kwargs:
+            self.zone_id = kwargs["zone_id"]
+            self.region_id = kwargs["region_id"].upper()
         else:
             self.zone_id = None
             self.region_id = None
-            self.coordinates = coordinates
+            self.coordinates = kwargs["coordinates"]
 
         self.region_name = None
         self.current = None
@@ -87,7 +118,7 @@ class ECAirQuality(object):
         self.forecasts = dict(daily={}, hourly={})
 
     async def get_aqhi_data(self, url):
-        async with ClientSession() as session:
+        async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
                 url.format(self.zone_id, self.region_id), timeout=10
             )
@@ -114,7 +145,9 @@ class ECAirQuality(object):
         if aqhi_current:
             # Update region name
             element = aqhi_current.find("region")
-            self.region_name = element.attrib["name{lang}".format(lang=self.language.title())]
+            self.region_name = element.attrib[
+                "name{lang}".format(lang=self.language.title())
+            ]
 
             # Update AQHI current condition
             element = aqhi_current.find("airQualityHealthIndex")
@@ -138,10 +171,12 @@ class ECAirQuality(object):
                 for p in f.findall("./period"):
                     if self.language == p.attrib["lang"]:
                         period = p.attrib["forecastName"]
-                self.forecasts["daily"][period] = int(f.findtext("./airQualityHealthIndex"))
+                self.forecasts["daily"][period] = int(
+                    f.findtext("./airQualityHealthIndex")
+                )
 
             # Update AQHI hourly forecasts
             for f in aqhi_forecast.findall("./hourlyForecastGroup/hourlyForecast"):
-                self.forecasts["hourly"][timestamp_to_datetime(f.attrib["UTCTime"])] = int(
-                    f.text
-                )
+                self.forecasts["hourly"][
+                    timestamp_to_datetime(f.attrib["UTCTime"])
+                ] = int(f.text)

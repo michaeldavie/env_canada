@@ -1,5 +1,6 @@
 import copy
 import csv
+from datetime import datetime
 from io import StringIO
 import logging
 import xml.etree.ElementTree as et
@@ -7,6 +8,7 @@ import xml.etree.ElementTree as et
 from aiohttp import ClientSession
 from dateutil import parser, tz
 import lxml.html
+import voluptuous as vol
 
 
 STATIONS_URL = "https://climate.weather.gc.ca/historical_data/search_historic_data_stations_{}.html"
@@ -113,7 +115,12 @@ def parse_timestamp(t):
 
 
 async def get_historical_stations(
-    coordinates, radius=25, start_year=1840, end_year=2021, limit=25, language="english"
+    coordinates,
+    radius=25,
+    start_year=1840,
+    end_year=datetime.today().year,
+    limit=25,
+    language="english",
 ):
     """Get list of all historical stations from Environment Canada"""
     lat, lng = coordinates
@@ -141,7 +148,7 @@ async def get_historical_stations(
         "txtCentralLongSec": "",
     }
 
-    async with ClientSession() as session:
+    async with ClientSession(raise_for_status=True) as session:
         response = await session.get(
             STATIONS_URL.format(language[0]), params=params, timeout=10
         )
@@ -188,12 +195,28 @@ class ECHistorical(object):
 
     """Get historical weather data from Environment Canada."""
 
-    def __init__(self, station_id, year, language="english", format="xml"):
+    def __init__(self, **kwargs):
         """Initialize the data object."""
-        self.station_id = station_id
-        self.year = year
-        self.language = language
-        self.format = format
+
+        init_schema = vol.Schema(
+            {
+                vol.Required("station_id"): int,
+                vol.Required("year"): vol.All(
+                    int, vol.Range(1840, datetime.today().year)
+                ),
+                vol.Required("language", default="english"): vol.In(
+                    ["english", "french"]
+                ),
+                vol.Required("format", default="xml"): vol.In(["xml", "csv"]),
+            }
+        )
+
+        kwargs = init_schema(kwargs)
+
+        self.station_id = kwargs["station_id"]
+        self.year = kwargs["year"]
+        self.language = kwargs["language"]
+        self.format = kwargs["format"]
         self.timeframe = 2
         self.submit = "Download+Data"
 
@@ -213,7 +236,7 @@ class ECHistorical(object):
 
         # Get historical weather data
 
-        async with ClientSession() as session:
+        async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
                 WEATHER_URL.format(self.language[0]), params=params, timeout=10
             )

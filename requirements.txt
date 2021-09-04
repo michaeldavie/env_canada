@@ -4,3 +4,4 @@ imageio
 lxml
 Pillow
 python-dateutil
+voluptuous

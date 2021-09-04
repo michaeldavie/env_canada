@@ -1,12 +1,14 @@
 import csv
+from datetime import datetime, timezone
 import io
 
 from aiohttp import ClientSession
 from dateutil.parser import isoparse
 from geopy import distance
+import voluptuous as vol
 
 SITE_LIST_URL = "https://dd.weather.gc.ca/hydrometric/doc/hydrometric_StationList.csv"
-READINGS_URL = "https://dd.weather.gc.ca/hydrometric/csv/{prov}/hourly/{prov}_{station}_hourly_hydrometric.csv"
+READINGS_URL = "https://hpfx.collab.science.gc.ca/{date}/WXO-DD/hydrometric/csv/{prov}/hourly/{prov}_{station}_hourly_hydrometric.csv"
 
 
 async def get_hydro_sites():
@@ -14,7 +16,7 @@ async def get_hydro_sites():
 
     sites = []
 
-    async with ClientSession() as session:
+    async with ClientSession(raise_for_status=True) as session:
         response = await session.get(SITE_LIST_URL, timeout=10)
         result = await response.read()
     sites_csv_string = result.decode("utf-8-sig")
@@ -48,19 +50,44 @@ class ECHydro(object):
 
     """Get hydrometric data from Environment Canada."""
 
-    def __init__(self, province=None, station=None, coordinates=None):
+    def __init__(self, **kwargs):
         """Initialize the data object."""
+
+        init_schema = vol.Schema(
+            vol.All(
+                vol.Any(
+                    {
+                        vol.Required("coordinates"): object,
+                    },
+                    {
+                        vol.Required("province"): object,
+                        vol.Required("station"): object,
+                    },
+                ),
+                {
+                    vol.Optional("province"): vol.All(str, vol.Length(2)),
+                    vol.Optional("station"): vol.All(str, vol.Length(7)),
+                    vol.Optional("coordinates"): (
+                        vol.All(vol.Or(int, float), vol.Range(-90, 90)),
+                        vol.All(vol.Or(int, float), vol.Range(-180, 180)),
+                    ),
+                },
+            )
+        )
+
+        kwargs = init_schema(kwargs)
+
         self.measurements = {}
         self.timestamp = None
         self.location = None
 
-        if province and station:
-            self.province = province
-            self.station = station
-        elif coordinates:
+        if "province" in kwargs and "station" in kwargs:
+            self.province = kwargs["province"]
+            self.station = kwargs["station"]
+        else:
             self.province = None
             self.station = None
-            self.coordinates = coordinates
+            self.coordinates = kwargs["coordinates"]
 
     async def update(self):
         """Get the latest data from Environment Canada."""
@@ -75,9 +102,13 @@ class ECHydro(object):
 
         # Get hydrometric data
 
-        async with ClientSession() as session:
+        async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
-                READINGS_URL.format(prov=self.province, station=self.station),
+                READINGS_URL.format(
+                    date=datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
+                    prov=self.province,
+                    station=self.station,
+                ),
                 timeout=10,
             )
             result = await response.read()

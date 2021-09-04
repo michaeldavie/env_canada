@@ -7,6 +7,7 @@ import xml.etree.ElementTree as et
 from aiohttp import ClientSession
 from dateutil import parser, tz
 from geopy import distance
+import voluptuous as vol
 
 SITE_LIST_URL = "https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv"
 
@@ -175,6 +176,15 @@ metadata_meta = {
 }
 
 
+def validate_station(station):
+    """Check that the station ID is well-formed."""
+    if station is None:
+        return
+    if not re.fullmatch(r"[A-Z]{2}/s0000\d{3}", station):
+        raise vol.error.Invalid('Station ID must be of the form "XX/s0000###"')
+    return station
+
+
 def parse_timestamp(t):
     return parser.parse(t).replace(tzinfo=tz.UTC)
 
@@ -183,7 +193,7 @@ async def get_ec_sites():
     """Get list of all sites from Environment Canada, for auto-config."""
     sites = []
 
-    async with ClientSession() as session:
+    async with ClientSession(raise_for_status=True) as session:
         response = await session.get(SITE_LIST_URL, timeout=10)
         sites_csv_string = await response.text()
 
@@ -215,9 +225,34 @@ class ECWeather(object):
 
     """Get weather data from Environment Canada."""
 
-    def __init__(self, station_id=None, coordinates=None, language="english"):
+    def __init__(self, **kwargs):
         """Initialize the data object."""
-        self.language = language
+
+        init_schema = vol.Schema(
+            vol.All(
+                {
+                    vol.Required(
+                        vol.Any("station_id", "coordinates"),
+                        msg="Must specify either 'station_id' or 'coordinates'",
+                    ): object,
+                    vol.Optional("language"): object,
+                },
+                {
+                    vol.Optional("station_id"): validate_station,
+                    vol.Optional("coordinates"): (
+                        vol.All(vol.Or(int, float), vol.Range(-90, 90)),
+                        vol.All(vol.Or(int, float), vol.Range(-180, 180)),
+                    ),
+                    vol.Optional("language", default="english"): vol.In(
+                        ["english", "french"]
+                    ),
+                },
+            )
+        )
+
+        kwargs = init_schema(kwargs)
+
+        self.language = kwargs["language"]
         self.metadata = {}
         self.conditions = {}
         self.alerts = {}
@@ -225,11 +260,11 @@ class ECWeather(object):
         self.hourly_forecasts = []
         self.forecast_time = ""
 
-        if station_id:
-            self.station_id = station_id
-        elif coordinates:
+        if "station_id" in kwargs:
+            self.station_id = kwargs["station_id"]
+        else:
             self.station_id = None
-            self.coordinates = coordinates
+            self.coordinates = kwargs["coordinates"]
 
     async def update(self):
         """Get the latest data from Environment Canada."""
@@ -241,7 +276,7 @@ class ECWeather(object):
 
         # Get weather data
 
-        async with ClientSession() as session:
+        async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
                 WEATHER_URL.format(
                     date=datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
