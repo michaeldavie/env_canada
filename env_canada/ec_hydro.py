@@ -81,7 +81,12 @@ class ECHydro(object):
         self.timestamp = None
         self.location = None
 
-        if "province" in kwargs and "station" in kwargs:
+        if (
+            "province" in kwargs
+            and "station" in kwargs
+            and kwargs["province"] is not None
+            and kwargs["station"] is not None
+        ):
             self.province = kwargs["province"]
             self.station = kwargs["station"]
         else:

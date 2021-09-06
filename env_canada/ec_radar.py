@@ -106,7 +106,7 @@ class ECRadar(object):
 
         # Set precipitation type
 
-        if "precip_type" in kwargs:
+        if "precip_type" in kwargs and kwargs["precip_type"] is not None:
             self.precip_type = kwargs["precip_type"]
         elif datetime.date.today().month in range(4, 11):
             self.precip_type = "rain"

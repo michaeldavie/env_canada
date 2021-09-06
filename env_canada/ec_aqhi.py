@@ -104,7 +104,12 @@ class ECAirQuality(object):
 
         self.language = kwargs["language"]
 
-        if "zone_id" in kwargs and "region_id" in kwargs:
+        if (
+            "zone_id" in kwargs
+            and "region_id" in kwargs
+            and kwargs["zone_id"] is not None
+            and kwargs["region_id"] is not None
+        ):
             self.zone_id = kwargs["zone_id"]
             self.region_id = kwargs["region_id"].upper()
         else:
