@@ -260,7 +260,7 @@ class ECWeather(object):
         self.hourly_forecasts = []
         self.forecast_time = ""
 
-        if "station_id" in kwargs:
+        if "station_id" in kwargs and kwargs["station_id"] is not None:
             self.station_id = kwargs["station_id"]
         else:
             self.station_id = None
