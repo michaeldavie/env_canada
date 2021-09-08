@@ -13,6 +13,8 @@ from env_canada import ec_radar, ECRadar
     [
         {"coordinates": (50, -100), "precip_type": "snow", "legend": False},
         {"coordinates": (50, -100), "precip_type": "rain", "timestamp": False},
+        {"coordinates": (50, -100)},
+        {"coordinates": (50, -100), "precip_type": None},
     ],
 )
 def test_ecradar(init_parameters):

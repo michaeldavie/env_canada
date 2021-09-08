@@ -98,7 +98,7 @@ class ECRadar(object):
                 vol.Required("radar_opacity", default=65): vol.All(
                     int, vol.Range(0, 100)
                 ),
-                vol.Optional("precip_type"): vol.In(["rain", "snow"]),
+                vol.Optional("precip_type"): vol.Any(None, vol.In(["rain", "snow"])),
             }
         )
 
