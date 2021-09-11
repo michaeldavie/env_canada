@@ -44,3 +44,8 @@ def test_get_loop(test_radar):
     loop = asyncio.run(test_radar.get_loop())
     image = Image.open(BytesIO(loop))
     assert image.format == "GIF" and image.is_animated
+
+
+def test_set_precip_type(test_radar):
+    test_radar.precip_type = "snow"
+    assert test_radar.precip_type == "snow"

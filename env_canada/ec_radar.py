@@ -141,6 +141,16 @@ class ECRadar(object):
                 os.path.join(os.path.dirname(__file__), "10x20.pil")
             )
 
+    @property
+    def precip_type(self):
+        return self._precip_type
+
+    @precip_type.setter
+    def precip_type(self, value):
+        if value not in ["rain", "snow"]:
+            raise ValueError("precip_type must be 'rain' or 'snow'")
+        self._precip_type = value
+
     async def _get_basemap(self):
         """Fetch the background map image."""
         basemap_params.update(self.map_params)
