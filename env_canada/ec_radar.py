@@ -108,12 +108,8 @@ class ECRadar(object):
 
         if "precip_type" in kwargs and kwargs["precip_type"] is not None:
             self.precip_type = kwargs["precip_type"]
-        elif datetime.date.today().month in range(4, 11):
-            self.precip_type = "rain"
         else:
-            self.precip_type = "snow"
-
-        self.layer = layer[self.precip_type]
+            self.precip_type = "auto"
 
         # Get map parameters
 
@@ -147,9 +143,17 @@ class ECRadar(object):
 
     @precip_type.setter
     def precip_type(self, value):
-        if value not in ["rain", "snow"]:
-            raise ValueError("precip_type must be 'rain' or 'snow'")
-        self._precip_type = value
+        if value not in ["rain", "snow", "auto"]:
+            raise ValueError("precip_type must be 'rain', 'snow', or 'auto'")
+
+        if value in ["rain", "snow"]:
+            self._precip_type = value
+        elif datetime.date.today().month in range(4, 11):
+            self.precip_type = "rain"
+        else:
+            self.precip_type = "snow"
+
+        self.layer = layer[self.precip_type]
 
     async def _get_basemap(self):
         """Fetch the background map image."""

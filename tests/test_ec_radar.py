@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, date
 from io import BytesIO
 from PIL import Image
 
@@ -47,5 +47,8 @@ def test_get_loop(test_radar):
 
 
 def test_set_precip_type(test_radar):
-    test_radar.precip_type = "snow"
-    assert test_radar.precip_type == "snow"
+    test_radar.precip_type = "auto"
+    if date.today().month in range(4, 11):
+        assert test_radar.precip_type == "rain"
+    else:
+        assert test_radar.precip_type == "snow"
