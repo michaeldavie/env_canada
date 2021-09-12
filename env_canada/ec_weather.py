@@ -312,7 +312,7 @@ class ECWeather(object):
                     condition["value"] = element.attrib.get(meta["attribute"])
                 else:
                     if meta["type"] == "int":
-                        condition["value"] = int(element.text)
+                        condition["value"] = int(float(element.text))
 
                     elif meta["type"] == "float":
                         if element.text == "Trace":
