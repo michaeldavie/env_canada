@@ -263,6 +263,9 @@ class ECRadar(object):
             frame = await self._get_radar_image(session=session, frame_time=latest)
         return await self._combine_layers(frame, latest)
 
+    async def update(self):
+        return await self.get_loop()
+
     async def get_loop(self, fps=5):
         """Build an animated GIF of recent radar images."""
 

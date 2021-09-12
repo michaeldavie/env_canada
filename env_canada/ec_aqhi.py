@@ -117,6 +117,7 @@ class ECAirQuality(object):
             self.region_id = None
             self.coordinates = kwargs["coordinates"]
 
+        self.metadata = {}
         self.region_name = None
         self.current = None
         self.current_timestamp = None
