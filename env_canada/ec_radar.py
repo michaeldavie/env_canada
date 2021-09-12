@@ -171,7 +171,7 @@ class ECRadar(object):
             response = await session.get(url=geomet_url, params=legend_params)
             legend_bytes = await response.read()
         self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
-        legend_width, legend_height = self.legend_image.size
+        legend_width = self.legend_image.size[0]
         self.legend_position = (self.width - legend_width, 0)
 
     async def _get_dimensions(self):
