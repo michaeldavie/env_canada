@@ -91,7 +91,7 @@ conditions_meta = {
     },
     "wind_bearing": {
         "xpath": "./currentConditions/wind/bearing",
-        "type": "float",
+        "type": "int",
         "english": "Wind Bearing",
         "french": "Palier de vent",
     },
