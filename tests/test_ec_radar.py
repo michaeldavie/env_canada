@@ -5,7 +5,7 @@ from PIL import Image
 
 import pytest
 
-from env_canada import ec_radar, ECRadar
+from env_canada import ECRadar
 
 
 @pytest.mark.parametrize(

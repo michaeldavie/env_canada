@@ -287,7 +287,11 @@ class ECWeather(object):
             )
             result = await response.read()
         weather_xml = result.decode("iso-8859-1")
-        weather_tree = et.fromstring(weather_xml)
+
+        try:
+            weather_tree = et.fromstring(weather_xml)
+        except et.ParseError:
+            raise ECWeatherUpdateFailed("Weather update failed")
 
         # Update metadata
         for m, meta in metadata_meta.items():
@@ -392,3 +396,7 @@ class ECWeather(object):
                     "precip_probability": int(f.findtext("./lop") or "0"),
                 }
             )
+
+
+class ECWeatherUpdateFailed(Exception):
+    """Raised when an update fails to get usable data."""
