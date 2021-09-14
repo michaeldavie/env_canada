@@ -154,6 +154,7 @@ class ECAirQuality(object):
             self.region_name = element.attrib[
                 "name{lang}".format(lang=self.language.title())
             ]
+            self.metadata["location"] = self.region_name
 
             # Update AQHI current condition
             element = aqhi_current.find("airQualityHealthIndex")
@@ -167,6 +168,7 @@ class ECAirQuality(object):
                 self.current_timestamp = timestamp_to_datetime(element.text)
             else:
                 self.current_timestamp = None
+            self.metadata["timestamp"] = self.current_timestamp
 
         # Update AQHI forecasts
         aqhi_forecast = await self.get_aqhi_data(url=AQHI_FORECAST_URL)
