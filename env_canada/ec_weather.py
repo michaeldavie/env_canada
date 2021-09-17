@@ -131,6 +131,18 @@ conditions_meta = {
         "english": "Precipitation Yesterday",
         "french": "Précipitation d'hier",
     },
+    "normal_high": {
+        "xpath": './forecastGroup/regionalNormals/temperature[@class="high"]',
+        "type": "int",
+        "english": "Normal High Temperature",
+        "french": "Haute température normale"
+    },
+    "normal_low": {
+        "xpath": './forecastGroup/regionalNormals/temperature[@class="low"]',
+        "type": "int",
+        "english": "Normal Low Temperature",
+        "french": "Basse température normale"
+    }
 }
 
 summary_meta = {
