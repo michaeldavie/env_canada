@@ -15,6 +15,11 @@ WEATHER_URL = "https://hpfx.collab.science.gc.ca/{date}/WXO-DD/citypage_weather/
 
 LOG = logging.getLogger(__name__)
 
+ATTRIBUTION = {
+    "english": "Data provided by Environment Canada",
+    "french": "Données fournies par Environnement Canada"
+}
+
 conditions_meta = {
     "temperature": {
         "xpath": "./currentConditions/temperature",
@@ -265,7 +270,7 @@ class ECWeather(object):
         kwargs = init_schema(kwargs)
 
         self.language = kwargs["language"]
-        self.metadata = {}
+        self.metadata = {"attribution": ATTRIBUTION[self.language]}
         self.conditions = {}
         self.alerts = {}
         self.daily_forecasts = []
