@@ -11,6 +11,11 @@ import dateutil.parser
 import imageio
 import voluptuous as vol
 
+ATTRIBUTION = {
+    "english": "Data provided by Environment Canada",
+    "french": "Données fournies par Environnement Canada",
+}
+
 # Natural Resources Canada
 
 basemap_url = "http://maps.geogratis.gc.ca/wms/CBMT"
@@ -52,6 +57,11 @@ legend_params = {
     "request": "GetLegendGraphic",
     "sld_version": "1.1.0",
     "format": "image/png",
+}
+
+timestamp_label = {
+    "rain": {"english": "Rain", "french": "Pluie"},
+    "snow": {"english": "Snow", "french": "Neige"},
 }
 
 
@@ -99,10 +109,15 @@ class ECRadar(object):
                     int, vol.Range(0, 100)
                 ),
                 vol.Optional("precip_type"): vol.Any(None, vol.In(["rain", "snow"])),
+                vol.Optional("language", default="english"): vol.In(
+                    ["english", "french"]
+                ),
             }
         )
 
         kwargs = init_schema(kwargs)
+        self.language = kwargs["language"]
+        self.metadata = {"attribution": ATTRIBUTION[self.language]}
 
         # Set precipitation type
 
@@ -226,7 +241,7 @@ class ECRadar(object):
 
         if self.show_timestamp:
             timestamp = (
-                self.precip_type.title()
+                timestamp_label[self.precip_type][self.language]
                 + " @ "
                 + frame_time.astimezone().strftime("%H:%M")
             )

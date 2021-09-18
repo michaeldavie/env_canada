@@ -12,6 +12,11 @@ AQHI_FORECAST_URL = "https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realt
 
 LOG = logging.getLogger(__name__)
 
+ATTRIBUTION = {
+    "EN": "Data provided by Environment Canada",
+    "FR": "Données fournies par Environnement Canada",
+}
+
 
 def timestamp_to_datetime(timestamp):
     dt = datetime.strptime(timestamp, "%Y%m%d%H%M%S")
@@ -117,7 +122,7 @@ class ECAirQuality(object):
             self.region_id = None
             self.coordinates = kwargs["coordinates"]
 
-        self.metadata = {}
+        self.metadata = {"attribution": ATTRIBUTION[self.language]}
         self.region_name = None
         self.current = None
         self.current_timestamp = None
