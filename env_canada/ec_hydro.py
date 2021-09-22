@@ -1,5 +1,4 @@
 import csv
-from datetime import datetime, timezone
 import io
 
 from aiohttp import ClientSession
@@ -8,7 +7,7 @@ from geopy import distance
 import voluptuous as vol
 
 SITE_LIST_URL = "https://dd.weather.gc.ca/hydrometric/doc/hydrometric_StationList.csv"
-READINGS_URL = "https://hpfx.collab.science.gc.ca/{date}/WXO-DD/hydrometric/csv/{prov}/hourly/{prov}_{station}_hourly_hydrometric.csv"
+READINGS_URL = "https://dd.weather.gc.ca/hydrometric/csv/{prov}/hourly/{prov}_{station}_hourly_hydrometric.csv"
 
 
 async def get_hydro_sites():
@@ -109,11 +108,7 @@ class ECHydro(object):
 
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
-                READINGS_URL.format(
-                    date=datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
-                    prov=self.province,
-                    station=self.station,
-                ),
+                READINGS_URL.format(prov=self.province, station=self.station),
                 timeout=10,
             )
             result = await response.read()
