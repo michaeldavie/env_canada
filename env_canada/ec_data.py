@@ -232,12 +232,12 @@ class ECData(object):
         self.aqhi = {}
         self.forecast_time = ''
         self.aqhi_id = None
+        self.lat = 0
+        self.lon = 0
 
         site_list = self.get_ec_sites()
         if station_id:
             self.station_id = station_id
-            self.lat = 0
-            self.lon = 0
             stn = station_id.split('/')
             if len(stn) == 2:
                 for site in site_list:
