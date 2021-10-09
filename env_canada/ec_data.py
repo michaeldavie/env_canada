@@ -183,7 +183,7 @@ class ECData(object):
 
     """Get weather data from Environment Canada."""
 
-    def __init__(self, station_id=None, coordinates=None, language="english"):
+    def __init__(self, station_id=None, coordinates=(0, 0), language="english"):
         """Initialize the data object."""
         self.language = language
         self.language_abr = language[:2].upper()
@@ -198,32 +198,58 @@ class ECData(object):
         self.aqhi = {}
         self.forecast_time = ""
         self.aqhi_id = None
+        self.lat = 0
+        self.lon = 0
 
+        site_list = self.get_ec_sites()
         if station_id:
             self.station_id = station_id
+            stn = station_id.split("/")
+            if len(stn) == 2:
+                for site in site_list:
+                    if stn[1] == site["Codes"] and stn[0] == site["Province Codes"]:
+                        self.lat = site["Latitude"]
+                        self.lon = site["Longitude"]
+                        break
         else:
-            self.station_id = self.closest_site(coordinates[0], coordinates[1])
+            self.station_id = self.closest_site(
+                site_list, coordinates[0], coordinates[1]
+            )
+            self.lat = coordinates[0]
+            self.lon = coordinates[1]
 
         self.update()
 
     @ignore_ratelimit_error
-    @limits(calls=2, period=60)
+    @limits(calls=5, period=120)
     def update(self):
         """Get the latest data from Environment Canada."""
+        url = WEATHER_URL.format(
+            date=datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
+            site=self.station_id,
+            language=self.language[0],
+        )
         try:
-            weather_result = requests.get(
-                WEATHER_URL.format(
-                    date=datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
-                    site=self.station_id,
-                    language=self.language[0],
-                ),
-            )
+            weather_result = requests.get(url)
+
         except requests.exceptions.RequestException as e:
             LOG.warning("Unable to retrieve weather forecast: %s", e)
             return
 
+        if weather_result.status_code != 200:
+            LOG.warning(
+                "Unable to retrieve weather forecast, status code: %d, url: %s",
+                weather_result.status_code,
+                url,
+            )
+            return
+
         weather_xml = weather_result.content.decode("iso-8859-1")
-        weather_tree = et.fromstring(weather_xml)
+        try:
+            weather_tree = et.fromstring(weather_xml)
+        except Exception as e:
+            LOG.warning("Unable to parse XML returned")
+            return
 
         # Update metadata
         for m, meta in metadata_meta.items():
@@ -417,9 +443,8 @@ class ECData(object):
 
         return sites
 
-    def closest_site(self, lat, lon):
+    def closest_site(self, site_list, lat, lon):
         """Return the province/site_code of the closest station to our lat/lon."""
-        site_list = self.get_ec_sites()
 
         def site_distance(site):
             """Calculate distance to a site."""
