@@ -218,10 +218,11 @@ class ECData(object):
             self.lat = coordinates[0]
             self.lon = coordinates[1]
 
+        print(f"Calling update {self.station_id}")
         self.update()
 
     @ignore_ratelimit_error
-    @limits(calls=3, period=90)
+    @limits(calls=5, period=120)
     def update(self):
         """Get the latest data from Environment Canada."""
         url = WEATHER_URL.format(
@@ -229,6 +230,7 @@ class ECData(object):
             site=self.station_id,
             language=self.language[0],
         )
+        print(f"Update: {url}")
         try:
             weather_result = requests.get(url)
 
