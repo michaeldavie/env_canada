@@ -218,7 +218,6 @@ class ECData(object):
             self.lat = coordinates[0]
             self.lon = coordinates[1]
 
-        print(f"Calling update {self.station_id}")
         self.update()
 
     @ignore_ratelimit_error
@@ -230,7 +229,6 @@ class ECData(object):
             site=self.station_id,
             language=self.language[0],
         )
-        print(f"Update: {url}")
         try:
             weather_result = requests.get(url)
 
