@@ -128,6 +128,7 @@ class ECRadar(object):
 
         # Get map parameters
 
+        self.image = None
         self.width = kwargs["width"]
         self.height = kwargs["height"]
         self.bbox = compute_bounding_box(kwargs["radius"], *kwargs["coordinates"])
@@ -279,7 +280,7 @@ class ECRadar(object):
         return await self._combine_layers(frame, latest)
 
     async def update(self):
-        return await self.get_loop()
+        self.image = await self.get_loop()
 
     async def get_loop(self, fps=5):
         """Build an animated GIF of recent radar images."""

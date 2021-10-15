@@ -8,6 +8,8 @@ from dateutil import parser, tz
 from geopy import distance
 import voluptuous as vol
 
+from . import ec_exc
+
 SITE_LIST_URL = "https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv"
 
 WEATHER_URL = "https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml"
@@ -224,9 +226,8 @@ async def get_ec_sites():
     return sites
 
 
-async def closest_site(lat, lon):
+def closest_site(site_list, lat, lon):
     """Return the province/site_code of the closest station to our lat/lon."""
-    site_list = await get_ec_sites()
 
     def site_distance(site):
         """Calculate distance to a site."""
@@ -278,17 +279,32 @@ class ECWeather(object):
 
         if "station_id" in kwargs and kwargs["station_id"] is not None:
             self.station_id = kwargs["station_id"]
+            self.lat = None
+            self.lon = None
         else:
             self.station_id = None
-            self.coordinates = kwargs["coordinates"]
+            self.lat = kwargs["coordinates"][0]
+            self.lon = kwargs["coordinates"][1]
 
     async def update(self):
         """Get the latest data from Environment Canada."""
 
-        # Determine station ID if not provided
-
-        if not self.station_id and self.coordinates:
-            self.station_id = await closest_site(*self.coordinates)
+        # Determine station ID or coordinates if not provided
+        site_list = await get_ec_sites()
+        if self.station_id:
+            stn = self.station_id.split("/")
+            if len(stn) == 2:
+                for site in site_list:
+                    if stn[1] == site["Codes"] and stn[0] == site["Province Codes"]:
+                        self.lat = site["Latitude"]
+                        self.lon = site["Longitude"]
+                        break
+            if not self.lat:
+                raise ec_exc.UnknownStationId
+        else:
+            self.station_id = closest_site(site_list, self.lat, self.lon)
+            if not self.station_id:
+                raise ec_exc.UnknownStationId
 
         # Get weather data
 
