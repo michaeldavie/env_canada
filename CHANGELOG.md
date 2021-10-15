@@ -2,15 +2,11 @@
 
 ## [v0.5.14](https://github.com/michaeldavie/env_canada/tree/v0.5.14) (2021-10-15)
 
-[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.2.7...v0.5.14)
+[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.5.13...v0.5.14)
 
 **Merged pull requests:**
 
 - Tweaks so easier to integration with HA. [\#48](https://github.com/michaeldavie/env_canada/pull/48) ([gwww](https://github.com/gwww))
-
-## [v0.2.7](https://github.com/michaeldavie/env_canada/tree/v0.2.7) (2021-10-09)
-
-[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.5.13...v0.2.7)
 
 ## [v0.5.13](https://github.com/michaeldavie/env_canada/tree/v0.5.13) (2021-09-22)
 
@@ -78,11 +74,7 @@
 
 ## [v0.5.1](https://github.com/michaeldavie/env_canada/tree/v0.5.1) (2021-08-31)
 
-[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.2.6...v0.5.1)
-
-## [v0.2.6](https://github.com/michaeldavie/env_canada/tree/v0.2.6) (2021-08-31)
-
-[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.5.0...v0.2.6)
+[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.5.0...v0.5.1)
 
 ## [v0.5.0](https://github.com/michaeldavie/env_canada/tree/v0.5.0) (2021-08-05)
 
@@ -114,7 +106,7 @@
 
 ## [v0.3.2](https://github.com/michaeldavie/env_canada/tree/v0.3.2) (2021-03-30)
 
-[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.2.5...v0.3.2)
+[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.3.1...v0.3.2)
 
 **Implemented enhancements:**
 
@@ -134,10 +126,6 @@
 
 - Add option for radar image opacity [\#36](https://github.com/michaeldavie/env_canada/pull/36) ([stevendinardo](https://github.com/stevendinardo))
 
-## [v0.2.5](https://github.com/michaeldavie/env_canada/tree/v0.2.5) (2020-12-29)
-
-[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.3.1...v0.2.5)
-
 ## [v0.3.1](https://github.com/michaeldavie/env_canada/tree/v0.3.1) (2020-12-06)
 
 [Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.3.0...v0.3.1)
@@ -149,6 +137,18 @@
 ## [v0.3.0](https://github.com/michaeldavie/env_canada/tree/v0.3.0) (2020-12-02)
 
 [Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.2.4...v0.3.0)
+
+## [v0.2.7](https://github.com/michaeldavie/env_canada/tree/v0.2.7) (2021-10-09)
+
+[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.2.6...v0.2.7)
+
+## [v0.2.6](https://github.com/michaeldavie/env_canada/tree/v0.2.6) (2021-08-31)
+
+[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.2.5...v0.2.6)
+
+## [v0.2.5](https://github.com/michaeldavie/env_canada/tree/v0.2.5) (2020-12-29)
+
+[Full Changelog](https://github.com/michaeldavie/env_canada/compare/v0.2.4...v0.2.5)
 
 ## [v0.2.4](https://github.com/michaeldavie/env_canada/tree/v0.2.4) (2020-11-15)
 
