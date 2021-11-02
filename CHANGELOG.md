@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.15
+- Exclude `tests` from build
+
 ## v0.5.14
 - Change update in radar to save image
 - Always get site data for weather so that lat/lon/station can be fully validated
