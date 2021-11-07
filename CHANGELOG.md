@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.16
+- Make radar `precip_type` stable
+
 ## v0.5.15
 - Exclude `tests` from build
 
