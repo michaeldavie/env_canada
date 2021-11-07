@@ -31,7 +31,7 @@ basemap_params = {
 
 # Environment Canada
 
-layer = {"rain": "RADAR_1KM_RRAI", "snow": "RADAR_1KM_RSNO"}
+precip_layers = {"rain": "RADAR_1KM_RRAI", "snow": "RADAR_1KM_RSNO"}
 
 legend_style = {"rain": "RADARURPPRECIPR", "snow": "RADARURPPRECIPS14"}
 
@@ -108,7 +108,7 @@ class ECRadar(object):
                 vol.Required("radar_opacity", default=65): vol.All(
                     int, vol.Range(0, 100)
                 ),
-                vol.Optional("precip_type"): vol.Any(None, vol.In(["rain", "snow"])),
+                vol.Optional("precip_type"): vol.Any(None, vol.In(["rain", "snow", "auto"])),
                 vol.Optional("language", default="english"): vol.In(
                     ["english", "french"]
                 ),
@@ -155,21 +155,21 @@ class ECRadar(object):
 
     @property
     def precip_type(self):
-        return self._precip_type
+        return self._precip_setting
 
     @precip_type.setter
-    def precip_type(self, value):
-        if value not in ["rain", "snow", "auto"]:
+    def precip_type(self, user_input):
+        if user_input not in ["rain", "snow", "auto"]:
             raise ValueError("precip_type must be 'rain', 'snow', or 'auto'")
 
-        if value in ["rain", "snow"]:
-            self._precip_type = value
-        elif datetime.date.today().month in range(4, 11):
-            self.precip_type = "rain"
-        else:
-            self.precip_type = "snow"
+        self._precip_setting = user_input
 
-        self.layer = layer[self.precip_type]
+        if self._precip_setting in ["rain", "snow"]:
+            self.layer_key = self._precip_setting
+        elif datetime.date.today().month in range(4, 11):
+            self.layer_key = "rain"
+        else:
+            self.layer_key = "snow"
 
     async def _get_basemap(self):
         """Fetch the background map image."""
@@ -181,7 +181,7 @@ class ECRadar(object):
     async def _get_legend(self):
         """Fetch legend image."""
         legend_params.update(
-            dict(layer=self.layer, style=legend_style[self.precip_type])
+            dict(layer=precip_layers[self.layer_key], style=legend_style[self.layer_key])
         )
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(url=geomet_url, params=legend_params)
@@ -192,7 +192,7 @@ class ECRadar(object):
 
     async def _get_dimensions(self):
         """Get time range of available data."""
-        capabilities_params["layer"] = self.layer
+        capabilities_params["layer"] = precip_layers[self.layer_key]
 
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(url=geomet_url, params=capabilities_params)
@@ -202,7 +202,7 @@ class ECRadar(object):
             capabilities_xml, parser=et.XMLParser(encoding="utf-8")
         )
         dimension_string = capabilities_tree.find(
-            dimension_xpath.format(layer=self.layer), namespaces=wms_namespace
+            dimension_xpath.format(layer=precip_layers[self.layer_key]), namespaces=wms_namespace
         ).text
         start, end = [
             dateutil.parser.isoparse(t) for t in dimension_string.split("/")[:2]
@@ -242,7 +242,7 @@ class ECRadar(object):
 
         if self.show_timestamp:
             timestamp = (
-                timestamp_label[self.precip_type][self.language]
+                timestamp_label[self.layer_key][self.language]
                 + " @ "
                 + frame_time.astimezone().strftime("%H:%M")
             )
@@ -265,7 +265,7 @@ class ECRadar(object):
         params = dict(
             **radar_params,
             **self.map_params,
-            layers=self.layer,
+            layers=precip_layers[self.layer_key],
             time=frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
         )
         response = await session.get(url=geomet_url, params=params)

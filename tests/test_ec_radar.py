@@ -48,7 +48,9 @@ def test_get_loop(test_radar):
 
 def test_set_precip_type(test_radar):
     test_radar.precip_type = "auto"
+    assert test_radar.precip_type == "auto"
+
     if date.today().month in range(4, 11):
-        assert test_radar.precip_type == "rain"
+        assert test_radar.layer_key == "rain"
     else:
-        assert test_radar.precip_type == "snow"
+        assert test_radar.layer_key == "snow"
