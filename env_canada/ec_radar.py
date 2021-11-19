@@ -6,7 +6,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 import xml.etree.ElementTree as et
 
-from aiohttp import ClientSession
+from .ec_cache import CacheClientSession as ClientSession
 import dateutil.parser
 import imageio
 import voluptuous as vol
@@ -195,7 +195,7 @@ class ECRadar(object):
         capabilities_params["layer"] = precip_layers[self.layer_key]
 
         async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(url=geomet_url, params=capabilities_params)
+            response = await session.get(url=geomet_url, params=capabilities_params, cache_time=datetime.timedelta(minutes=5))
             capabilities_xml = await response.text()
 
         capabilities_tree = et.fromstring(
