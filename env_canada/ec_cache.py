@@ -1,7 +1,7 @@
 from aiohttp import ClientSession
 from datetime import datetime, timedelta
 
-CACHE_EXPIRE_TIME = timedelta(minutes=120)
+CACHE_EXPIRE_TIME = timedelta(minutes=200)
 
 
 class CacheClientSession(ClientSession):
