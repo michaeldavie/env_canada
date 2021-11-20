@@ -15,7 +15,6 @@ class CacheClientSession(ClientSession):
         now = datetime.now()
         expired = [key for key, value in self._cache.items() if value[0] < now]
         for key in expired:
-            print(f"_flush_cache expiring {self._cache[key][0]} {key}")
             del self._cache[key]
 
     async def get(self, url, params, cache_time=CACHE_EXPIRE_TIME):
@@ -31,6 +30,5 @@ class CacheClientSession(ClientSession):
                 await super().get(url=url, params=params),
             )
             self._cache[cache_key] = result
-            print(f"cached get NOT found!  {cache_key}")
 
         return result[1]
