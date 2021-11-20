@@ -6,7 +6,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 import xml.etree.ElementTree as et
 
-from aiohttp import ClientSession
+from .ec_cache import CacheClientSession as ClientSession
 import dateutil.parser
 import imageio
 import voluptuous as vol
@@ -108,7 +108,9 @@ class ECRadar(object):
                 vol.Required("radar_opacity", default=65): vol.All(
                     int, vol.Range(0, 100)
                 ),
-                vol.Optional("precip_type"): vol.Any(None, vol.In(["rain", "snow", "auto"])),
+                vol.Optional("precip_type"): vol.Any(
+                    None, vol.In(["rain", "snow", "auto"])
+                ),
                 vol.Optional("language", default="english"): vol.In(
                     ["english", "french"]
                 ),
@@ -181,7 +183,9 @@ class ECRadar(object):
     async def _get_legend(self):
         """Fetch legend image."""
         legend_params.update(
-            dict(layer=precip_layers[self.layer_key], style=legend_style[self.layer_key])
+            dict(
+                layer=precip_layers[self.layer_key], style=legend_style[self.layer_key]
+            )
         )
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(url=geomet_url, params=legend_params)
@@ -195,14 +199,19 @@ class ECRadar(object):
         capabilities_params["layer"] = precip_layers[self.layer_key]
 
         async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(url=geomet_url, params=capabilities_params)
+            response = await session.get(
+                url=geomet_url,
+                params=capabilities_params,
+                cache_time=datetime.timedelta(minutes=5),
+            )
             capabilities_xml = await response.text()
 
         capabilities_tree = et.fromstring(
             capabilities_xml, parser=et.XMLParser(encoding="utf-8")
         )
         dimension_string = capabilities_tree.find(
-            dimension_xpath.format(layer=precip_layers[self.layer_key]), namespaces=wms_namespace
+            dimension_xpath.format(layer=precip_layers[self.layer_key]),
+            namespaces=wms_namespace,
         ).text
         start, end = [
             dateutil.parser.isoparse(t) for t in dimension_string.split("/")[:2]
