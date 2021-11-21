@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.18
+- Add user agent
+
 ## v0.5.17
 - Add caching of web requests to radar
 
