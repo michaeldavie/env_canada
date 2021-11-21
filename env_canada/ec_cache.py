@@ -1,6 +1,8 @@
 from aiohttp import ClientSession
 from datetime import datetime, timedelta
 
+from .constants import USER_AGENT
+
 CACHE_EXPIRE_TIME = timedelta(minutes=200)  # Time is tuned for 3h radar image
 
 
@@ -27,7 +29,9 @@ class CacheClientSession(ClientSession):
         if not result:
             result = (
                 datetime.now() + cache_time,
-                await super().get(url=url, params=params),
+                await super().get(
+                    url=url, params=params, headers={"User-Agent": USER_AGENT}
+                ),
             )
             self._cache[cache_key] = result
 

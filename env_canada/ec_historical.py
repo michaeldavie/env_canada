@@ -10,6 +10,8 @@ from dateutil import parser, tz
 import lxml.html
 import voluptuous as vol
 
+from .constants import USER_AGENT
+
 
 STATIONS_URL = "https://climate.weather.gc.ca/historical_data/search_historic_data_stations_{}.html"
 
@@ -150,7 +152,10 @@ async def get_historical_stations(
 
     async with ClientSession(raise_for_status=True) as session:
         response = await session.get(
-            STATIONS_URL.format(language[0]), params=params, timeout=10
+            STATIONS_URL.format(language[0]),
+            params=params,
+            headers={"User-Agent": USER_AGENT},
+            timeout=10,
         )
         result = await response.read()
 
@@ -238,7 +243,10 @@ class ECHistorical(object):
 
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
-                WEATHER_URL.format(self.language[0]), params=params, timeout=10
+                WEATHER_URL.format(self.language[0]),
+                params=params,
+                headers={"User-Agent": USER_AGENT},
+                timeout=10,
             )
             if self.format == "csv":
                 result = await response.text()

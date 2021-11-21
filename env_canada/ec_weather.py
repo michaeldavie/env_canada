@@ -9,6 +9,7 @@ from geopy import distance
 import voluptuous as vol
 
 from . import ec_exc
+from .constants import USER_AGENT
 
 SITE_LIST_URL = "https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv"
 
@@ -212,7 +213,9 @@ async def get_ec_sites():
     sites = []
 
     async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(SITE_LIST_URL, timeout=10)
+        response = await session.get(
+            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=10
+        )
         sites_csv_string = await response.text()
 
     sites_reader = csv.DictReader(sites_csv_string.splitlines()[1:])
@@ -310,7 +313,9 @@ class ECWeather(object):
 
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
-                WEATHER_URL.format(self.station_id, self.language[0]), timeout=10
+                WEATHER_URL.format(self.station_id, self.language[0]),
+                headers={"User-Agent": USER_AGENT},
+                timeout=10,
             )
             result = await response.read()
         weather_xml = result.decode("iso-8859-1")

@@ -6,6 +6,8 @@ from dateutil.parser import isoparse
 from geopy import distance
 import voluptuous as vol
 
+from .constants import USER_AGENT
+
 SITE_LIST_URL = "https://dd.weather.gc.ca/hydrometric/doc/hydrometric_StationList.csv"
 READINGS_URL = "https://dd.weather.gc.ca/hydrometric/csv/{prov}/hourly/{prov}_{station}_hourly_hydrometric.csv"
 
@@ -16,7 +18,9 @@ async def get_hydro_sites():
     sites = []
 
     async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(SITE_LIST_URL, timeout=10)
+        response = await session.get(
+            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=10
+        )
         result = await response.read()
     sites_csv_string = result.decode("utf-8-sig")
     sites_csv_stream = io.StringIO(sites_csv_string)
@@ -109,6 +113,7 @@ class ECHydro(object):
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
                 READINGS_URL.format(prov=self.province, station=self.station),
+                headers={"User-Agent": USER_AGENT},
                 timeout=10,
             )
             result = await response.read()

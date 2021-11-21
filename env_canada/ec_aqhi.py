@@ -6,6 +6,8 @@ from aiohttp import ClientSession
 from geopy import distance
 import voluptuous as vol
 
+from .constants import USER_AGENT
+
 AQHI_SITE_LIST_URL = "https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_List.xml"
 AQHI_OBSERVATION_URL = "https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml"
 AQHI_FORECAST_URL = "https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml"
@@ -31,7 +33,9 @@ async def get_aqhi_regions(language):
 
     regions = []
     async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(AQHI_SITE_LIST_URL, timeout=10)
+        response = await session.get(
+            AQHI_SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=10
+        )
         result = await response.read()
 
     site_xml = result.decode("utf-8")
@@ -131,7 +135,9 @@ class ECAirQuality(object):
     async def get_aqhi_data(self, url):
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
-                url.format(self.zone_id, self.region_id), timeout=10
+                url.format(self.zone_id, self.region_id),
+                headers={"User-Agent": USER_AGENT},
+                timeout=10,
             )
             if response.ok:
                 result = await response.read()
