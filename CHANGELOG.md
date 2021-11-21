@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.17
+- Add caching of web requests to radar
+
 ## v0.5.16
 - Make radar `precip_type` stable
 
