@@ -1,6 +1,8 @@
+from aiohttp.client_exceptions import ClientConnectorError
 import asyncio
 import datetime
 from io import BytesIO
+import logging
 import math
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -139,7 +141,7 @@ class ECRadar(object):
             "width": self.width,
             "height": self.height,
         }
-        self.base_bytes = None
+        self.map_image = None
         self.radar_opacity = kwargs["radar_opacity"]
 
         # Get overlay parameters
@@ -176,9 +178,15 @@ class ECRadar(object):
     async def _get_basemap(self):
         """Fetch the background map image."""
         basemap_params.update(self.map_params)
-        async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(url=basemap_url, params=basemap_params)
-            self.base_bytes = await response.read()
+
+        try:
+            async with ClientSession(raise_for_status=True) as session:
+                response = await session.get(url=basemap_url, params=basemap_params)
+                base_bytes = await response.read()
+                self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
+        except ClientConnectorError:
+            logging.error("Radar base map could not be retreived")
+            return
 
     async def _get_legend(self):
         """Fetch legend image."""
@@ -222,12 +230,6 @@ class ECRadar(object):
     async def _combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
-        # Overlay radar on basemap
-
-        if not self.base_bytes:
-            await self._get_basemap()
-
-        base = Image.open(BytesIO(self.base_bytes)).convert("RGBA")
         radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
 
         # Add transparency to radar
@@ -238,7 +240,14 @@ class ECRadar(object):
             radar_copy.putalpha(alpha)
             radar.paste(radar_copy, radar)
 
-        frame = Image.alpha_composite(base, radar)
+        # Overlay radar on basemap
+
+        if not self.map_image:
+            await self._get_basemap()
+        if self.map_image:
+            frame = Image.alpha_composite(self.map_image, radar)
+        else:
+            frame = radar
 
         # Add legend
 
