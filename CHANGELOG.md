@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.19
+- Work around GeoGratis map service outage
+
 ## v0.5.18
 - Add user agent
 
