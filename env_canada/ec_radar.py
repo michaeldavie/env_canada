@@ -31,6 +31,10 @@ basemap_params = {
     "format": "image/png",
 }
 
+# Mapbox Proxy
+
+backup_map_url = "https://0wmiyoko9f.execute-api.ca-central-1.amazonaws.com/mapbox-proxy"
+
 # Environment Canada
 
 precip_layers = {"rain": "RADAR_1KM_RRAI", "snow": "RADAR_1KM_RSNO"}
@@ -184,9 +188,19 @@ class ECRadar(object):
                 response = await session.get(url=basemap_url, params=basemap_params)
                 base_bytes = await response.read()
                 self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
+
         except ClientConnectorError:
-            logging.error("Radar base map could not be retreived")
-            return
+            logging.warning("NRCan base map could not be retreived")
+
+            try:
+                async with ClientSession(raise_for_status=True) as session:
+                    response = await session.get(url=backup_map_url, params=basemap_params)
+                    base_bytes = await response.read()
+                    self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
+            except ClientConnectorError:
+                logging.warning("Mapbox base map could not be retreived")
+
+        return
 
     async def _get_legend(self):
         """Fetch legend image."""
