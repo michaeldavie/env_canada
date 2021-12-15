@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.20
+- Add Mapbox as fallback map source
+
 ## v0.5.19
 - Work around GeoGratis map service outage
 
