@@ -213,6 +213,7 @@ class ECHistorical(object):
                     ["english", "french"]
                 ),
                 vol.Required("format", default="xml"): vol.In(["xml", "csv"]),
+                vol.Required("timeframe", default=2): vol.In([1,2,3])
             }
         )
 
@@ -222,7 +223,7 @@ class ECHistorical(object):
         self.year = kwargs["year"]
         self.language = kwargs["language"]
         self.format = kwargs["format"]
-        self.timeframe = 2
+        self.timeframe = kwargs["timeframe"]
         self.submit = "Download+Data"
 
         self.metadata = {}
