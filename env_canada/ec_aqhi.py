@@ -31,6 +31,8 @@ async def get_aqhi_regions(language):
     zone_name_tag = "name_%s_CA" % language.lower()
     region_name_tag = "name%s" % language.title()
 
+    LOG.debug("get_aqhi_regions() started")
+
     regions = []
     async with ClientSession(raise_for_status=True) as session:
         response = await session.get(
@@ -61,6 +63,9 @@ async def get_aqhi_regions(language):
                 _region_attrib[child.tag] = child.text
             _region_attrib.update(_zone_attrib)
             regions.append(_region_attrib)
+
+    LOG.debug("get_aqhi_regions(): found %d regions", len(regions))
+
     return regions
 
 
@@ -134,18 +139,19 @@ class ECAirQuality(object):
 
     async def get_aqhi_data(self, url):
         async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(
-                url.format(self.zone_id, self.region_id),
-                headers={"User-Agent": USER_AGENT},
-                timeout=10,
-            )
-            if response.ok:
-                result = await response.read()
-                aqhi_xml = result.decode("ISO-8859-1")
-                return et.fromstring(aqhi_xml)
-            else:
-                LOG.warning("Error fetching AQHI data")
-                return None
+            try:
+                response = await session.get(
+                    url.format(self.zone_id, self.region_id),
+                    headers={"User-Agent": USER_AGENT},
+                    timeout=10,
+                )
+            except Exception:
+                LOG.debug("Retrieving AQHI failed", exc_info=True)
+                raise
+
+            result = await response.read()
+            aqhi_xml = result.decode("ISO-8859-1")
+            return et.fromstring(aqhi_xml)
 
     async def update(self):
 
@@ -155,6 +161,7 @@ class ECAirQuality(object):
             closest = await find_closest_region(self.language, *self.coordinates)
             self.zone_id = closest["abbreviation"]
             self.region_id = closest["cgndb"]
+            LOG.debug("update() closest region returned: zone_id '%s' region_id '%s'", self.zone_id, self.region_id)
 
         # Fetch current measurement
         aqhi_current = await self.get_aqhi_data(url=AQHI_OBSERVATION_URL)
@@ -180,6 +187,7 @@ class ECAirQuality(object):
             else:
                 self.current_timestamp = None
             self.metadata["timestamp"] = self.current_timestamp
+            LOG.debug("update(): aqhi_current %d timestamp %s", self.current, self.current_timestamp)
 
         # Update AQHI forecasts
         aqhi_forecast = await self.get_aqhi_data(url=AQHI_FORECAST_URL)
