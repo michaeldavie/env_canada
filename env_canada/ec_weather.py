@@ -200,7 +200,7 @@ def validate_station(station):
     if station is None:
         return
     if not re.fullmatch(r"[A-Z]{2}/s0000\d{3}", station):
-        raise vol.error.Invalid('Station ID must be of the form "XX/s0000###"')
+        raise vol.Invalid('Station ID must be of the form "XX/s0000###"')
     return station
 
 
@@ -210,6 +210,7 @@ def parse_timestamp(t):
 
 async def get_ec_sites():
     """Get list of all sites from Environment Canada, for auto-config."""
+    LOG.debug("get_ec_sites() started")
     sites = []
 
     async with ClientSession(raise_for_status=True) as session:
@@ -226,6 +227,7 @@ async def get_ec_sites():
             site["Longitude"] = -1 * float(site["Longitude"].replace("W", ""))
             sites.append(site)
 
+    LOG.debug("get_ec_sites() done, retrieved %d sites", len(sites))
     return sites
 
 
@@ -279,6 +281,7 @@ class ECWeather(object):
         self.daily_forecasts = []
         self.hourly_forecasts = []
         self.forecast_time = ""
+        self.site_list = []
 
         if "station_id" in kwargs and kwargs["station_id"] is not None:
             self.station_id = kwargs["station_id"]
@@ -293,24 +296,26 @@ class ECWeather(object):
         """Get the latest data from Environment Canada."""
 
         # Determine station ID or coordinates if not provided
-        site_list = await get_ec_sites()
-        if self.station_id:
-            stn = self.station_id.split("/")
-            if len(stn) == 2:
-                for site in site_list:
-                    if stn[1] == site["Codes"] and stn[0] == site["Province Codes"]:
-                        self.lat = site["Latitude"]
-                        self.lon = site["Longitude"]
-                        break
-            if not self.lat:
-                raise ec_exc.UnknownStationId
-        else:
-            self.station_id = closest_site(site_list, self.lat, self.lon)
-            if not self.station_id:
-                raise ec_exc.UnknownStationId
+        if not self.site_list:
+            self.site_list = await get_ec_sites()
+            if self.station_id:
+                stn = self.station_id.split("/")
+                if len(stn) == 2:
+                    for site in self.site_list:
+                        if stn[1] == site["Codes"] and stn[0] == site["Province Codes"]:
+                            self.lat = site["Latitude"]
+                            self.lon = site["Longitude"]
+                            break
+                if not self.lat:
+                    raise ec_exc.UnknownStationId
+            else:
+                self.station_id = closest_site(self.site_list, self.lat, self.lon)
+                if not self.station_id:
+                    raise ec_exc.UnknownStationId
+
+        LOG.debug("update(): station %s lat %f lon %f", self.station_id, self.lat, self.lon)
 
         # Get weather data
-
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(
                 WEATHER_URL.format(self.station_id, self.language[0]),
@@ -323,7 +328,7 @@ class ECWeather(object):
         try:
             weather_tree = et.fromstring(weather_xml)
         except et.ParseError:
-            raise ECWeatherUpdateFailed("Weather update failed")
+            raise ECWeatherUpdateFailed("Weather update failed; could not parse result")
 
         # Update metadata
         for m, meta in metadata_meta.items():
