@@ -139,18 +139,19 @@ class ECAirQuality(object):
 
     async def get_aqhi_data(self, url):
         async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(
-                url.format(self.zone_id, self.region_id),
-                headers={"User-Agent": USER_AGENT},
-                timeout=10,
-            )
-            if response.ok:
-                result = await response.read()
-                aqhi_xml = result.decode("ISO-8859-1")
-                return et.fromstring(aqhi_xml)
-            else:
-                LOG.warning("Error fetching AQHI data")
-                return None
+            try:
+                response = await session.get(
+                    url.format(self.zone_id, self.region_id),
+                    headers={"User-Agent": USER_AGENT},
+                    timeout=10,
+                )
+            except Exception:
+                LOG.debug("Retrieving AQHI failed", exc_info=True)
+                raise
+
+            result = await response.read()
+            aqhi_xml = result.decode("ISO-8859-1")
+            return et.fromstring(aqhi_xml)
 
     async def update(self):
 
