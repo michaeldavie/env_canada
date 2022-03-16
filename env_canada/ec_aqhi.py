@@ -147,7 +147,7 @@ class ECAirQuality(object):
                 )
             except Exception:
                 LOG.debug("Retrieving AQHI failed", exc_info=True)
-                raise
+                return None
 
             result = await response.read()
             aqhi_xml = result.decode("ISO-8859-1")
