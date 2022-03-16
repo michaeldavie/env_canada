@@ -1,5 +1,9 @@
 # Changelog for `env_canada`
 
+## v0.5.21
+- Handle missing AQHI observations
+- Add logging
+
 ## v0.5.20
 - Add Mapbox as fallback map source
 
