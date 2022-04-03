@@ -33,7 +33,9 @@ basemap_params = {
 
 # Mapbox Proxy
 
-backup_map_url = "https://0wmiyoko9f.execute-api.ca-central-1.amazonaws.com/mapbox-proxy"
+backup_map_url = (
+    "https://0wmiyoko9f.execute-api.ca-central-1.amazonaws.com/mapbox-proxy"
+)
 
 # Environment Canada
 
@@ -177,7 +179,7 @@ class ECRadar(object):
             self.layer_key = self._precip_setting
         else:
             self._auto_precip_type()
-        
+
     def _auto_precip_type(self):
         if datetime.date.today().month in range(4, 11):
             self.layer_key = "rain"
@@ -199,7 +201,9 @@ class ECRadar(object):
 
             try:
                 async with ClientSession(raise_for_status=True) as session:
-                    response = await session.get(url=backup_map_url, params=basemap_params)
+                    response = await session.get(
+                        url=backup_map_url, params=basemap_params
+                    )
                     base_bytes = await response.read()
                     self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
             except ClientConnectorError:
@@ -318,7 +322,7 @@ class ECRadar(object):
         return await self._combine_layers(frame, latest)
 
     async def update(self):
-        if self.precip_type == 'auto':
+        if self.precip_type == "auto":
             self._auto_precip_type()
 
         self.image = await self.get_loop()
