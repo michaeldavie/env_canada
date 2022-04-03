@@ -1,5 +1,9 @@
 # Changelog for `env_canada`
 
+## v0.5.22
+- Refresh radar legend on layer change
+- Automatically update radar layer
+
 ## v0.5.21
 - Handle missing AQHI observations
 - Add logging
