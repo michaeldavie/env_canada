@@ -152,6 +152,7 @@ class ECRadar(object):
 
         self.show_legend = kwargs["legend"]
         if self.show_legend:
+            self.legend_layer = None
             self.legend_image = None
             self.legend_position = None
 
@@ -174,7 +175,11 @@ class ECRadar(object):
 
         if self._precip_setting in ["rain", "snow"]:
             self.layer_key = self._precip_setting
-        elif datetime.date.today().month in range(4, 11):
+        else:
+            self._auto_precip_type()
+        
+    def _auto_precip_type(self):
+        if datetime.date.today().month in range(4, 11):
             self.layer_key = "rain"
         else:
             self.layer_key = "snow"
@@ -215,6 +220,7 @@ class ECRadar(object):
         self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
         legend_width = self.legend_image.size[0]
         self.legend_position = (self.width - legend_width, 0)
+        self.legend_layer = self.layer_key
 
     async def _get_dimensions(self):
         """Get time range of available data."""
@@ -266,7 +272,7 @@ class ECRadar(object):
         # Add legend
 
         if self.show_legend:
-            if not self.legend_image:
+            if not self.legend_image or self.legend_layer != self.layer_key:
                 await self._get_legend()
             frame.paste(self.legend_image, self.legend_position)
 
@@ -312,6 +318,9 @@ class ECRadar(object):
         return await self._combine_layers(frame, latest)
 
     async def update(self):
+        if self.precip_type == 'auto':
+            self._auto_precip_type()
+
         self.image = await self.get_loop()
 
     async def get_loop(self, fps=5):
