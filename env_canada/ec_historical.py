@@ -3,10 +3,10 @@ import csv
 from datetime import datetime
 from io import StringIO
 import logging
-import xml.etree.ElementTree as et
 
 from aiohttp import ClientSession
 from dateutil import parser, tz
+import defusedxml.ElementTree as et
 import lxml.html
 import voluptuous as vol
 

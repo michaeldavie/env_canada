@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 import logging
-import xml.etree.ElementTree as et
 
 from aiohttp import ClientSession
+import defusedxml.ElementTree as et
 from geopy import distance
 import voluptuous as vol
 

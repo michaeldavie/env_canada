@@ -6,10 +6,10 @@ import logging
 import math
 import os
 from PIL import Image, ImageDraw, ImageFont
-import xml.etree.ElementTree as et
 
 from .ec_cache import CacheClientSession as ClientSession
 import dateutil.parser
+import defusedxml.ElementTree as et
 import imageio
 import voluptuous as vol
 
@@ -238,9 +238,7 @@ class ECRadar(object):
             )
             capabilities_xml = await response.text()
 
-        capabilities_tree = et.fromstring(
-            capabilities_xml, parser=et.XMLParser(encoding="utf-8")
-        )
+        capabilities_tree = et.fromstring(capabilities_xml)
         dimension_string = capabilities_tree.find(
             dimension_xpath.format(layer=precip_layers[self.layer_key]),
             namespaces=wms_namespace,

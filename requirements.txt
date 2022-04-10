@@ -1,4 +1,5 @@
 aiohttp
+defusedxml
 geopy
 imageio
 lxml

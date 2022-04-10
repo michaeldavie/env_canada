@@ -1,10 +1,10 @@
 import csv
 import logging
 import re
-import xml.etree.ElementTree as et
 
 from aiohttp import ClientSession
 from dateutil import parser, tz
+import defusedxml.ElementTree as et
 from geopy import distance
 import voluptuous as vol
 
