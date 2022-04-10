@@ -22,6 +22,10 @@ ATTRIBUTION = {
     "french": "Données fournies par Environnement Canada",
 }
 
+
+__all__ = ["ECWeather"]
+
+
 conditions_meta = {
     "temperature": {
         "xpath": "./currentConditions/temperature",

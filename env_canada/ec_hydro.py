@@ -12,6 +12,9 @@ SITE_LIST_URL = "https://dd.weather.gc.ca/hydrometric/doc/hydrometric_StationLis
 READINGS_URL = "https://dd.weather.gc.ca/hydrometric/csv/{prov}/hourly/{prov}_{station}_hourly_hydrometric.csv"
 
 
+__all__ = ["ECHydro"]
+
+
 async def get_hydro_sites():
     """Get list of all sites from Environment Canada, for auto-config."""
 

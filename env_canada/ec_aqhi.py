@@ -20,6 +20,9 @@ ATTRIBUTION = {
 }
 
 
+__all__ = ["ECAirQuality"]
+
+
 def timestamp_to_datetime(timestamp):
     dt = datetime.strptime(timestamp, "%Y%m%d%H%M%S")
     dt = dt.replace(tzinfo=timezone.utc)

@@ -19,6 +19,8 @@ WEATHER_URL = "https://climate.weather.gc.ca/climate_data/bulk_data_{}.html"
 
 LOG = logging.getLogger(__name__)
 
+__all__ = ["ECHistorical"]
+
 stationdata_meta = {
     "maxtemp": {
         "xpath": "./maxtemp",

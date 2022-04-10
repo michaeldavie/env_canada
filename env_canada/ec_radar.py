@@ -18,6 +18,8 @@ ATTRIBUTION = {
     "french": "Données fournies par Environnement Canada",
 }
 
+__all__ = ["ECRadar"]
+
 # Natural Resources Canada
 
 basemap_url = "http://maps.geogratis.gc.ca/wms/CBMT"
