@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.23
+- Use `defusedxml` for XML parsing
+
 ## v0.5.22
 - Refresh radar legend on layer change
 - Automatically update radar layer
