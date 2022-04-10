@@ -164,7 +164,11 @@ class ECAirQuality(object):
             closest = await find_closest_region(self.language, *self.coordinates)
             self.zone_id = closest["abbreviation"]
             self.region_id = closest["cgndb"]
-            LOG.debug("update() closest region returned: zone_id '%s' region_id '%s'", self.zone_id, self.region_id)
+            LOG.debug(
+                "update() closest region returned: zone_id '%s' region_id '%s'",
+                self.zone_id,
+                self.region_id,
+            )
 
         # Fetch current measurement
         aqhi_current = await self.get_aqhi_data(url=AQHI_OBSERVATION_URL)
@@ -190,7 +194,11 @@ class ECAirQuality(object):
             else:
                 self.current_timestamp = None
             self.metadata["timestamp"] = self.current_timestamp
-            LOG.debug("update(): aqhi_current %d timestamp %s", self.current, self.current_timestamp)
+            LOG.debug(
+                "update(): aqhi_current %d timestamp %s",
+                self.current,
+                self.current_timestamp,
+            )
 
         # Update AQHI forecasts
         aqhi_forecast = await self.get_aqhi_data(url=AQHI_FORECAST_URL)

@@ -317,7 +317,9 @@ class ECWeather(object):
                 if not self.station_id:
                     raise ec_exc.UnknownStationId
 
-        LOG.debug("update(): station %s lat %f lon %f", self.station_id, self.lat, self.lon)
+        LOG.debug(
+            "update(): station %s lat %f lon %f", self.station_id, self.lat, self.lon
+        )
 
         # Get weather data
         async with ClientSession(raise_for_status=True) as session:
