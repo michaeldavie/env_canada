@@ -11,7 +11,11 @@ from env_canada import ECHistorical
         {"station_id": 48370, "year": 2021, "language": "english"},
         {"station_id": 48370, "year": 2021, "language": "french"},
         {"station_id": 48370, "year": 2021, "format": "csv"},
-        {"station_id": 48370, "year": 2021, "format": "xml"}
+        {"station_id": 48370, "year": 2021, "format": "xml"},
+        {"station_id": 48370, "year": 2021, "format": "xml", "timeframe": 1},
+        {"station_id": 48370, "year": 2021, "format": "csv", "timeframe": 1},
+        {"station_id": 48370, "year": 2021, "format": "xml", "timeframe": 3},
+        {"station_id": 48370, "year": 2021, "format": "csv", "timeframe": 3}
     ]
 )
 def test_echistorical(init_parameters):
