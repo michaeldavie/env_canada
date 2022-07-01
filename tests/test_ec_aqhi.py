@@ -27,7 +27,7 @@ def test_aqhi():
 
 def test_update(test_aqhi):
     asyncio.run(test_aqhi.update())
-    assert isinstance(test_aqhi.current, float)
+    assert isinstance(test_aqhi.current, float) or test_aqhi.current is None
     assert all([isinstance(p, str) for p in test_aqhi.forecasts["daily"].keys()])
     assert all([isinstance(f, int) for f in test_aqhi.forecasts["daily"].values()])
     assert all([isinstance(d, datetime) for d in test_aqhi.forecasts["hourly"].keys()])
