@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.24
+- Add yesterday's low and high temperature
+
 ## v0.5.23
 - Use `defusedxml` for XML parsing
 

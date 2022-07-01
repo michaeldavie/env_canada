@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="env_canada",
-    version="0.5.23",
+    version="0.5.24",
     author="Michael Davie",
     author_email="michael.davie@gmail.com",
     description="A package to access meteorological data from Environment Canada",
@@ -13,7 +13,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/michaeldavie/env_canada",
-    packages=setuptools.find_packages(exclude=['tests','tests.*']),
+    packages=setuptools.find_packages(exclude=["tests", "tests.*"]),
     include_package_data=True,
     install_requires=[
         "aiohttp",
