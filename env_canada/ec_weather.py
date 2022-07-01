@@ -136,6 +136,18 @@ conditions_meta = {
         "english": "Icon Code",
         "french": "Code icône",
     },
+    "high_temp_yesterday": {
+        "xpath": './yesterdayConditions/temperature[@class="high"]',
+        "type": "float",
+        "english": "High Temperature Yesterday",
+        "french": "Haute température d'hier",
+    },
+    "low_temp_yesterday": {
+        "xpath": './yesterdayConditions/temperature[@class="low"]',
+        "type": "float",
+        "english": "Low Temperature Yesterday",
+        "french": "Basse température d'hier",
+    },
     "precip_yesterday": {
         "xpath": "./yesterdayConditions/precip",
         "type": "float",
