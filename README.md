@@ -85,7 +85,7 @@ hydro_coords.measurements
 
 ## Historical Weather Data
 
-`ECHistorical` provides historical daily weather data. The ECHistorical object is instantiated with a station ID, year, language, and format (one of xml or csv). Once updated asynchronously, historical weather data is contained with the `station_data` property. If `xml` is requested, `station_data` will appear in a dictionary form. If `csv` is requested, `station_data` will contain a CSV-readable buffer. For example:
+`ECHistorical` provides historical daily weather data. The ECHistorical object is instantiated with a station ID, year, language, format (one of xml or csv) and granularity (hourly, daily or monthly data). Once updated asynchronously, historical weather data is contained with the `station_data` property. If `xml` is requested, `station_data` will appear in a dictionary form. If `csv` is requested, `station_data` will contain a CSV-readable buffer. For example:
 
 ```python
 import asyncio
@@ -105,6 +105,14 @@ ec_en_xml = ECHistorical(station_id=31688, year=2020, language="english", format
 ec_fr_xml = ECHistorical(station_id=31688, year=2020, language="french", format="xml")
 ec_en_csv = ECHistorical(station_id=31688, year=2020, language="english", format="csv")
 ec_fr_csv = ECHistorical(station_id=31688, year=2020, language="french", format="csv")
+
+# timeframe argument can be passed to change the granularity
+# timeframe=1 hourly
+# timeframe=2 daily (default)
+# timeframe=3 monthly
+ec_en_xml = ECHistorical(station_id=31688, year=2020, language="english", format="xml", timeframe=1)
+ec_en_csv = ECHistorical(station_id=31688, year=2020, language="english", format="csv", timeframe=1)
+
 
 asyncio.run(ec_en_xml.update())
 asyncio.run(ec_en_csv.update())
