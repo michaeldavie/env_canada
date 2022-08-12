@@ -125,12 +125,13 @@ async def get_historical_stations(
     end_year=datetime.today().year,
     limit=25,
     language="english",
+    timeframe=2
 ):
     """Get list of all historical stations from Environment Canada"""
     lat, lng = coordinates
     params = {
         "searchType": "stnProx",
-        "timeframe": 2,
+        "timeframe": timeframe,
         "txtRadius": radius,
         "optProxType": "decimal",
         "txtLatDecDeg": lat,
