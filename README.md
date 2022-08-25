@@ -129,9 +129,9 @@ df = pd.read_csv(ec_en_csv.station_data)
 
 ```
 
-`ECHistoricalRange` provides historical weather data for a within a specific range and handles the update by itself.
+`ECHistoricalRange` provides historical weather data within a specific range and handles the update by itself.
 
-The ECHistoricalRange object instantiated with at least a station ID and a daterange.
+The ECHistoricalRange object is instantiated with at least a station ID and a daterange.
 One could add language, and granularity (hourly, daily (default)).
 
 The data can then be used as pandas DataFrame, XML (requires pandas >=1.3.0) and csv
@@ -172,6 +172,15 @@ In this example ```ec.df``` will be:
 | … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	|
 | 2022-07-31 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 7 	| 31 	|  	| 23,5 	|  	| 14,1 	|  	| 18,8 	|  	| 0 	|  	| 0,8 	|  	|  	|  	|  	|  	| 0 	|  	|  	|  	| 23 	|  	| 31 	|  	|  	|
 | 2022-08-01 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 8 	| 1 	|  	| 23 	|  	| 15 	|  	| 19 	|  	| 0 	|  	| 1 	|  	|  	|  	|  	|  	| 0 	|  	|  	|  	| 21 	|  	| 35 	|  	|  	|
+
+
+One should note that july 1st is excluded as the time provided contains specific hours, so it yields only data after or at exactly
+the time provided.
+
+To have all the july 1st data in that case, one can provide a datarange without time: ```datetime(2022, 7, 7)``` instead
+of ```datetime(2022, 7, 1, 12, 12)```
+
+
 
 # License
 
