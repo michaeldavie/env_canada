@@ -85,7 +85,9 @@ hydro_coords.measurements
 
 ## Historical Weather Data
 
-`ECHistorical` provides historical daily weather data. The ECHistorical object is instantiated with a station ID, year, language, format (one of xml or csv) and granularity (hourly, daily or monthly data). Once updated asynchronously, historical weather data is contained with the `station_data` property. If `xml` is requested, `station_data` will appear in a dictionary form. If `csv` is requested, `station_data` will contain a CSV-readable buffer. For example:
+`ECHistorical` provides historical daily weather data.
+The ECHistorical object is instantiated with a station ID, year, language, format (one of xml or csv) and granularity (hourly, daily data).
+Once updated asynchronously, historical weather data is contained with the `station_data` property. If `xml` is requested, `station_data` will appear in a dictionary form. If `csv` is requested, `station_data` will contain a CSV-readable buffer. For example:
 
 ```python
 import asyncio
@@ -107,12 +109,10 @@ ec_en_csv = ECHistorical(station_id=31688, year=2020, language="english", format
 ec_fr_csv = ECHistorical(station_id=31688, year=2020, language="french", format="csv")
 
 # timeframe argument can be passed to change the granularity
-# timeframe=1 hourly
+# timeframe=1 hourly (need to create of for every month in that case, use ECHistoricalRange to handle it automatically)
 # timeframe=2 daily (default)
-# timeframe=3 monthly
-ec_en_xml = ECHistorical(station_id=31688, year=2020, language="english", format="xml", timeframe=1)
-ec_en_csv = ECHistorical(station_id=31688, year=2020, language="english", format="csv", timeframe=1)
-
+ec_en_xml = ECHistorical(station_id=31688, year=2020, month=1, language="english", format="xml", timeframe=1)
+ec_en_csv = ECHistorical(station_id=31688, year=2020, month=1, language="english", format="csv", timeframe=1)
 
 asyncio.run(ec_en_xml.update())
 asyncio.run(ec_en_csv.update())
@@ -128,6 +128,50 @@ import pandas as pd
 df = pd.read_csv(ec_en_csv.station_data)
 
 ```
+
+`ECHistoricalRange` provides historical weather data for a within a specific range and handles the update by itself.
+
+The ECHistoricalRange object instantiated with at least a station ID and a daterange.
+One could add language, and granularity (hourly, daily (default)).
+
+The data can then be used as pandas DataFrame, XML (requires pandas >=1.3.0) and csv
+
+For example :
+
+```python
+import pandas as pd
+import asyncio
+from env_canada import ECHistoricalRange, get_historical_stations
+from datetime import datetime
+
+coordinates = ['48.508333', '-68.467667']
+
+stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
+                                                end_year=2022, radius=200, limit=100))).T
+
+ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="daily",
+                        daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
+
+ec.get_data()
+
+#yield an XML formated str. 
+# For more options, use ec.to_xml(*arg, **kwargs) with pandas options
+ec.xml
+ 
+#yield an CSV formated str.
+# For more options, use ec.to_csv(*arg, **kwargs) with pandas options
+ec.csv
+```
+
+In this example ```ec.df``` will be:
+
+| Date/Time 	| Longitude (x) 	| Latitude (y) 	| Station Name 	| Climate ID 	| Year 	| Month 	| Day 	| Data Quality 	| Max Temp (Â°C) 	| Max Temp Flag 	| Min Temp (Â°C) 	| Min Temp Flag 	| Mean Temp (Â°C) 	| Mean Temp Flag 	| Heat Deg Days (Â°C) 	| Heat Deg Days Flag 	| Cool Deg Days (Â°C) 	| Cool Deg Days Flag 	| Total Rain (mm) 	| Total Rain Flag 	| Total Snow (cm) 	| Total Snow Flag 	| Total Precip (mm) 	| Total Precip Flag 	| Snow on Grnd (cm) 	| Snow on Grnd Flag 	| Dir of Max Gust (10s deg) 	| Dir of Max Gust Flag 	| Spd of Max Gust (km/h) 	| Spd of Max   Gust Flag 	|  	|
+|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|
+| 2022-07-02 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 7 	| 2 	|  	| 22,8 	|  	| 12,5 	|  	| 17,7 	|  	| 0,3 	|  	| 0 	|  	|  	|  	|  	|  	| 0 	|  	|  	|  	| 26 	|  	| 37 	|  	|  	|
+| 2022-07-03 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 7 	| 3 	|  	| 21,7 	|  	| 10,1 	|  	| 15,9 	|  	| 2,1 	|  	| 0 	|  	|  	|  	|  	|  	| 0,4 	|  	|  	|  	| 28 	|  	| 50 	|  	|  	|
+| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	|
+| 2022-07-31 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 7 	| 31 	|  	| 23,5 	|  	| 14,1 	|  	| 18,8 	|  	| 0 	|  	| 0,8 	|  	|  	|  	|  	|  	| 0 	|  	|  	|  	| 23 	|  	| 31 	|  	|  	|
+| 2022-08-01 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 8 	| 1 	|  	| 23 	|  	| 15 	|  	| 19 	|  	| 0 	|  	| 1 	|  	|  	|  	|  	|  	| 0 	|  	|  	|  	| 21 	|  	| 35 	|  	|  	|
 
 # License
 

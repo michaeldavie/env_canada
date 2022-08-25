@@ -356,7 +356,6 @@ class ECHistoricalRange(object):
 
         options are daily or hourly data
 
-
         Example:
             import pandas as pd
             import asyncio
@@ -368,7 +367,7 @@ class ECHistoricalRange(object):
             stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
                                                             end_year=2022, radius=200, limit=100))).T
 
-            ec = ECHistorical_range(station_id=int(stations.iloc[0,2]), timeframe="daily",
+            ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="hourly",
                                     daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
 
             ec.get_data()
@@ -376,8 +375,6 @@ class ECHistoricalRange(object):
             ec.xml #yield an XML formated str. For more options, use ec.to_xml(*arg, **kwargs) with pandas options
 
             ec.csv #yield an CSV formated str. For more options, use ec.to_csv(*arg, **kwargs) with pandas options
-
-
     """
     @flip_daterange
     def __init__(self, station_id,
