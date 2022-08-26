@@ -217,7 +217,7 @@ class ECHistorical(object):
                 vol.Required("year"): vol.All(
                     int, vol.Range(1840, datetime.today().year)
                 ),
-                vol.Required("month"): vol.All(
+                vol.Required("month", default=1): vol.All(
                     int, vol.Range(1, 12)
                 ),
                 vol.Required("language", default="english"): vol.In(
