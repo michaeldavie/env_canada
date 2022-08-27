@@ -6,3 +6,4 @@ lxml
 Pillow
 python-dateutil
 voluptuous
+pandas>=1.3.0
