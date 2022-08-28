@@ -1,5 +1,9 @@
 # Changelog for `env_canada`
 
+## v0.5.25
+- Add support for hourly historical data
+- Add `pandas` dependency
+
 ## v0.5.24
 - Add yesterday's low and high temperature
 
