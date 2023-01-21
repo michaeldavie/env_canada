@@ -166,6 +166,18 @@ conditions_meta = {
         "english": "Normal Low Temperature",
         "french": "Basse température normale",
     },
+    "sunrise": {
+        "xpath": './riseSet/dateTime[@name="sunrise"]/timeStamp',
+        "type": "timestamp",
+        "english": "Sunrise",
+        "french": "Lever",
+    },
+    "sunset": {
+        "xpath": './riseSet/dateTime[@name="sunset"]/timeStamp',
+        "type": "timestamp",
+        "english": "Sunset",
+        "french": "Coucher",
+    },
 }
 
 summary_meta = {
@@ -372,6 +384,9 @@ class ECWeather(object):
                 else:
                     if meta["type"] == "int":
                         condition["value"] = int(float(element.text))
+
+                    elif meta["type"] == "timestamp":
+                        condition["value"] = parse_timestamp(element.text)
 
                     elif meta["type"] == "float":
                         if element.text == "Trace":
