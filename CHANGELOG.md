@@ -1,5 +1,9 @@
 # Changelog for `env_canada`
 
+## v0.5.26
+- Add sunrise and sunset to weather
+- Ignore bad hydrometric site data
+
 ## v0.5.25
 - Add support for hourly historical data
 - Add `pandas` dependency
