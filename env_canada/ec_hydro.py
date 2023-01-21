@@ -32,9 +32,11 @@ async def get_hydro_sites():
     sites_reader = csv.DictReader(sites_csv_stream, fieldnames=header)
 
     for site in sites_reader:
-        site["Latitude"] = float(site["Latitude"])
-        site["Longitude"] = float(site["Longitude"])
-        sites.append(site)
+        # Ignore bad site data
+        if site["Latitude"] is not None:
+            site["Latitude"] = float(site["Latitude"])
+            site["Longitude"] = float(site["Longitude"])
+            sites.append(site)
 
     return sites
 
