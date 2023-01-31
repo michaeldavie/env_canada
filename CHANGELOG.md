@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.27
+- Change radar frame interval
+
 ## v0.5.26
 - Add sunrise and sunset to weather
 - Ignore bad hydrometric site data
