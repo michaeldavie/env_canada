@@ -68,6 +68,7 @@ legend_params = {
     "sld_version": "1.1.0",
     "format": "image/png",
 }
+radar_interval = 6
 
 timestamp_label = {
     "rain": {"english": "Rain", "french": "Pluie"},
@@ -335,7 +336,7 @@ class ECRadar(object):
         frame_times = [start]
 
         while True:
-            next_frame = frame_times[-1] + datetime.timedelta(minutes=10)
+            next_frame = frame_times[-1] + datetime.timedelta(minutes=radar_interval)
             if next_frame > end:
                 break
             else:
