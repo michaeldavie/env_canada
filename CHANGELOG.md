@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.28
+- Raise error on old weather data
+
 ## v0.5.27
 - Change radar frame interval
 
