@@ -1,9 +1,10 @@
 import csv
+import datetime
 import logging
 import re
 
 from aiohttp import ClientSession
-from dateutil import parser, tz
+from dateutil import parser, relativedelta, tz
 import defusedxml.ElementTree as et
 from geopy import distance
 import voluptuous as vol
@@ -296,6 +297,7 @@ class ECWeather(object):
                     vol.Optional("language", default="english"): vol.In(
                         ["english", "french"]
                     ),
+                    vol.Optional("max_data_age", default=2): int,
                 },
             )
         )
@@ -303,6 +305,7 @@ class ECWeather(object):
         kwargs = init_schema(kwargs)
 
         self.language = kwargs["language"]
+        self.max_data_age = kwargs["max_data_age"]
         self.metadata = {"attribution": ATTRIBUTION[self.language]}
         self.conditions = {}
         self.alerts = {}
@@ -369,6 +372,14 @@ class ECWeather(object):
                     self.metadata[m] = parse_timestamp(self.metadata[m])
             else:
                 self.metadata[m] = None
+
+        # Check data age
+        max_age = datetime.datetime.now(
+            datetime.timezone.utc
+        ) - relativedelta.relativedelta(hours=self.max_data_age)
+
+        if self.metadata["timestamp"] < max_age:
+            raise ECWeatherUpdateFailed("Weather update failed; outdated data returned")
 
         # Update current conditions
         def get_condition(meta):
