@@ -374,6 +374,9 @@ class ECWeather(object):
                 self.metadata[m] = None
 
         # Check data age
+        if self.metadata["timestamp"] is None:
+            raise ECWeatherUpdateFailed("Weather update failed; no timestamp found")
+
         max_age = datetime.datetime.now(
             datetime.timezone.utc
         ) - relativedelta.relativedelta(hours=self.max_data_age)
