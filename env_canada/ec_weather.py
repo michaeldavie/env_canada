@@ -459,7 +459,7 @@ class ECWeather(object):
                     "period": f.findtext("period"),
                     "text_summary": f.findtext("textSummary"),
                     "icon_code": f.findtext("./abbreviatedForecast/iconCode"),
-                    "temperature": int(f.findtext("./temperatures/temperature")),
+                    "temperature": int(f.findtext("./temperatures/temperature") or 0),
                     "temperature_class": f.find(
                         "./temperatures/temperature"
                     ).attrib.get("class"),
@@ -475,7 +475,7 @@ class ECWeather(object):
                 {
                     "period": parse_timestamp(f.attrib.get("dateTimeUTC")),
                     "condition": f.findtext("./condition"),
-                    "temperature": int(f.findtext("./temperature")),
+                    "temperature": int(f.findtext("./temperature") or 0),
                     "icon_code": f.findtext("./iconCode"),
                     "precip_probability": int(f.findtext("./lop") or "0"),
                 }
