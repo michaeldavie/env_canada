@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.29
+- Handle forecast temperatures of 0º
+
 ## v0.5.28
 - Raise error on old weather data
 
