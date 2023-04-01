@@ -1,5 +1,9 @@
 # Changelog for `env_canada`
 
+## v0.5.30
+- Pin `numpy` version
+- Update XML encoding
+
 ## v0.5.29
 - Handle forecast temperatures of 0º
 
