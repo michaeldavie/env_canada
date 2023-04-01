@@ -356,7 +356,7 @@ class ECWeather(object):
                 timeout=10,
             )
             result = await response.read()
-        weather_xml = result.decode("iso-8859-1")
+        weather_xml = result.decode()
 
         try:
             weather_tree = et.fromstring(weather_xml)
