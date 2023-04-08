@@ -1,7 +1,6 @@
 # Environment Canada (env_canada)
 [![PyPI version](https://badge.fury.io/py/env-canada.svg)](https://badge.fury.io/py/env-canada)
-[![Snyk rating](https://snyk-widget.herokuapp.com/badge/pip/env-canada/badge.svg)](https://snyk.io/vuln/pip:env-canada@0.5.30?utm_source=badge)
-[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/michaeldavie/env_canada.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/michaeldavie/env_canada/context:python)
+[![Snyk rating](https://snyk-widget.herokuapp.com/badge/pip/env-canada/badge.svg)](https://snyk.io/vuln/pip:env-canada@0.5.31?utm_source=badge)
 
 This package provides access to various data sources published by [Environment and Climate Change Canada](https://www.canada.ca/en/environment-climate-change.html).
 

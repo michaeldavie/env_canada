@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.31
+- Handle wind speed of "calm" km/h
+
 ## v0.5.30
 - Pin `numpy` version
 - Update XML encoding
