@@ -397,7 +397,10 @@ class ECWeather(object):
                     condition["value"] = element.attrib.get(meta["attribute"])
                 else:
                     if meta["type"] == "int":
-                        condition["value"] = int(float(element.text))
+                        if element.text == "calm":
+                            condition["value"] = int(0)
+                        else:
+                            condition["value"] = int(float(element.text))
 
                     elif meta["type"] == "timestamp":
                         condition["value"] = parse_timestamp(element.text)
