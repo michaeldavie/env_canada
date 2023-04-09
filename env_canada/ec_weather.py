@@ -384,40 +384,42 @@ class ECWeather(object):
         if self.metadata["timestamp"] < max_age:
             raise ECWeatherUpdateFailed("Weather update failed; outdated data returned")
 
-        # Update current conditions
+        # Parse condition
         def get_condition(meta):
             condition = {}
 
             element = weather_tree.find(meta["xpath"])
 
+            # None
             if element is None or element.text is None:
                 condition["value"] = None
+
             else:
+
+                # Units
+                if element.attrib.get("units"):
+                    condition["unit"] = element.attrib.get("units")
+
+                # Value
                 if meta.get("attribute"):
                     condition["value"] = element.attrib.get(meta["attribute"])
                 else:
                     if meta["type"] == "int":
-                        if element.text == "calm":
+                        if isinstance(element.text, str):
                             condition["value"] = int(0)
                         else:
                             condition["value"] = int(float(element.text))
-
-                    elif meta["type"] == "timestamp":
-                        condition["value"] = parse_timestamp(element.text)
-
                     elif meta["type"] == "float":
-                        if element.text == "Trace":
+                        if isinstance(element.text, str):
                             condition["value"] = float(0)
                         else:
                             condition["value"] = float(element.text)
-
-                    else:
+                    elif meta["type"] == "str":
                         condition["value"] = element.text
 
-                    if element.attrib.get("units"):
-                        condition["unit"] = element.attrib.get("units")
             return condition
 
+        # Update current conditions
         for c, meta in conditions_meta.items():
             self.conditions[c] = {"label": meta[self.language]}
             self.conditions[c].update(get_condition(meta))
