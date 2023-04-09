@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.32
+- Generalize handling unexpected strings
+
 ## v0.5.31
 - Handle wind speed of "calm" km/h
 
