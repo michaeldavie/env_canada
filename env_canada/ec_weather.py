@@ -405,15 +405,15 @@ class ECWeather(object):
                     condition["value"] = element.attrib.get(meta["attribute"])
                 else:
                     if meta["type"] == "int":
-                        if isinstance(element.text, str):
-                            condition["value"] = int(0)
-                        else:
+                        try:
                             condition["value"] = int(float(element.text))
+                        except ValueError:
+                            condition["value"] = int(0)
                     elif meta["type"] == "float":
-                        if isinstance(element.text, str):
-                            condition["value"] = float(0)
-                        else:
+                        try:
                             condition["value"] = float(element.text)
+                        except ValueError:
+                            condition["value"] = float(0)
                     elif meta["type"] == "str":
                         condition["value"] = element.text
 
