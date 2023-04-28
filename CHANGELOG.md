@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.34
+- Fix radar GIF for latest `Pillow`
+
 ## v0.5.33
 - Fix handling unexpected strings
 
