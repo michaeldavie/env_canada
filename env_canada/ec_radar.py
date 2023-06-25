@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 from .ec_cache import CacheClientSession as ClientSession
 import dateutil.parser
 import defusedxml.ElementTree as et
-import imageio
+import imageio.v2 as imageio
 import voluptuous as vol
 
 ATTRIBUTION = {
