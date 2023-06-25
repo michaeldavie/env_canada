@@ -100,3 +100,8 @@ README.html
 pip-wheel-metadata
 .xprocess
 results.xml
+
+# Local tests
+test.py
+loop.gif
+radar.png
