@@ -157,7 +157,6 @@ class ECAirQuality(object):
             return et.fromstring(aqhi_xml)
 
     async def update(self):
-
         # Find closest site if not identified
 
         if not (self.zone_id and self.region_id):
@@ -210,11 +209,11 @@ class ECAirQuality(object):
                     if self.language == p.attrib["lang"]:
                         period = p.attrib["forecastName"]
                 self.forecasts["daily"][period] = int(
-                    f.findtext("./airQualityHealthIndex")
+                    f.findtext("./airQualityHealthIndex") or 0
                 )
 
             # Update AQHI hourly forecasts
             for f in aqhi_forecast.findall("./hourlyForecastGroup/hourlyForecast"):
                 self.forecasts["hourly"][
                     timestamp_to_datetime(f.attrib["UTCTime"])
-                ] = int(f.text)
+                ] = int(f.text or 0)
