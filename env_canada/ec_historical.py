@@ -130,7 +130,7 @@ async def get_historical_stations(
     limit=25,
     language="english",
     timeframe=2,
-    month=1
+    month=1,
 ):
     """Get list of all historical stations from Environment Canada"""
     lat, lng = coordinates
@@ -217,14 +217,12 @@ class ECHistorical(object):
                 vol.Required("year"): vol.All(
                     int, vol.Range(1840, datetime.today().year)
                 ),
-                vol.Required("month", default=1): vol.All(
-                    int, vol.Range(1, 12)
-                ),
+                vol.Required("month", default=1): vol.All(int, vol.Range(1, 12)),
                 vol.Required("language", default="english"): vol.In(
                     ["english", "french"]
                 ),
                 vol.Required("format", default="xml"): vol.In(["xml", "csv"]),
-                vol.Required("timeframe", default=2): vol.In([1,2])
+                vol.Required("timeframe", default=2): vol.In([1, 2]),
             }
         )
 
@@ -247,7 +245,7 @@ class ECHistorical(object):
         params = {
             "stationID": self.station_id,
             "Year": self.year,
-            "Month" : self.month,
+            "Month": self.month,
             "format": self.format,
             "timeframe": self.timeframe,
             "submit": self.submit,
@@ -344,49 +342,61 @@ class ECHistorical(object):
 
 def flip_daterange(f):
     def wrapper(*args, **kwargs):
-        if kwargs.get('daterange') in globals():
-            if kwargs.get('daterange')[0] > kwargs.get('daterange')[1]:
-                kwargs['daterange'] = (kwargs.get('daterange')[1], kwargs.get('daterange')[0])
+        if kwargs.get("daterange") in globals():
+            if kwargs.get("daterange")[0] > kwargs.get("daterange")[1]:
+                kwargs["daterange"] = (
+                    kwargs.get("daterange")[1],
+                    kwargs.get("daterange")[0],
+                )
         return f(*args, **kwargs)
+
     return wrapper
 
 
 class ECHistoricalRange(object):
     """Get historical weather data from Environment Canada in the given range for the given station.
 
-        options are daily or hourly data
+    options are daily or hourly data
 
-        Example:
-            import pandas as pd
-            import asyncio
-            from env_canada import ECHistoricalRange, get_historical_stations
-            from datetime import datetime
+    Example:
+        import pandas as pd
+        import asyncio
+        from env_canada import ECHistoricalRange, get_historical_stations
+        from datetime import datetime
 
-            coordinates = ['48.508333', '-68.467667']
+        coordinates = ['48.508333', '-68.467667']
 
-            stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
-                                                            end_year=2022, radius=200, limit=100))).T
+        stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
+                                                        end_year=2022, radius=200, limit=100))).T
 
-            ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="hourly",
-                                    daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
+        ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="hourly",
+                                daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
 
-            ec.get_data()
+        ec.get_data()
 
-            ec.xml #yield an XML formated str. For more options, use ec.to_xml(*arg, **kwargs) with pandas options
+        ec.xml #yield an XML formatted str. For more options, use ec.to_xml(*arg, **kwargs) with pandas options
 
-            ec.csv #yield an CSV formated str. For more options, use ec.to_csv(*arg, **kwargs) with pandas options
+        ec.csv #yield an CSV formatted str. For more options, use ec.to_csv(*arg, **kwargs) with pandas options
     """
+
     @flip_daterange
-    def __init__(self, station_id,
-                 daterange=(datetime.today().date() - relativedelta(years=1, months=1, day=1), datetime.today().date()),
-                 language="english", timeframe="daily"):
+    def __init__(
+        self,
+        station_id,
+        daterange=(
+            datetime.today().date() - relativedelta(years=1, months=1, day=1),
+            datetime.today().date(),
+        ),
+        language="english",
+        timeframe="daily",
+    ):
         """
         Return a DataFrame containing the data from the date range
         :param station_id: the ID of the station found with get_historical_stations
         :type station_id: int
-        :param daterange: the dates between wich the data are retreive
+        :param daterange: the dates between which the data are retrieve
         :type daterange: tuple of datetime
-        :param language: language in wich the data are retreived
+        :param language: language in which the data are retrieved
         :type language: str
         :param timeframe: selection of granularity : 'hourly', 'daily' [or 'monthly'](to be implemented)
         :type timeframe: str
@@ -398,7 +408,7 @@ class ECHistoricalRange(object):
         self.startdate, self.stopdate = daterange
         self.months = self.monthlist(daterange=daterange)
         self.language = language
-        _tf = {"hourly" : 1, "daily" : 2, "monthly" : 3}
+        _tf = {"hourly": 1, "daily": 2, "monthly": 3}
         self.timeframe = _tf[timeframe]
 
     def get_data(self):
@@ -410,18 +420,28 @@ class ECHistoricalRange(object):
         if not self.df.empty:
             self.df = pd.DataFrame()
 
-        ec = [ECHistorical(
-            station_id=self.station_id, year=year, month=month, language=self.language, format="csv",
-            timeframe=self.timeframe) for year, month in self.months]
+        ec = [
+            ECHistorical(
+                station_id=self.station_id,
+                year=year,
+                month=month,
+                language=self.language,
+                format="csv",
+                timeframe=self.timeframe,
+            )
+            for year, month in self.months
+        ]
 
         for data in ec:
             asyncio.run(data.update())
             self.df = pd.concat((self.df, pd.read_csv(data.station_data)))
 
-        self.df = self.df.set_index(self.df.filter(regex='Date/*', axis=1).columns.values[0])
+        self.df = self.df.set_index(
+            self.df.filter(regex="Date/*", axis=1).columns.values[0]
+        )
         self.df.index = pd.to_datetime(self.df.index)
 
-        #removing the dates before and after the range as the data received might exceed the range
+        # removing the dates before and after the range as the data received might exceed the range
         self.df = self.df[self.startdate <= self.df.index]
         self.df = self.df[self.stopdate >= self.df.index]
 
@@ -429,7 +449,7 @@ class ECHistoricalRange(object):
 
     @property
     def xml(self):
-        encoding = 'utf-8-sig'
+        encoding = "utf-8-sig"
         return self.to_xml(encoding=encoding)
 
     def to_xml(self, *args, **kwargs):
@@ -443,9 +463,9 @@ class ECHistoricalRange(object):
         if self.language == "french":
             decimal = ","
         else:
-            decimal = '.'
-        sep = ';'
-        encoding = 'utf-8-sig'
+            decimal = "."
+        sep = ";"
+        encoding = "utf-8-sig"
         return self.to_csv(sep=sep, decimal=decimal, encoding=encoding)
 
     def to_csv(self, *args, **kwargs):
@@ -463,4 +483,3 @@ class ECHistoricalRange(object):
             y, m = divmod(tot_m, 12)
             mlist.append((y, m + 1))
         return mlist
-
