@@ -289,7 +289,7 @@ class ECRadar(object):
                 + " @ "
                 + frame_time.astimezone().strftime("%H:%M")
             )
-            text_box = Image.new("RGBA", self.font.getsize(timestamp), "white")
+            text_box = Image.new("RGBA", self.font.getbbox(timestamp)[2:], "white")
             box_draw = ImageDraw.Draw(text_box)
             box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font)
             double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
