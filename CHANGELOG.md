@@ -1,5 +1,10 @@
 # Changelog for `env_canada`
 
+## v0.5.35
+- Add wind speed and direction to hourly forecasts
+- Handle missing AQHI forecasts
+- Fixes for dependency changes
+
 ## v0.5.34
 - Fix radar GIF for latest `Pillow`
 
