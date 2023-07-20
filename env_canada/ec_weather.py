@@ -483,7 +483,7 @@ class ECWeather(object):
                     "temperature": int(f.findtext("./temperature") or 0),
                     "icon_code": f.findtext("./iconCode"),
                     "precip_probability": int(f.findtext("./lop") or "0"),
-                    "wind_speed": int(wind_speed_text if str(wind_speed_text).isnumeric() else 0),
+                    "wind_speed": int(wind_speed_text if wind_speed_text.isnumeric() else 0),
                     "wind_direction": f.findtext("./wind/direction"),
                 }
             )
