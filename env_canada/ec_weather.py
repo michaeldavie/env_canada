@@ -475,6 +475,7 @@ class ECWeather(object):
 
         # Update hourly forecasts
         for f in weather_tree.findall("./hourlyForecastGroup/hourlyForecast"):
+            wind_speed_text = f.findtext("./wind/speed")
             self.hourly_forecasts.append(
                 {
                     "period": parse_timestamp(f.attrib.get("dateTimeUTC")),
