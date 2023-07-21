@@ -1,5 +1,9 @@
 # Changelog for `env_canada`
 
+## v0.5.36
+- Handle non-numeric hourly wind speed
+- Set `imageio` dependency >= 2.28.0
+
 ## v0.5.35
 - Add wind speed and direction to hourly forecasts
 - Handle missing AQHI forecasts
