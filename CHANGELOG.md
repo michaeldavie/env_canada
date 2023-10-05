@@ -1,5 +1,8 @@
 # Changelog for `env_canada`
 
+## v0.5.37
+- Update dependencies
+
 ## v0.5.36
 - Handle non-numeric hourly wind speed
 - Set `imageio` dependency >= 2.28.0
