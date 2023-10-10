@@ -22,7 +22,7 @@ __all__ = ["ECRadar"]
 
 # Natural Resources Canada
 
-basemap_url = "http://maps.geogratis.gc.ca/wms/CBMT"
+basemap_url = "https://maps.geogratis.gc.ca/wms/CBMT"
 basemap_params = {
     "service": "wms",
     "version": "1.3.0",
@@ -199,8 +199,8 @@ class ECRadar(object):
                 base_bytes = await response.read()
                 self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
 
-        except ClientConnectorError:
-            logging.warning("NRCan base map could not be retreived")
+        except ClientConnectorError as e:
+            logging.warning("NRCan base map could not be retrieved: %s" % e)
 
             try:
                 async with ClientSession(raise_for_status=True) as session:
@@ -210,7 +210,7 @@ class ECRadar(object):
                     base_bytes = await response.read()
                     self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
             except ClientConnectorError:
-                logging.warning("Mapbox base map could not be retreived")
+                logging.warning("Mapbox base map could not be retrieved")
 
         return
 
