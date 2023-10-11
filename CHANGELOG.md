@@ -1,5 +1,10 @@
 # Changelog for `env_canada`
 
+## v0.6.0
+- Support weather stations without current conditions
+- Fix sunrise and sunset conditions
+- Switch radar URL to HTTPS
+
 ## v0.5.37
 - Update dependencies
 
