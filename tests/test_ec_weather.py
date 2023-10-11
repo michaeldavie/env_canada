@@ -17,14 +17,20 @@ def test_ecweather(init_parameters):
     weather = ECWeather(**init_parameters)
     assert isinstance(weather, ECWeather)
 
+@pytest.fixture()
+def no_conditions():
+    return ECWeather(station_id="ON/s0000773")
+
+def test_update_no_conditions(no_conditions):
+    asyncio.run(no_conditions.update())
+    assert no_conditions.conditions == {}
+    assert no_conditions.daily_forecasts
+    assert no_conditions.hourly_forecasts
 
 @pytest.fixture()
-def test_weather():
-    return ECWeather(coordinates=(50, -100))
+def with_conditions():
+    return ECWeather(station_id="ON/s0000430")
 
-
-def test_update(test_weather):
-    asyncio.run(test_weather.update())
-    assert test_weather.conditions
-    assert test_weather.daily_forecasts
-    assert test_weather.hourly_forecasts
+def test_update_with_conditions(with_conditions):
+    asyncio.run(with_conditions.update())
+    assert with_conditions.conditions

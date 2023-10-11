@@ -179,6 +179,12 @@ conditions_meta = {
         "english": "Sunset",
         "french": "Coucher",
     },
+    "observationTime": {
+        "xpath": "./currentConditions/dateTime/timeStamp",
+        "type": "timestamp",
+        "english": "Observation Time",
+        "french": "Temps d'observation"
+    },
 }
 
 summary_meta = {
@@ -218,9 +224,8 @@ alerts_meta = {
 }
 
 metadata_meta = {
-    "timestamp": {"xpath": "./currentConditions/dateTime/timeStamp"},
+    "timestamp": {"xpath": "./dateTime/timeStamp"},
     "location": {"xpath": "./location/name"},
-    "station": {"xpath": "./currentConditions/station"},
 }
 
 
@@ -415,22 +420,28 @@ class ECWeather(object):
                             condition["value"] = float(0)
                     elif meta["type"] == "str":
                         condition["value"] = element.text
+                    elif meta["type"] == "timestamp":
+                        condition["value"] = parse_timestamp(element.text)
 
             return condition
 
         # Update current conditions
-        for c, meta in conditions_meta.items():
-            self.conditions[c] = {"label": meta[self.language]}
-            self.conditions[c].update(get_condition(meta))
+        if len(weather_tree.find("./currentConditions")) > 0:
+            for c, meta in conditions_meta.items():
+                self.conditions[c] = {"label": meta[self.language]}
+                self.conditions[c].update(get_condition(meta))
 
-        # Update text summary
-        period = get_condition(summary_meta["forecast_period"])["value"]
-        summary = get_condition(summary_meta["text_summary"])["value"]
+            # Update station metadata
+            self.metadata["station"] = weather_tree.find("./currentConditions/station").text
 
-        self.conditions["text_summary"] = {
-            "label": summary_meta["label"][self.language],
-            "value": ". ".join([period, summary]),
-        }
+            # Update text summary
+            period = get_condition(summary_meta["forecast_period"])["value"]
+            summary = get_condition(summary_meta["text_summary"])["value"]
+
+            self.conditions["text_summary"] = {
+                "label": summary_meta["label"][self.language],
+                "value": ". ".join([period, summary]),
+            }
 
         # Update alerts
         for category, meta in alerts_meta.items():
