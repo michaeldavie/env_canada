@@ -1,6 +1,7 @@
 # Environment Canada (env_canada)
+
 [![PyPI version](https://badge.fury.io/py/env-canada.svg)](https://badge.fury.io/py/env-canada)
-[![Snyk rating](https://snyk-widget.herokuapp.com/badge/pip/env-canada/badge.svg)](https://snyk.io/vuln/pip:env-canada@0.6.0?utm_source=badge)
+[![Snyk rating](https://snyk-widget.herokuapp.com/badge/pip/env-canada/badge.svg)](https://snyk.io/vuln/pip:env-canada@0.6.1?utm_source=badge)
 
 This package provides access to various data sources published by [Environment and Climate Change Canada](https://www.canada.ca/en/environment-climate-change.html).
 
@@ -153,33 +154,30 @@ ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="daily",
 
 ec.get_data()
 
-#yield an XML formated str. 
+#yield an XML formated str.
 # For more options, use ec.to_xml(*arg, **kwargs) with pandas options
 ec.xml
- 
+
 #yield an CSV formated str.
 # For more options, use ec.to_csv(*arg, **kwargs) with pandas options
 ec.csv
 ```
 
-In this example ```ec.df``` will be:
+In this example `ec.df` will be:
 
-| Date/Time 	| Longitude (x) 	| Latitude (y) 	| Station Name 	| Climate ID 	| Year 	| Month 	| Day 	| Data Quality 	| Max Temp (Â°C) 	| Max Temp Flag 	| Min Temp (Â°C) 	| Min Temp Flag 	| Mean Temp (Â°C) 	| Mean Temp Flag 	| Heat Deg Days (Â°C) 	| Heat Deg Days Flag 	| Cool Deg Days (Â°C) 	| Cool Deg Days Flag 	| Total Rain (mm) 	| Total Rain Flag 	| Total Snow (cm) 	| Total Snow Flag 	| Total Precip (mm) 	| Total Precip Flag 	| Snow on Grnd (cm) 	| Snow on Grnd Flag 	| Dir of Max Gust (10s deg) 	| Dir of Max Gust Flag 	| Spd of Max Gust (km/h) 	| Spd of Max   Gust Flag 	|  	|
-|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|---	|
-| 2022-07-02 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 7 	| 2 	|  	| 22,8 	|  	| 12,5 	|  	| 17,7 	|  	| 0,3 	|  	| 0 	|  	|  	|  	|  	|  	| 0 	|  	|  	|  	| 26 	|  	| 37 	|  	|  	|
-| 2022-07-03 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 7 	| 3 	|  	| 21,7 	|  	| 10,1 	|  	| 15,9 	|  	| 2,1 	|  	| 0 	|  	|  	|  	|  	|  	| 0,4 	|  	|  	|  	| 28 	|  	| 50 	|  	|  	|
-| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	| … 	|
-| 2022-07-31 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 7 	| 31 	|  	| 23,5 	|  	| 14,1 	|  	| 18,8 	|  	| 0 	|  	| 0,8 	|  	|  	|  	|  	|  	| 0 	|  	|  	|  	| 23 	|  	| 31 	|  	|  	|
-| 2022-08-01 	| -68,47 	| 48,51 	| POINTE-AU-PERE (INRS) 	| 7056068 	| 2022 	| 8 	| 1 	|  	| 23 	|  	| 15 	|  	| 19 	|  	| 0 	|  	| 1 	|  	|  	|  	|  	|  	| 0 	|  	|  	|  	| 21 	|  	| 35 	|  	|  	|
-
+| Date/Time  | Longitude (x) | Latitude (y) | Station Name          | Climate ID | Year | Month | Day | Data Quality | Max Temp (Â°C) | Max Temp Flag | Min Temp (Â°C) | Min Temp Flag | Mean Temp (Â°C) | Mean Temp Flag | Heat Deg Days (Â°C) | Heat Deg Days Flag | Cool Deg Days (Â°C) | Cool Deg Days Flag | Total Rain (mm) | Total Rain Flag | Total Snow (cm) | Total Snow Flag | Total Precip (mm) | Total Precip Flag | Snow on Grnd (cm) | Snow on Grnd Flag | Dir of Max Gust (10s deg) | Dir of Max Gust Flag | Spd of Max Gust (km/h) | Spd of Max Gust Flag |     |
+| ---------- | ------------- | ------------ | --------------------- | ---------- | ---- | ----- | --- | ------------ | -------------- | ------------- | -------------- | ------------- | --------------- | -------------- | ------------------- | ------------------ | ------------------- | ------------------ | --------------- | --------------- | --------------- | --------------- | ----------------- | ----------------- | ----------------- | ----------------- | ------------------------- | -------------------- | ---------------------- | -------------------- | --- |
+| 2022-07-02 | -68,47        | 48,51        | POINTE-AU-PERE (INRS) | 7056068    | 2022 | 7     | 2   |              | 22,8           |               | 12,5           |               | 17,7            |                | 0,3                 |                    | 0                   |                    |                 |                 |                 |                 | 0                 |                   |                   |                   | 26                        |                      | 37                     |                      |     |
+| 2022-07-03 | -68,47        | 48,51        | POINTE-AU-PERE (INRS) | 7056068    | 2022 | 7     | 3   |              | 21,7           |               | 10,1           |               | 15,9            |                | 2,1                 |                    | 0                   |                    |                 |                 |                 |                 | 0,4               |                   |                   |                   | 28                        |                      | 50                     |                      |     |
+| …          | …             | …            | …                     | …          | …    | …     | …   | …            | …              | …             | …              | …             | …               | …              | …                   | …                  | …                   | …                  | …               | …               | …               | …               | …                 | …                 | …                 | …                 | …                         | …                    | …                      | …                    | …   |
+| 2022-07-31 | -68,47        | 48,51        | POINTE-AU-PERE (INRS) | 7056068    | 2022 | 7     | 31  |              | 23,5           |               | 14,1           |               | 18,8            |                | 0                   |                    | 0,8                 |                    |                 |                 |                 |                 | 0                 |                   |                   |                   | 23                        |                      | 31                     |                      |     |
+| 2022-08-01 | -68,47        | 48,51        | POINTE-AU-PERE (INRS) | 7056068    | 2022 | 8     | 1   |              | 23             |               | 15             |               | 19              |                | 0                   |                    | 1                   |                    |                 |                 |                 |                 | 0                 |                   |                   |                   | 21                        |                      | 35                     |                      |     |
 
 One should note that july 1st is excluded as the time provided contains specific hours, so it yields only data after or at exactly
 the time provided.
 
-To have all the july 1st data in that case, one can provide a datarange without time: ```datetime(2022, 7, 7)``` instead
-of ```datetime(2022, 7, 1, 12, 12)```
-
-
+To have all the july 1st data in that case, one can provide a datarange without time: `datetime(2022, 7, 7)` instead
+of `datetime(2022, 7, 1, 12, 12)`
 
 # License
 
