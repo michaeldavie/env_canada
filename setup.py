@@ -16,7 +16,7 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=["tests", "tests.*"]),
     include_package_data=True,
     install_requires=[
-        "aiohttp",
+        "aiohttp>=3.9.0",
         "defusedxml",
         "geopy",
         "imageio>=2.28.0",

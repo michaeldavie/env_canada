@@ -1,4 +1,4 @@
-aiohttp
+aiohttp>=3.9.0
 defusedxml
 geopy
 imageio>=2.28.0
