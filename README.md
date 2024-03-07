@@ -92,7 +92,8 @@ Once updated asynchronously, historical weather data is contained with the `stat
 ```python
 import asyncio
 
-from env_canada import ECHistorical, get_historical_stations
+from env_canada import ECHistorical
+from env_canada.ec_historical import get_historical_stations
 
 # search for stations, response contains station_ids
 coordinates = [53.916944, -122.749444] # [lat, long]
@@ -141,7 +142,8 @@ For example :
 ```python
 import pandas as pd
 import asyncio
-from env_canada import ECHistoricalRange, get_historical_stations
+from env_canada import ECHistoricalRange
+from env_canada.ec_historical import get_historical_stations
 from datetime import datetime
 
 coordinates = ['48.508333', '-68.467667']
