@@ -1,17 +1,18 @@
-from aiohttp.client_exceptions import ClientConnectorError
 import asyncio
 import datetime
-from io import BytesIO
 import logging
 import math
 import os
-from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
 
-from .ec_cache import CacheClientSession as ClientSession
 import dateutil.parser
 import defusedxml.ElementTree as et
 import imageio.v2 as imageio
 import voluptuous as vol
+from aiohttp.client_exceptions import ClientConnectorError
+from PIL import Image, ImageDraw, ImageFont
+
+from .ec_cache import CacheClientSession as ClientSession
 
 ATTRIBUTION = {
     "english": "Data provided by Environment Canada",
@@ -331,6 +332,17 @@ class ECRadar(object):
     async def get_loop(self, fps=5):
         """Build an animated GIF of recent radar images."""
 
+        def build_image():
+            gif_frames = [imageio.imread(f, mode="RGBA") for f in frames]
+            gif_bytes = imageio.mimwrite(
+                imageio.RETURN_BYTES,
+                gif_frames,
+                format="GIF",
+                duration=duration,
+                subrectangles=True,
+            )
+            return gif_bytes
+
         """Build list of frame timestamps."""
         start, end = await self._get_dimensions()
         frame_times = [start]
@@ -361,12 +373,6 @@ class ECRadar(object):
         """Assemble animated GIF."""
         duration = 1000 / fps
 
-        gif_frames = [imageio.imread(f, mode="RGBA") for f in frames]
-        gif_bytes = imageio.mimwrite(
-            imageio.RETURN_BYTES,
-            gif_frames,
-            format="GIF",
-            duration=duration,
-            subrectangles=True,
-        )
+        loop = asyncio.get_running_loop()
+        gif_bytes = await loop.run_in_executor(None, build_image)
         return gif_bytes
