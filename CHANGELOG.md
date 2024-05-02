@@ -1,5 +1,11 @@
 # Changelog for `env_canada`
 
+## v0.6.2
+
+- Fix imports
+- Call `imageio` in executor
+- Remove test for weather with no conditions
+
 ## v0.6.1
 
 - Dependency updates
