@@ -183,4 +183,4 @@ of `datetime(2022, 7, 1, 12, 12)`
 
 # License
 
-The code is available under terms of [MIT License](LICENSE.md)
+The code is available under terms of [MIT License](https://github.com/michaeldavie/env_canada/tree/master/LICENSE.md)
