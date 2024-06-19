@@ -102,6 +102,17 @@ def compute_bounding_box(distance, latittude, longitude):
     return lat_min, lon_min, lat_max, lon_max
 
 
+async def _image_open(bytes, mode):
+    loop = asyncio.get_running_loop()
+    image = await loop.run_in_executor(None, Image.open, BytesIO(bytes))
+    return image.convert(mode)
+
+
+async def _load_font(font_file):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, ImageFont.load, font_file)
+
+
 class ECRadar(object):
     def __init__(self, **kwargs):
         """Initialize the radar object."""
@@ -163,10 +174,7 @@ class ECRadar(object):
             self.legend_position = None
 
         self.show_timestamp = kwargs["timestamp"]
-        if self.show_timestamp:
-            self.font = ImageFont.load(
-                os.path.join(os.path.dirname(__file__), "10x20.pil")
-            )
+        self.font = None
 
     @property
     def precip_type(self):
@@ -198,7 +206,7 @@ class ECRadar(object):
             async with ClientSession(raise_for_status=True) as session:
                 response = await session.get(url=basemap_url, params=basemap_params)
                 base_bytes = await response.read()
-                self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
+                self.map_image = await _image_open(base_bytes, "RGBA")
 
         except ClientConnectorError as e:
             logging.warning("NRCan base map could not be retrieved: %s" % e)
@@ -209,7 +217,7 @@ class ECRadar(object):
                         url=backup_map_url, params=basemap_params
                     )
                     base_bytes = await response.read()
-                    self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
+                    self.map_image = await _image_open(base_bytes, "RGBA")
             except ClientConnectorError:
                 logging.warning("Mapbox base map could not be retrieved")
 
@@ -225,7 +233,7 @@ class ECRadar(object):
         async with ClientSession(raise_for_status=True) as session:
             response = await session.get(url=geomet_url, params=legend_params)
             legend_bytes = await response.read()
-        self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
+        self.legend_image = await _image_open(legend_bytes, "RGB")
         legend_width = self.legend_image.size[0]
         self.legend_position = (self.width - legend_width, 0)
         self.legend_layer = self.layer_key
@@ -256,7 +264,7 @@ class ECRadar(object):
     async def _combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
-        radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
+        radar = await _image_open(radar_bytes, "RGBA")
 
         # Add transparency to radar
 
@@ -285,6 +293,10 @@ class ECRadar(object):
         # Add timestamp
 
         if self.show_timestamp:
+            if not self.font:
+                self.font = await _load_font(
+                    os.path.join(os.path.dirname(__file__), "10x20.pil")
+                )
             timestamp = (
                 timestamp_label[self.layer_key][self.language]
                 + " @ "
