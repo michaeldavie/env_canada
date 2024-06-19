@@ -102,12 +102,6 @@ def compute_bounding_box(distance, latittude, longitude):
     return lat_min, lon_min, lat_max, lon_max
 
 
-async def _image_open(bytes, mode):
-    loop = asyncio.get_running_loop()
-    image = await loop.run_in_executor(None, Image.open, BytesIO(bytes))
-    return image.convert(mode)
-
-
 class ECRadar(object):
     def __init__(self, **kwargs):
         """Initialize the radar object."""
@@ -163,10 +157,9 @@ class ECRadar(object):
         # Get overlay parameters
 
         self.show_legend = kwargs["legend"]
-        if self.show_legend:
-            self.legend_layer = None
-            self.legend_image = None
-            self.legend_position = None
+        self.legend_layer = None
+        self.legend_image = None
+        self.legend_position = None
 
         self.show_timestamp = kwargs["timestamp"]
         self.font = None
@@ -212,9 +205,9 @@ class ECRadar(object):
                     base_bytes = await response.read()
             except ClientConnectorError:
                 logging.warning("Mapbox base map could not be retrieved")
-                return
+                return None
 
-        self.map_image = await _image_open(base_bytes, "RGBA")
+        return base_bytes
 
     async def _get_legend(self):
         """Fetch legend image."""
@@ -223,13 +216,13 @@ class ECRadar(object):
                 layer=precip_layers[self.layer_key], style=legend_style[self.layer_key]
             )
         )
-        async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(url=geomet_url, params=legend_params)
-            legend_bytes = await response.read()
-        self.legend_image = await _image_open(legend_bytes, "RGB")
-        legend_width = self.legend_image.size[0]
-        self.legend_position = (self.width - legend_width, 0)
-        self.legend_layer = self.layer_key
+        try:
+            async with ClientSession(raise_for_status=True) as session:
+                response = await session.get(url=geomet_url, params=legend_params)
+                return await response.read()
+        except ClientConnectorError:
+            logging.warning("Legend could not be retrieved")
+            return None
 
     async def _get_dimensions(self):
         """Get time range of available data."""
@@ -259,12 +252,15 @@ class ECRadar(object):
 
         loop = asyncio.get_event_loop()
 
-        radar = await _image_open(radar_bytes, "RGBA")
+        base_bytes = None
         if not self.map_image:
-            await self._get_basemap()
+            base_bytes = await self._get_basemap()
+
+        legend_bytes = None
         if self.show_legend:
             if not self.legend_image or self.legend_layer != self.layer_key:
-                await self._get_legend()
+                legend_bytes = await self._get_legend()
+
         if self.show_timestamp:
             if not self.font:
                 self.font = await loop.run_in_executor(
@@ -275,6 +271,17 @@ class ECRadar(object):
 
         # All the PIL stuff
         def _create_image():
+            radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
+
+            if base_bytes:
+                self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
+
+            if legend_bytes:
+                self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
+                legend_width = self.legend_image.size[0]
+                self.legend_position = (self.width - legend_width, 0)
+                self.legend_layer = self.layer_key
+
             # Add transparency to radar
             if self.radar_opacity < 100:
                 alpha = round((self.radar_opacity / 100) * 255)
@@ -289,7 +296,7 @@ class ECRadar(object):
                 frame = radar
 
             # Add legend
-            if self.show_legend:
+            if self.show_legend and self.legend_image:
                 frame.paste(self.legend_image, self.legend_position)
 
             # Add timestamp
