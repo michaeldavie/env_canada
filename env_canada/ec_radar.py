@@ -201,22 +201,20 @@ class ECRadar(object):
             async with ClientSession(raise_for_status=True) as session:
                 response = await session.get(url=basemap_url, params=basemap_params)
                 base_bytes = await response.read()
-                self.map_image = await _image_open(base_bytes, "RGBA")
 
         except ClientConnectorError as e:
             logging.warning("NRCan base map could not be retrieved: %s" % e)
-
             try:
                 async with ClientSession(raise_for_status=True) as session:
                     response = await session.get(
                         url=backup_map_url, params=basemap_params
                     )
                     base_bytes = await response.read()
-                    self.map_image = await _image_open(base_bytes, "RGBA")
             except ClientConnectorError:
                 logging.warning("Mapbox base map could not be retrieved")
+                return
 
-        return
+        self.map_image = await _image_open(base_bytes, "RGBA")
 
     async def _get_legend(self):
         """Fetch legend image."""
