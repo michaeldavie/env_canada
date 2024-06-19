@@ -259,61 +259,64 @@ class ECRadar(object):
     async def _combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
+        loop = asyncio.get_event_loop()
+
         radar = await _image_open(radar_bytes, "RGBA")
-
-        # Add transparency to radar
-
-        if self.radar_opacity < 100:
-            alpha = round((self.radar_opacity / 100) * 255)
-            radar_copy = radar.copy()
-            radar_copy.putalpha(alpha)
-            radar.paste(radar_copy, radar)
-
-        # Overlay radar on basemap
-
         if not self.map_image:
             await self._get_basemap()
-        if self.map_image:
-            frame = Image.alpha_composite(self.map_image, radar)
-        else:
-            frame = radar
-
-        # Add legend
-
         if self.show_legend:
             if not self.legend_image or self.legend_layer != self.layer_key:
                 await self._get_legend()
-            frame.paste(self.legend_image, self.legend_position)
-
-        # Add timestamp
-
         if self.show_timestamp:
             if not self.font:
-                loop = asyncio.get_running_loop()
                 self.font = await loop.run_in_executor(
                     None,
                     ImageFont.load,
                     os.path.join(os.path.dirname(__file__), "10x20.pil"),
                 )
-            timestamp = (
-                timestamp_label[self.layer_key][self.language]
-                + " @ "
-                + frame_time.astimezone().strftime("%H:%M")
-            )
-            text_box = Image.new("RGBA", self.font.getbbox(timestamp)[2:], "white")
-            box_draw = ImageDraw.Draw(text_box)
-            box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font)
-            double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
-            frame.paste(double_box)
-            frame = frame.quantize()
 
-        # Return frame as PNG bytes
+        # All the PIL stuff
+        def _create_image():
+            # Add transparency to radar
+            if self.radar_opacity < 100:
+                alpha = round((self.radar_opacity / 100) * 255)
+                radar_copy = radar.copy()
+                radar_copy.putalpha(alpha)
+                radar.paste(radar_copy, radar)
 
-        img_byte_arr = BytesIO()
-        frame.save(img_byte_arr, format="PNG")
-        frame_bytes = img_byte_arr.getvalue()
+            # Overlay radar on basemap
+            if self.map_image:
+                frame = Image.alpha_composite(self.map_image, radar)
+            else:
+                frame = radar
 
-        return frame_bytes
+            # Add legend
+            if self.show_legend:
+                frame.paste(self.legend_image, self.legend_position)
+
+            # Add timestamp
+            if self.show_timestamp:
+                timestamp = (
+                    timestamp_label[self.layer_key][self.language]
+                    + " @ "
+                    + frame_time.astimezone().strftime("%H:%M")
+                )
+                text_box = Image.new("RGBA", self.font.getbbox(timestamp)[2:], "white")
+                box_draw = ImageDraw.Draw(text_box)
+                box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font)
+                double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
+                frame.paste(double_box)
+                frame = frame.quantize()
+
+            # Return frame as PNG bytes
+            img_byte_arr = BytesIO()
+            frame.save(img_byte_arr, format="PNG")
+            frame_bytes = img_byte_arr.getvalue()
+
+            return frame_bytes
+
+        # Since PIL is non-async run all the PIL stuff in another thread
+        return await loop.run_in_executor(None, _create_image)
 
     async def _get_radar_image(self, session, frame_time):
         params = dict(
