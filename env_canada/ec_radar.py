@@ -108,11 +108,6 @@ async def _image_open(bytes, mode):
     return image.convert(mode)
 
 
-async def _load_font(font_file):
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, ImageFont.load, font_file)
-
-
 class ECRadar(object):
     def __init__(self, **kwargs):
         """Initialize the radar object."""
@@ -294,8 +289,11 @@ class ECRadar(object):
 
         if self.show_timestamp:
             if not self.font:
-                self.font = await _load_font(
-                    os.path.join(os.path.dirname(__file__), "10x20.pil")
+                loop = asyncio.get_running_loop()
+                self.font = await loop.run_in_executor(
+                    None,
+                    ImageFont.load,
+                    os.path.join(os.path.dirname(__file__), "10x20.pil"),
                 )
             timestamp = (
                 timestamp_label[self.layer_key][self.language]
