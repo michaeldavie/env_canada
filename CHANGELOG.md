@@ -1,5 +1,10 @@
 # Changelog for `env_canada`
 
+## v0.7.0
+
+- BREAKING CHANGE: Remove yesterday's data (high temp, low temp, and precipitation) from weather. Environment Canada removed these values from the source data.
+- Make calls to `PIL` asynchronous
+
 ## v0.6.2
 
 - Fix imports
