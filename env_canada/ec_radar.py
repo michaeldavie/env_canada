@@ -250,8 +250,6 @@ class ECRadar(object):
     async def _combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
-        loop = asyncio.get_event_loop()
-
         base_bytes = None
         if not self.map_image:
             base_bytes = await self._get_basemap()
@@ -261,7 +259,7 @@ class ECRadar(object):
             if not self.legend_image or self.legend_layer != self.layer_key:
                 legend_bytes = await self._get_legend()
 
-        # All the PIL stuff
+        # All the synchronous PIL stuff here
         def _create_image():
             radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
 
@@ -297,7 +295,7 @@ class ECRadar(object):
                 frame.paste(self.legend_image, self.legend_position)
 
             # Add timestamp
-            if self.show_timestamp:
+            if self.show_timestamp and self.font:
                 timestamp = (
                     timestamp_label[self.layer_key][self.language]
                     + " @ "
@@ -317,8 +315,8 @@ class ECRadar(object):
 
             return frame_bytes
 
-        # Since PIL is non-async run all the PIL stuff in another thread
-        return await loop.run_in_executor(None, _create_image)
+        # Since PIL is synchronous, run it all in another thread
+        return await asyncio.get_event_loop().run_in_executor(None, _create_image)
 
     async def _get_radar_image(self, session, frame_time):
         params = dict(
