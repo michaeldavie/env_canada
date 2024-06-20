@@ -137,24 +137,6 @@ conditions_meta = {
         "english": "Icon Code",
         "french": "Code icône",
     },
-    "high_temp_yesterday": {
-        "xpath": './yesterdayConditions/temperature[@class="high"]',
-        "type": "float",
-        "english": "High Temperature Yesterday",
-        "french": "Haute température d'hier",
-    },
-    "low_temp_yesterday": {
-        "xpath": './yesterdayConditions/temperature[@class="low"]',
-        "type": "float",
-        "english": "Low Temperature Yesterday",
-        "french": "Basse température d'hier",
-    },
-    "precip_yesterday": {
-        "xpath": "./yesterdayConditions/precip",
-        "type": "float",
-        "english": "Precipitation Yesterday",
-        "french": "Précipitation d'hier",
-    },
     "normal_high": {
         "xpath": './forecastGroup/regionalNormals/temperature[@class="high"]',
         "type": "int",
@@ -183,7 +165,7 @@ conditions_meta = {
         "xpath": "./currentConditions/dateTime/timeStamp",
         "type": "timestamp",
         "english": "Observation Time",
-        "french": "Temps d'observation"
+        "french": "Temps d'observation",
     },
 }
 
@@ -278,7 +260,6 @@ def closest_site(site_list, lat, lon):
 
 
 class ECWeather(object):
-
     """Get weather data from Environment Canada."""
 
     def __init__(self, **kwargs):
@@ -432,7 +413,9 @@ class ECWeather(object):
                 self.conditions[c].update(get_condition(meta))
 
             # Update station metadata
-            self.metadata["station"] = weather_tree.find("./currentConditions/station").text
+            self.metadata["station"] = weather_tree.find(
+                "./currentConditions/station"
+            ).text
 
             # Update text summary
             period = get_condition(summary_meta["forecast_period"])["value"]
@@ -494,7 +477,9 @@ class ECWeather(object):
                     "temperature": int(f.findtext("./temperature") or 0),
                     "icon_code": f.findtext("./iconCode"),
                     "precip_probability": int(f.findtext("./lop") or "0"),
-                    "wind_speed": int(wind_speed_text if wind_speed_text.isnumeric() else 0),
+                    "wind_speed": int(
+                        wind_speed_text if wind_speed_text.isnumeric() else 0
+                    ),
                     "wind_direction": f.findtext("./wind/direction"),
                 }
             )
