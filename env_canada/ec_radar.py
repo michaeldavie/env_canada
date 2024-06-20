@@ -157,16 +157,12 @@ class ECRadar(object):
         # Get overlay parameters
 
         self.show_legend = kwargs["legend"]
-        if self.show_legend:
-            self.legend_layer = None
-            self.legend_image = None
-            self.legend_position = None
+        self.legend_layer = None
+        self.legend_image = None
+        self.legend_position = None
 
         self.show_timestamp = kwargs["timestamp"]
-        if self.show_timestamp:
-            self.font = ImageFont.load(
-                os.path.join(os.path.dirname(__file__), "10x20.pil")
-            )
+        self.font = None
 
     @property
     def precip_type(self):
@@ -198,22 +194,20 @@ class ECRadar(object):
             async with ClientSession(raise_for_status=True) as session:
                 response = await session.get(url=basemap_url, params=basemap_params)
                 base_bytes = await response.read()
-                self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
 
         except ClientConnectorError as e:
             logging.warning("NRCan base map could not be retrieved: %s" % e)
-
             try:
                 async with ClientSession(raise_for_status=True) as session:
                     response = await session.get(
                         url=backup_map_url, params=basemap_params
                     )
                     base_bytes = await response.read()
-                    self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
             except ClientConnectorError:
                 logging.warning("Mapbox base map could not be retrieved")
+                return None
 
-        return
+        return base_bytes
 
     async def _get_legend(self):
         """Fetch legend image."""
@@ -222,13 +216,13 @@ class ECRadar(object):
                 layer=precip_layers[self.layer_key], style=legend_style[self.layer_key]
             )
         )
-        async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(url=geomet_url, params=legend_params)
-            legend_bytes = await response.read()
-        self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
-        legend_width = self.legend_image.size[0]
-        self.legend_position = (self.width - legend_width, 0)
-        self.legend_layer = self.layer_key
+        try:
+            async with ClientSession(raise_for_status=True) as session:
+                response = await session.get(url=geomet_url, params=legend_params)
+                return await response.read()
+        except ClientConnectorError:
+            logging.warning("Legend could not be retrieved")
+            return None
 
     async def _get_dimensions(self):
         """Get time range of available data."""
@@ -256,54 +250,73 @@ class ECRadar(object):
     async def _combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
-        radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
-
-        # Add transparency to radar
-
-        if self.radar_opacity < 100:
-            alpha = round((self.radar_opacity / 100) * 255)
-            radar_copy = radar.copy()
-            radar_copy.putalpha(alpha)
-            radar.paste(radar_copy, radar)
-
-        # Overlay radar on basemap
-
+        base_bytes = None
         if not self.map_image:
-            await self._get_basemap()
-        if self.map_image:
-            frame = Image.alpha_composite(self.map_image, radar)
-        else:
-            frame = radar
+            base_bytes = await self._get_basemap()
 
-        # Add legend
-
+        legend_bytes = None
         if self.show_legend:
             if not self.legend_image or self.legend_layer != self.layer_key:
-                await self._get_legend()
-            frame.paste(self.legend_image, self.legend_position)
+                legend_bytes = await self._get_legend()
 
-        # Add timestamp
+        # All the synchronous PIL stuff here
+        def _create_image():
+            radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
 
-        if self.show_timestamp:
-            timestamp = (
-                timestamp_label[self.layer_key][self.language]
-                + " @ "
-                + frame_time.astimezone().strftime("%H:%M")
-            )
-            text_box = Image.new("RGBA", self.font.getbbox(timestamp)[2:], "white")
-            box_draw = ImageDraw.Draw(text_box)
-            box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font)
-            double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
-            frame.paste(double_box)
-            frame = frame.quantize()
+            if base_bytes:
+                self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
 
-        # Return frame as PNG bytes
+            if legend_bytes:
+                self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
+                legend_width = self.legend_image.size[0]
+                self.legend_position = (self.width - legend_width, 0)
+                self.legend_layer = self.layer_key
 
-        img_byte_arr = BytesIO()
-        frame.save(img_byte_arr, format="PNG")
-        frame_bytes = img_byte_arr.getvalue()
+            # Add transparency to radar
+            if self.radar_opacity < 100:
+                alpha = round((self.radar_opacity / 100) * 255)
+                radar_copy = radar.copy()
+                radar_copy.putalpha(alpha)
+                radar.paste(radar_copy, radar)
 
-        return frame_bytes
+            if self.show_timestamp and not self.font:
+                self.font = ImageFont.load(
+                    os.path.join(os.path.dirname(__file__), "10x20.pil")
+                )
+
+            # Overlay radar on basemap
+            if self.map_image:
+                frame = Image.alpha_composite(self.map_image, radar)
+            else:
+                frame = radar
+
+            # Add legend
+            if self.show_legend and self.legend_image:
+                frame.paste(self.legend_image, self.legend_position)
+
+            # Add timestamp
+            if self.show_timestamp and self.font:
+                timestamp = (
+                    timestamp_label[self.layer_key][self.language]
+                    + " @ "
+                    + frame_time.astimezone().strftime("%H:%M")
+                )
+                text_box = Image.new("RGBA", self.font.getbbox(timestamp)[2:], "white")
+                box_draw = ImageDraw.Draw(text_box)
+                box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font)
+                double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
+                frame.paste(double_box)
+                frame = frame.quantize()
+
+            # Return frame as PNG bytes
+            img_byte_arr = BytesIO()
+            frame.save(img_byte_arr, format="PNG")
+            frame_bytes = img_byte_arr.getvalue()
+
+            return frame_bytes
+
+        # Since PIL is synchronous, run it all in another thread
+        return await asyncio.get_event_loop().run_in_executor(None, _create_image)
 
     async def _get_radar_image(self, session, frame_time):
         params = dict(
