@@ -261,14 +261,6 @@ class ECRadar(object):
             if not self.legend_image or self.legend_layer != self.layer_key:
                 legend_bytes = await self._get_legend()
 
-        if self.show_timestamp:
-            if not self.font:
-                self.font = await loop.run_in_executor(
-                    None,
-                    ImageFont.load,
-                    os.path.join(os.path.dirname(__file__), "10x20.pil"),
-                )
-
         # All the PIL stuff
         def _create_image():
             radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
@@ -288,6 +280,11 @@ class ECRadar(object):
                 radar_copy = radar.copy()
                 radar_copy.putalpha(alpha)
                 radar.paste(radar_copy, radar)
+
+            if self.show_timestamp and not self.font:
+                self.font = ImageFont.load(
+                    os.path.join(os.path.dirname(__file__), "10x20.pil")
+                )
 
             # Overlay radar on basemap
             if self.map_image:
