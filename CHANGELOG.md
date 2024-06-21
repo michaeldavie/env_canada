@@ -1,5 +1,9 @@
 # Changelog for `env_canada`
 
+## v0.6.3
+
+- Make calls to `PIL` asynchronous
+
 ## v0.6.2
 
 - Fix imports
