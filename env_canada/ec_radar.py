@@ -1,49 +1,88 @@
-from concurrent.futures import as_completed
+import asyncio
 import datetime
-from io import BytesIO
-import json
+import logging
+import math
 import os
-from PIL import Image, ImageDraw, ImageFont
-import xml.etree.ElementTree as et
+from io import BytesIO
 
 import dateutil.parser
-import imageio
-import numpy as np
-import requests
-from requests_futures.sessions import FuturesSession
+import defusedxml.ElementTree as et
+import imageio.v2 as imageio
+import voluptuous as vol
+from aiohttp.client_exceptions import ClientConnectorError
+from PIL import Image, ImageDraw, ImageFont
+
+from .ec_cache import CacheClientSession as ClientSession
+
+ATTRIBUTION = {
+    "english": "Data provided by Environment Canada",
+    "french": "Données fournies par Environnement Canada",
+}
+
+__all__ = ["ECRadar"]
 
 # Natural Resources Canada
 
-basemap_url = "http://maps.geogratis.gc.ca/wms/CBMT?service=wms&version=1.3.0&request=GetMap&layers=CBMT&styles=&CRS=epsg:4326&BBOX={south},{west},{north},{east}&width={width}&height={height}&format=image/png"
+basemap_url = "https://maps.geogratis.gc.ca/wms/CBMT"
+basemap_params = {
+    "service": "wms",
+    "version": "1.3.0",
+    "request": "GetMap",
+    "layers": "CBMT",
+    "styles": "",
+    "CRS": "epsg:4326",
+    "format": "image/png",
+}
+
+# Mapbox Proxy
+
+backup_map_url = (
+    "https://0wmiyoko9f.execute-api.ca-central-1.amazonaws.com/mapbox-proxy"
+)
 
 # Environment Canada
 
-layer = {"rain": "RADAR_1KM_RRAI", "snow": "RADAR_1KM_RSNO"}
+precip_layers = {"rain": "RADAR_1KM_RRAI", "snow": "RADAR_1KM_RSNO"}
 
 legend_style = {"rain": "RADARURPPRECIPR", "snow": "RADARURPPRECIPS14"}
 
-capabilities_path = "https://geo.weather.gc.ca/geomet/?lang=en&service=WMS&version=1.3.0&request=GetCapabilities&LAYER={layer}"
+geomet_url = "https://geo.weather.gc.ca/geomet"
+capabilities_params = {
+    "lang": "en",
+    "service": "WMS",
+    "version": "1.3.0",
+    "request": "GetCapabilities",
+}
 wms_namespace = {"wms": "http://www.opengis.net/wms"}
 dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension'
+radar_params = {
+    "service": "WMS",
+    "version": "1.3.0",
+    "request": "GetMap",
+    "crs": "EPSG:4326",
+    "format": "image/png",
+}
+legend_params = {
+    "service": "WMS",
+    "version": "1.3.0",
+    "request": "GetLegendGraphic",
+    "sld_version": "1.1.0",
+    "format": "image/png",
+}
+radar_interval = 6
 
-radar_path = "https://geo.weather.gc.ca/geomet?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&BBOX={south},{west},{north},{east}&CRS=EPSG:4326&WIDTH={width}&HEIGHT={height}&LAYERS={layer}&FORMAT=image/png&TIME={time}"
-legend_path = "https://geo.weather.gc.ca/geomet?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer={layer}&format=image/png&STYLE={style}"
+timestamp_label = {
+    "rain": {"english": "Rain", "french": "Pluie"},
+    "snow": {"english": "Snow", "french": "Neige"},
+}
 
 
-def get_station_coords(station_id):
-    with open(
-        os.path.join(os.path.dirname(__file__), "radar_sites.json")
-    ) as sites_file:
-        site_dict = json.loads(sites_file.read())
-    return site_dict[station_id]["lat"], site_dict[station_id]["lon"]
-
-
-def get_bounding_box(distance, latittude, longitude):
+def compute_bounding_box(distance, latittude, longitude):
     """
     Modified from https://gist.github.com/alexcpn/f95ae83a7ee0293a5225
     """
-    latittude = np.radians(latittude)
-    longitude = np.radians(longitude)
+    latittude = math.radians(latittude)
+    longitude = math.radians(longitude)
 
     distance_from_point_km = distance
     angular_distance = distance_from_point_km / 6371.01
@@ -51,82 +90,156 @@ def get_bounding_box(distance, latittude, longitude):
     lat_min = latittude - angular_distance
     lat_max = latittude + angular_distance
 
-    delta_longitude = np.arcsin(np.sin(angular_distance) / np.cos(latittude))
+    delta_longitude = math.asin(math.sin(angular_distance) / math.cos(latittude))
 
     lon_min = longitude - delta_longitude
     lon_max = longitude + delta_longitude
-    lon_min = np.degrees(lon_min)
-    lat_max = np.degrees(lat_max)
-    lon_max = np.degrees(lon_max)
-    lat_min = np.degrees(lat_min)
+    lon_min = round(math.degrees(lon_min), 5)
+    lat_max = round(math.degrees(lat_max), 5)
+    lon_max = round(math.degrees(lon_max), 5)
+    lat_min = round(math.degrees(lat_min), 5)
 
     return lat_min, lon_min, lat_max, lon_max
 
 
 class ECRadar(object):
-    def __init__(
-        self,
-        station_id=None,
-        coordinates=None,
-        radius=200,
-        precip_type=None,
-        width=800,
-        height=800,
-    ):
-        """Initialize the data object."""
+    def __init__(self, **kwargs):
+        """Initialize the radar object."""
+
+        init_schema = vol.Schema(
+            {
+                vol.Required("coordinates"): (
+                    vol.All(vol.Or(int, float), vol.Range(-90, 90)),
+                    vol.All(vol.Or(int, float), vol.Range(-180, 180)),
+                ),
+                vol.Required("radius", default=200): vol.All(int, vol.Range(min=10)),
+                vol.Required("width", default=800): vol.All(int, vol.Range(min=10)),
+                vol.Required("height", default=800): vol.All(int, vol.Range(min=10)),
+                vol.Required("legend", default=True): bool,
+                vol.Required("timestamp", default=True): bool,
+                vol.Required("radar_opacity", default=65): vol.All(
+                    int, vol.Range(0, 100)
+                ),
+                vol.Optional("precip_type"): vol.Any(
+                    None, vol.In(["rain", "snow", "auto"])
+                ),
+                vol.Optional("language", default="english"): vol.In(
+                    ["english", "french"]
+                ),
+            }
+        )
+
+        kwargs = init_schema(kwargs)
+        self.language = kwargs["language"]
+        self.metadata = {"attribution": ATTRIBUTION[self.language]}
 
         # Set precipitation type
 
-        if precip_type:
-            self.precip_type = precip_type.lower()
-        elif datetime.date.today().month in range(4, 11):
-            self.precip_type = "rain"
+        if "precip_type" in kwargs and kwargs["precip_type"] is not None:
+            self.precip_type = kwargs["precip_type"]
         else:
-            self.precip_type = "snow"
+            self.precip_type = "auto"
 
-        self.layer = layer[self.precip_type]
+        # Get map parameters
 
-        # Get legend
+        self.image = None
+        self.width = kwargs["width"]
+        self.height = kwargs["height"]
+        self.bbox = compute_bounding_box(kwargs["radius"], *kwargs["coordinates"])
+        self.map_params = {
+            "bbox": ",".join([str(coord) for coord in self.bbox]),
+            "width": self.width,
+            "height": self.height,
+        }
+        self.map_image = None
+        self.radar_opacity = kwargs["radar_opacity"]
 
-        legend_url = legend_path.format(
-            layer=self.layer, style=legend_style[self.precip_type]
+        # Get overlay parameters
+
+        self.show_legend = kwargs["legend"]
+        self.legend_layer = None
+        self.legend_image = None
+        self.legend_position = None
+
+        self.show_timestamp = kwargs["timestamp"]
+        self.font = None
+
+    @property
+    def precip_type(self):
+        return self._precip_setting
+
+    @precip_type.setter
+    def precip_type(self, user_input):
+        if user_input not in ["rain", "snow", "auto"]:
+            raise ValueError("precip_type must be 'rain', 'snow', or 'auto'")
+
+        self._precip_setting = user_input
+
+        if self._precip_setting in ["rain", "snow"]:
+            self.layer_key = self._precip_setting
+        else:
+            self._auto_precip_type()
+
+    def _auto_precip_type(self):
+        if datetime.date.today().month in range(4, 11):
+            self.layer_key = "rain"
+        else:
+            self.layer_key = "snow"
+
+    async def _get_basemap(self):
+        """Fetch the background map image."""
+        basemap_params.update(self.map_params)
+
+        try:
+            async with ClientSession(raise_for_status=True) as session:
+                response = await session.get(url=basemap_url, params=basemap_params)
+                base_bytes = await response.read()
+
+        except ClientConnectorError as e:
+            logging.warning("NRCan base map could not be retrieved: %s" % e)
+            try:
+                async with ClientSession(raise_for_status=True) as session:
+                    response = await session.get(
+                        url=backup_map_url, params=basemap_params
+                    )
+                    base_bytes = await response.read()
+            except ClientConnectorError:
+                logging.warning("Mapbox base map could not be retrieved")
+                return None
+
+        return base_bytes
+
+    async def _get_legend(self):
+        """Fetch legend image."""
+        legend_params.update(
+            dict(
+                layer=precip_layers[self.layer_key], style=legend_style[self.layer_key]
+            )
         )
-        legend_bytes = requests.get(url=legend_url).content
-        self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
-        legend_width, legend_height = self.legend_image.size
-        self.legend_position = (width - legend_width, 0)
+        try:
+            async with ClientSession(raise_for_status=True) as session:
+                response = await session.get(url=geomet_url, params=legend_params)
+                return await response.read()
+        except ClientConnectorError:
+            logging.warning("Legend could not be retrieved")
+            return None
 
-        # Get coordinates
-
-        if station_id:
-            coordinates = get_station_coords(station_id)
-
-        self.bbox = get_bounding_box(radius, coordinates[0], coordinates[1])
-        self.width = width
-        self.height = height
-
-        # Get basemap
-
-        url = basemap_url.format(
-            south=self.bbox[0],
-            west=self.bbox[1],
-            north=self.bbox[2],
-            east=self.bbox[3],
-            width=self.width,
-            height=self.height,
-        )
-        self.base_bytes = requests.get(url).content
-
-        self.timestamp = datetime.datetime.now()
-
-    def get_dimensions(self):
+    async def _get_dimensions(self):
         """Get time range of available data."""
-        capabilities_xml = requests.get(capabilities_path.format(layer=self.layer)).text
-        capabilities_tree = et.fromstring(
-            capabilities_xml, parser=et.XMLParser(encoding="utf-8")
-        )
+        capabilities_params["layer"] = precip_layers[self.layer_key]
+
+        async with ClientSession(raise_for_status=True) as session:
+            response = await session.get(
+                url=geomet_url,
+                params=capabilities_params,
+                cache_time=datetime.timedelta(minutes=5),
+            )
+            capabilities_xml = await response.text()
+
+        capabilities_tree = et.fromstring(capabilities_xml)
         dimension_string = capabilities_tree.find(
-            dimension_xpath.format(layer=self.layer), namespaces=wms_namespace
+            dimension_xpath.format(layer=precip_layers[self.layer_key]),
+            namespaces=wms_namespace,
         ).text
         start, end = [
             dateutil.parser.isoparse(t) for t in dimension_string.split("/")[:2]
@@ -134,93 +247,145 @@ class ECRadar(object):
         self.timestamp = end.isoformat()
         return start, end
 
-    def assemble_url(self, url_time):
-        """Construct WMS query URL."""
-        url = radar_path.format(
-            south=self.bbox[0],
-            west=self.bbox[1],
-            north=self.bbox[2],
-            east=self.bbox[3],
-            width=self.width,
-            height=self.height,
-            layer=self.layer,
-            time=url_time.strftime("%Y-%m-%dT%H:%M:00Z"),
-        )
-        return url
-
-    def combine_layers(self, radar_bytes, frame_time):
+    async def _combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
 
-        # Overlay radar on basemap
+        base_bytes = None
+        if not self.map_image:
+            base_bytes = await self._get_basemap()
 
-        base = Image.open(BytesIO(self.base_bytes)).convert("RGBA")
-        radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
-        frame = Image.alpha_composite(base, radar)
-        frame.paste(self.legend_image, self.legend_position)
+        legend_bytes = None
+        if self.show_legend:
+            if not self.legend_image or self.legend_layer != self.layer_key:
+                legend_bytes = await self._get_legend()
 
-        # Add timestamp
+        # All the synchronous PIL stuff here
+        def _create_image():
+            radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
 
-        timestamp = (
-            self.precip_type.title() + " @ " + frame_time.astimezone().strftime("%H:%M")
+            if base_bytes:
+                self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
+
+            if legend_bytes:
+                self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
+                legend_width = self.legend_image.size[0]
+                self.legend_position = (self.width - legend_width, 0)
+                self.legend_layer = self.layer_key
+
+            # Add transparency to radar
+            if self.radar_opacity < 100:
+                alpha = round((self.radar_opacity / 100) * 255)
+                radar_copy = radar.copy()
+                radar_copy.putalpha(alpha)
+                radar.paste(radar_copy, radar)
+
+            if self.show_timestamp and not self.font:
+                self.font = ImageFont.load(
+                    os.path.join(os.path.dirname(__file__), "10x20.pil")
+                )
+
+            # Overlay radar on basemap
+            if self.map_image:
+                frame = Image.alpha_composite(self.map_image, radar)
+            else:
+                frame = radar
+
+            # Add legend
+            if self.show_legend and self.legend_image:
+                frame.paste(self.legend_image, self.legend_position)
+
+            # Add timestamp
+            if self.show_timestamp and self.font:
+                timestamp = (
+                    timestamp_label[self.layer_key][self.language]
+                    + " @ "
+                    + frame_time.astimezone().strftime("%H:%M")
+                )
+                text_box = Image.new("RGBA", self.font.getbbox(timestamp)[2:], "white")
+                box_draw = ImageDraw.Draw(text_box)
+                box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font)
+                double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
+                frame.paste(double_box)
+                frame = frame.quantize()
+
+            # Return frame as PNG bytes
+            img_byte_arr = BytesIO()
+            frame.save(img_byte_arr, format="PNG")
+            frame_bytes = img_byte_arr.getvalue()
+
+            return frame_bytes
+
+        # Since PIL is synchronous, run it all in another thread
+        return await asyncio.get_event_loop().run_in_executor(None, _create_image)
+
+    async def _get_radar_image(self, session, frame_time):
+        params = dict(
+            **radar_params,
+            **self.map_params,
+            layers=precip_layers[self.layer_key],
+            time=frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
         )
-        font = ImageFont.load(os.path.join(os.path.dirname(__file__), "10x20.pil"))
-        text_box = Image.new("RGBA", font.getsize(timestamp), "white")
+        response = await session.get(url=geomet_url, params=params)
+        return await response.read()
 
-        box_draw = ImageDraw.Draw(text_box)
-        box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=font)
-        double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
-
-        frame.paste(double_box)
-
-        # Return frame as PNG bytes
-
-        img_byte_arr = BytesIO()
-        frame.save(img_byte_arr, format="PNG")
-        frame_bytes = img_byte_arr.getvalue()
-
-        return frame_bytes
-
-    def get_latest_frame(self):
+    async def get_latest_frame(self):
         """Get the latest image from Environment Canada."""
-        start, end = self.get_dimensions()
-        radar = requests.get(self.assemble_url(end)).content
-        return self.combine_layers(radar, end)
+        dimensions = await self._get_dimensions()
+        latest = dimensions[1]
+        async with ClientSession(raise_for_status=True) as session:
+            frame = await self._get_radar_image(session=session, frame_time=latest)
+        return await self._combine_layers(frame, latest)
 
-    def get_loop(self):
+    async def update(self):
+        if self.precip_type == "auto":
+            self._auto_precip_type()
+
+        self.image = await self.get_loop()
+
+    async def get_loop(self, fps=5):
         """Build an animated GIF of recent radar images."""
 
+        def build_image():
+            gif_frames = [imageio.imread(f, mode="RGBA") for f in frames]
+            gif_bytes = imageio.mimwrite(
+                imageio.RETURN_BYTES,
+                gif_frames,
+                format="GIF",
+                duration=duration,
+                subrectangles=True,
+            )
+            return gif_bytes
+
         """Build list of frame timestamps."""
-        start, end = self.get_dimensions()
+        start, end = await self._get_dimensions()
         frame_times = [start]
 
         while True:
-            next_frame = frame_times[-1] + datetime.timedelta(minutes=10)
+            next_frame = frame_times[-1] + datetime.timedelta(minutes=radar_interval)
             if next_frame > end:
                 break
             else:
                 frame_times.append(next_frame)
 
         """Fetch frames."""
-        responses = []
 
-        with FuturesSession(max_workers=len(frame_times)) as session:
-            futures = [session.get(self.assemble_url(t)) for t in frame_times]
-            for future in as_completed(futures):
-                responses.append(future.result())
-
-        responses = sorted(responses, key=lambda r: r.url)
+        tasks = []
+        async with ClientSession(raise_for_status=True) as session:
+            for t in frame_times:
+                tasks.append(self._get_radar_image(session=session, frame_time=t))
+            radar_layers = await asyncio.gather(*tasks)
 
         frames = []
 
-        for i, f in enumerate(responses):
-            frames.append(self.combine_layers(f.content, frame_times[i]))
+        for i, f in enumerate(radar_layers):
+            frames.append(await self._combine_layers(f, frame_times[i]))
 
         for f in range(3):
             frames.append(frames[-1])
 
         """Assemble animated GIF."""
-        gif_frames = [imageio.imread(f) for f in frames]
-        gif_bytes = imageio.mimwrite(
-            imageio.RETURN_BYTES, gif_frames, format="GIF", fps=5
-        )
+        duration = 1000 / fps
+
+        loop = asyncio.get_running_loop()
+        gif_bytes = await loop.run_in_executor(None, build_image)
         return gif_bytes
