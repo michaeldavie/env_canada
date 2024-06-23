@@ -12,7 +12,7 @@ import voluptuous as vol
 from aiohttp.client_exceptions import ClientConnectorError
 from PIL import Image, ImageDraw, ImageFont
 
-from .ec_cache import CacheClientSession as ClientSession
+from .ec_cache import cache_get
 
 ATTRIBUTION = {
     "english": "Data provided by Environment Canada",
@@ -191,18 +191,20 @@ class ECRadar(object):
         basemap_params.update(self.map_params)
 
         try:
-            async with ClientSession(raise_for_status=True) as session:
-                response = await session.get(url=basemap_url, params=basemap_params)
-                base_bytes = await response.read()
+            base_bytes = await cache_get(basemap_url, basemap_params)
+            # async with ClientSession(raise_for_status=True) as session:
+            #     response = await session.get(url=basemap_url, params=basemap_params)
+            #     base_bytes = await response.read()
 
         except ClientConnectorError as e:
             logging.warning("NRCan base map could not be retrieved: %s" % e)
             try:
-                async with ClientSession(raise_for_status=True) as session:
-                    response = await session.get(
-                        url=backup_map_url, params=basemap_params
-                    )
-                    base_bytes = await response.read()
+                base_bytes = await cache_get(backup_map_url, basemap_params)
+                # async with ClientSession(raise_for_status=True) as session:
+                #     response = await session.get(
+                #         url=backup_map_url, params=basemap_params
+                #     )
+                #     base_bytes = await response.read()
             except ClientConnectorError:
                 logging.warning("Mapbox base map could not be retrieved")
                 return None
@@ -217,9 +219,10 @@ class ECRadar(object):
             )
         )
         try:
-            async with ClientSession(raise_for_status=True) as session:
-                response = await session.get(url=geomet_url, params=legend_params)
-                return await response.read()
+            return await cache_get(geomet_url, legend_params)
+            # async with ClientSession(raise_for_status=True) as session:
+            #     response = await session.get(url=geomet_url, params=legend_params)
+            #     return await response.read()
         except ClientConnectorError:
             logging.warning("Legend could not be retrieved")
             return None
@@ -228,13 +231,19 @@ class ECRadar(object):
         """Get time range of available data."""
         capabilities_params["layer"] = precip_layers[self.layer_key]
 
-        async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(
-                url=geomet_url,
-                params=capabilities_params,
-                cache_time=datetime.timedelta(minutes=5),
-            )
-            capabilities_xml = await response.text()
+        capabilities_xml = await cache_get(
+            geomet_url,
+            capabilities_params,
+            cache_time=datetime.timedelta(minutes=5),
+            bytes=False,
+        )
+        # async with ClientSession(raise_for_status=True) as session:
+        #     response = await session.get(
+        #         url=geomet_url,
+        #         params=capabilities_params,
+        #         cache_time=datetime.timedelta(minutes=5),
+        #     )
+        #     capabilities_xml = await response.text()
 
         capabilities_tree = et.fromstring(capabilities_xml)
         dimension_string = capabilities_tree.find(
@@ -318,22 +327,22 @@ class ECRadar(object):
         # Since PIL is synchronous, run it all in another thread
         return await asyncio.get_event_loop().run_in_executor(None, _create_image)
 
-    async def _get_radar_image(self, session, frame_time):
+    async def _get_radar_image(self, frame_time):
         params = dict(
             **radar_params,
             **self.map_params,
             layers=precip_layers[self.layer_key],
-            time=frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
+            time=frame_time.strftime("%Y-%m-%dT%H:%M:00Z"),
         )
-        response = await session.get(url=geomet_url, params=params)
-        return await response.read()
+        return await cache_get(geomet_url, params)
+        # response = await session.get(url=geomet_url, params=params)
+        # return await response.read()
 
     async def get_latest_frame(self):
         """Get the latest image from Environment Canada."""
         dimensions = await self._get_dimensions()
         latest = dimensions[1]
-        async with ClientSession(raise_for_status=True) as session:
-            frame = await self._get_radar_image(session=session, frame_time=latest)
+        frame = await self._get_radar_image(frame_time=latest)
         return await self._combine_layers(frame, latest)
 
     async def update(self):
@@ -370,10 +379,9 @@ class ECRadar(object):
         """Fetch frames."""
 
         tasks = []
-        async with ClientSession(raise_for_status=True) as session:
-            for t in frame_times:
-                tasks.append(self._get_radar_image(session=session, frame_time=t))
-            radar_layers = await asyncio.gather(*tasks)
+        for t in frame_times:
+            tasks.append(self._get_radar_image(frame_time=t))
+        radar_layers = await asyncio.gather(*tasks)
 
         frames = []
 
