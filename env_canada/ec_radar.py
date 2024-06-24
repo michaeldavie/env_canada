@@ -12,7 +12,7 @@ import voluptuous as vol
 from aiohttp.client_exceptions import ClientConnectorError
 from PIL import Image, ImageDraw, ImageFont
 
-from .ec_cache import cache_get
+from .ec_cache import cache_get, Resource
 
 ATTRIBUTION = {
     "english": "Data provided by Environment Canada",
@@ -188,73 +188,156 @@ class ECRadar(object):
 
     async def _get_basemap(self):
         """Fetch the background map image."""
-        basemap_params.update(self.map_params)
+        if base_bytes := Resource.get_from_cache("basemap"):
+            return base_bytes
 
+        basemap_params.update(self.map_params)
         try:
-            base_bytes = await cache_get(basemap_url, basemap_params)
-            # async with ClientSession(raise_for_status=True) as session:
-            #     response = await session.get(url=basemap_url, params=basemap_params)
-            #     base_bytes = await response.read()
+            base_bytes = await Resource.get(basemap_url, basemap_params)
 
         except ClientConnectorError as e:
             logging.warning("NRCan base map could not be retrieved: %s" % e)
             try:
-                base_bytes = await cache_get(backup_map_url, basemap_params)
-                # async with ClientSession(raise_for_status=True) as session:
-                #     response = await session.get(
-                #         url=backup_map_url, params=basemap_params
-                #     )
-                #     base_bytes = await response.read()
+                base_bytes = await Resource.get(backup_map_url, basemap_params)
+
             except ClientConnectorError:
                 logging.warning("Mapbox base map could not be retrieved")
                 return None
 
-        return base_bytes
+        return Resource.add_to_cache("basemap", base_bytes)
 
     async def _get_legend(self):
         """Fetch legend image."""
+
+        if self.legend_layer == self.layer_key:
+            if legend := Resource.get_from_cache("legend"):
+                return legend
+
+        self.legend_layer = self.layer_key
+
         legend_params.update(
             dict(
                 layer=precip_layers[self.layer_key], style=legend_style[self.layer_key]
             )
         )
         try:
-            return await cache_get(geomet_url, legend_params)
-            # async with ClientSession(raise_for_status=True) as session:
-            #     response = await session.get(url=geomet_url, params=legend_params)
-            #     return await response.read()
+            legend = await Resource.get(geomet_url, legend_params)
+            return Resource.add_to_cache("legend", legend)
+
         except ClientConnectorError:
             logging.warning("Legend could not be retrieved")
             return None
 
     async def _get_dimensions(self):
         """Get time range of available data."""
-        capabilities_params["layer"] = precip_layers[self.layer_key]
+        if not (capabilities_xml := Resource.get_from_cache("capabilities")):
+            capabilities_params["layer"] = precip_layers[self.layer_key]
+            capabilities_xml = await Resource.get(
+                geomet_url, capabilities_params, bytes=False
+            )
+            Resource.add_to_cache(
+                "capabilities",
+                capabilities_xml,
+                cache_time=datetime.timedelta(minutes=5),
+            )
 
-        capabilities_xml = await cache_get(
-            geomet_url,
-            capabilities_params,
-            cache_time=datetime.timedelta(minutes=5),
-            bytes=False,
-        )
-        # async with ClientSession(raise_for_status=True) as session:
-        #     response = await session.get(
-        #         url=geomet_url,
-        #         params=capabilities_params,
-        #         cache_time=datetime.timedelta(minutes=5),
-        #     )
-        #     capabilities_xml = await response.text()
-
-        capabilities_tree = et.fromstring(capabilities_xml)
-        dimension_string = capabilities_tree.find(
+        dimension_string = et.fromstring(capabilities_xml).find(
             dimension_xpath.format(layer=precip_layers[self.layer_key]),
             namespaces=wms_namespace,
-        ).text
-        start, end = [
-            dateutil.parser.isoparse(t) for t in dimension_string.split("/")[:2]
-        ]
-        self.timestamp = end.isoformat()
-        return start, end
+        )
+        if dimension_string is not None:
+            if dimension_string := dimension_string.text:
+                start, end = [
+                    dateutil.parser.isoparse(t) for t in dimension_string.split("/")[:2]
+                ]
+                self.timestamp = end.isoformat()
+                return (start, end)
+        return None
+
+    async def _get_radar_image2(self, frame_time):
+        # All the synchronous PIL stuff here
+        def _create_image():
+            radar_image = Image.open(BytesIO(radar_bytes)).convert("RGBA")
+
+            map_image = None
+            if base_bytes:
+                map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
+
+            if legend_bytes:
+                legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
+                legend_position = (self.width - legend_image.size[0], 0)
+            else:
+                legend_image = None
+                legend_position = None
+
+            # Add transparency to radar
+            if self.radar_opacity < 100:
+                alpha = round((self.radar_opacity / 100) * 255)
+                radar_copy = radar_image.copy()
+                radar_copy.putalpha(alpha)
+                radar_image.paste(radar_copy, radar_image)
+
+            if self.show_timestamp and not self.font:
+                self.font = ImageFont.load(
+                    os.path.join(os.path.dirname(__file__), "10x20.pil")
+                )
+
+            # Overlay radar on basemap
+            if map_image:
+                frame = Image.alpha_composite(map_image, radar_image)
+            else:
+                frame = radar_image
+
+            # Add legend
+            if legend_image:
+                frame.paste(legend_image, legend_position)
+
+            # Add timestamp
+            if self.show_timestamp:
+                if not self.font:
+                    self.font = ImageFont.load(
+                        os.path.join(os.path.dirname(__file__), "10x20.pil")
+                    )
+
+                if self.font:
+                    timestamp = f"{timestamp_label[self.layer_key][self.language]} @ {frame_time.astimezone().strftime("%H:%M")}"
+                    text_box = Image.new(
+                        "RGBA", self.font.getbbox(timestamp)[2:], "white"
+                    )
+                    box_draw = ImageDraw.Draw(text_box)
+                    box_draw.text(
+                        xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font
+                    )
+                    double_box = text_box.resize(
+                        (text_box.width * 2, text_box.height * 2)
+                    )
+                    frame.paste(double_box)
+                    frame = frame.quantize()
+
+            # Convert frame to PNG for return
+            img_byte_arr = BytesIO()
+            frame.save(img_byte_arr, format="PNG")
+
+            return Resource.add_to_cache(f"radar-{time}", img_byte_arr.getvalue())
+
+        time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
+
+        if img := Resource.get_from_cache(f"radar-{time}"):
+            return img
+
+        base_bytes = await self._get_basemap()
+        legend_bytes = await self._get_legend() if self.show_legend else None
+
+        params = dict(
+            **radar_params,
+            **self.map_params,
+            layers=precip_layers[self.layer_key],
+            time=time,
+        )
+        radar_bytes = await Resource.get(geomet_url, params)
+
+        # Since PIL is synchronous, run all PIL stuff in another thread
+        return await asyncio.get_event_loop().run_in_executor(None, _create_image)
 
     async def _combine_layers(self, radar_bytes, frame_time):
         """Add radar overlay to base layer and add timestamp."""
@@ -341,9 +424,10 @@ class ECRadar(object):
     async def get_latest_frame(self):
         """Get the latest image from Environment Canada."""
         dimensions = await self._get_dimensions()
+        if not dimensions:
+            return None
         latest = dimensions[1]
-        frame = await self._get_radar_image(frame_time=latest)
-        return await self._combine_layers(frame, latest)
+        return await self._get_radar_image2(frame_time=latest)
 
     async def update(self):
         if self.precip_type == "auto":
@@ -355,7 +439,7 @@ class ECRadar(object):
         """Build an animated GIF of recent radar images."""
 
         def build_image():
-            gif_frames = [imageio.imread(f, mode="RGBA") for f in frames]
+            gif_frames = [imageio.imread(f, mode="RGBA") for f in radar_layers]
             gif_bytes = imageio.mimwrite(
                 imageio.RETURN_BYTES,
                 gif_frames,
@@ -366,30 +450,19 @@ class ECRadar(object):
             return gif_bytes
 
         """Build list of frame timestamps."""
-        start, end = await self._get_dimensions()
-        frame_times = [start]
-
-        while True:
-            next_frame = frame_times[-1] + datetime.timedelta(minutes=radar_interval)
-            if next_frame > end:
-                break
-            else:
-                frame_times.append(next_frame)
-
-        """Fetch frames."""
+        timespan = await self._get_dimensions()
+        if not timespan:
+            return None
 
         tasks = []
-        for t in frame_times:
-            tasks.append(self._get_radar_image(frame_time=t))
+        curr = timespan[0]
+        while curr <= timespan[1]:
+            tasks.append(self._get_radar_image2(frame_time=curr))
+            curr = curr + datetime.timedelta(minutes=radar_interval)
         radar_layers = await asyncio.gather(*tasks)
 
-        frames = []
-
-        for i, f in enumerate(radar_layers):
-            frames.append(await self._combine_layers(f, frame_times[i]))
-
-        for f in range(3):
-            frames.append(frames[-1])
+        for i in range(3):
+            radar_layers.append(radar_layers[-1])
 
         """Assemble animated GIF."""
         duration = 1000 / fps
