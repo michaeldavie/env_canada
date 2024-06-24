@@ -17,10 +17,8 @@ class Cache:
         now = datetime.now()
         expired = [key for key, value in cls._cache.items() if value[0] < now]
         for key in expired:
-            # cls._cache[key] = None
-            print(f"Flushing: {key}")
+            # print(f"Flushing: {key}")
             del cls._cache[key]
 
         result = cls._cache.get(cache_key)
-        print(f"Cache get: {cache_key} {"Found" if result else "NOT found"}")
         return result[1] if result else None

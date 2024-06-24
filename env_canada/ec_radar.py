@@ -1,5 +1,5 @@
 import asyncio
-import datetime
+from datetime import date, timedelta
 import logging
 import math
 import os
@@ -71,7 +71,7 @@ legend_params = {
     "sld_version": "1.1.0",
     "format": "image/png",
 }
-radar_interval = 6
+radar_interval = timedelta(minutes=6)
 
 timestamp_label = {
     "rain": {"english": "Rain", "french": "Pluie"},
@@ -171,29 +171,24 @@ class ECRadar(object):
         self.show_timestamp = kwargs["timestamp"]
 
         self._font = None
-        self._legend_layer = None
+        self._cached_layer_key = None
 
     @property
     def precip_type(self):
-        return self._precip_setting
+        return self.layer_key
 
     @precip_type.setter
     def precip_type(self, user_input):
         if user_input not in ["rain", "snow", "auto"]:
             raise ValueError("precip_type must be 'rain', 'snow', or 'auto'")
 
-        self._precip_setting = user_input
-
-        if self._precip_setting in ["rain", "snow"]:
-            self.layer_key = self._precip_setting
-        else:
+        if user_input == "auto":
             self._auto_precip_type()
+        else:
+            self.layer_key = user_input
 
     def _auto_precip_type(self):
-        if datetime.date.today().month in range(4, 11):
-            self.layer_key = "rain"
-        else:
-            self.layer_key = "snow"
+        self.layer_key = "rain" if date.today().month in range(4, 11) else "snow"
 
     async def _get_basemap(self):
         """Fetch the background map image."""
@@ -201,28 +196,20 @@ class ECRadar(object):
             return base_bytes
 
         basemap_params.update(self.map_params)
-        try:
-            base_bytes = await _get_resource(basemap_url, basemap_params)
-
-        except ClientConnectorError as e:
-            logging.warning("NRCan base map could not be retrieved: %s" % e)
+        for map_url in [basemap_url, backup_map_url]:
             try:
-                base_bytes = await _get_resource(backup_map_url, basemap_params)
+                base_bytes = await _get_resource(map_url, basemap_params)
+                return Cache.add("basemap", base_bytes)
 
-            except ClientConnectorError:
-                logging.warning("Mapbox base map could not be retrieved")
-                return None
-
-        return Cache.add("basemap", base_bytes)
+            except ClientConnectorError as e:
+                logging.warning("Map from %s could not be retrieved: %s" % map_url, e)
 
     async def _get_legend(self):
         """Fetch legend image."""
 
-        if self._legend_layer == self.layer_key:
+        if self._cached_layer_key == self.layer_key:
             if legend := Cache.get("legend"):
                 return legend
-
-        self._legend_layer = self.layer_key
 
         legend_params.update(
             dict(
@@ -231,6 +218,7 @@ class ECRadar(object):
         )
         try:
             legend = await _get_resource(geomet_url, legend_params)
+            self._cached_layer_key = self.layer_key
             return Cache.add("legend", legend)
 
         except ClientConnectorError:
@@ -244,11 +232,7 @@ class ECRadar(object):
             capabilities_xml = await _get_resource(
                 geomet_url, capabilities_params, bytes=False
             )
-            Cache.add(
-                "capabilities",
-                capabilities_xml,
-                cache_time=datetime.timedelta(minutes=5),
-            )
+            Cache.add("capabilities", capabilities_xml, cache_time=timedelta(minutes=5))
 
         dimension_string = et.fromstring(capabilities_xml).find(
             dimension_xpath.format(layer=precip_layers[self.layer_key]),
@@ -378,8 +362,8 @@ class ECRadar(object):
             )
             return gif_bytes
 
-        # Prime the cache - without this the tasks below all compete
-        # to load these at the same time.
+        # Prime the cache - without this the tasks below each compete
+        # to load map/legend at the same time.
         await self._get_basemap()
         await self._get_legend() if self.show_legend else None
 
@@ -393,11 +377,10 @@ class ECRadar(object):
         curr = timespan[0]
         while curr <= timespan[1]:
             tasks.append(self._get_radar_image(frame_time=curr))
-            curr = curr + datetime.timedelta(minutes=radar_interval)
+            curr = curr + radar_interval
         radar_layers = await asyncio.gather(*tasks)
 
         for _ in range(3):
             radar_layers.append(radar_layers[-1])
 
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, create_gif)
+        return await asyncio.get_running_loop().run_in_executor(None, create_gif)
