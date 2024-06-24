@@ -293,7 +293,7 @@ class ECRadar(object):
                     )
 
                 if self._font:
-                    timestamp = f"{timestamp_label[self.layer_key][self.language]} @ {frame_time.astimezone().strftime("%H:%M")}"
+                    timestamp = f"{timestamp_label[self.layer_key][self.language]} @ {frame_time.astimezone().strftime('%H:%M')}"
                     text_box = Image.new(
                         "RGBA", self._font.getbbox(timestamp)[2:], "white"
                     )
