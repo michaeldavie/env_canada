@@ -12,7 +12,7 @@ import voluptuous as vol
 from aiohttp.client_exceptions import ClientConnectorError
 from PIL import Image, ImageDraw, ImageFont
 
-from .ec_cache import cache_get, Resource
+from .ec_cache import Resource
 
 ATTRIBUTION = {
     "english": "Data provided by Environment Canada",
@@ -194,6 +194,7 @@ class ECRadar(object):
         basemap_params.update(self.map_params)
         try:
             base_bytes = await Resource.get(basemap_url, basemap_params)
+            print("Retrieved basemap.")
 
         except ClientConnectorError as e:
             logging.warning("NRCan base map could not be retrieved: %s" % e)
@@ -339,88 +340,6 @@ class ECRadar(object):
         # Since PIL is synchronous, run all PIL stuff in another thread
         return await asyncio.get_event_loop().run_in_executor(None, _create_image)
 
-    async def _combine_layers(self, radar_bytes, frame_time):
-        """Add radar overlay to base layer and add timestamp."""
-
-        base_bytes = None
-        if not self.map_image:
-            base_bytes = await self._get_basemap()
-
-        legend_bytes = None
-        if self.show_legend:
-            if not self.legend_image or self.legend_layer != self.layer_key:
-                legend_bytes = await self._get_legend()
-
-        # All the synchronous PIL stuff here
-        def _create_image():
-            radar = Image.open(BytesIO(radar_bytes)).convert("RGBA")
-
-            if base_bytes:
-                self.map_image = Image.open(BytesIO(base_bytes)).convert("RGBA")
-
-            if legend_bytes:
-                self.legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
-                legend_width = self.legend_image.size[0]
-                self.legend_position = (self.width - legend_width, 0)
-                self.legend_layer = self.layer_key
-
-            # Add transparency to radar
-            if self.radar_opacity < 100:
-                alpha = round((self.radar_opacity / 100) * 255)
-                radar_copy = radar.copy()
-                radar_copy.putalpha(alpha)
-                radar.paste(radar_copy, radar)
-
-            if self.show_timestamp and not self.font:
-                self.font = ImageFont.load(
-                    os.path.join(os.path.dirname(__file__), "10x20.pil")
-                )
-
-            # Overlay radar on basemap
-            if self.map_image:
-                frame = Image.alpha_composite(self.map_image, radar)
-            else:
-                frame = radar
-
-            # Add legend
-            if self.show_legend and self.legend_image:
-                frame.paste(self.legend_image, self.legend_position)
-
-            # Add timestamp
-            if self.show_timestamp and self.font:
-                timestamp = (
-                    timestamp_label[self.layer_key][self.language]
-                    + " @ "
-                    + frame_time.astimezone().strftime("%H:%M")
-                )
-                text_box = Image.new("RGBA", self.font.getbbox(timestamp)[2:], "white")
-                box_draw = ImageDraw.Draw(text_box)
-                box_draw.text(xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font)
-                double_box = text_box.resize((text_box.width * 2, text_box.height * 2))
-                frame.paste(double_box)
-                frame = frame.quantize()
-
-            # Return frame as PNG bytes
-            img_byte_arr = BytesIO()
-            frame.save(img_byte_arr, format="PNG")
-            frame_bytes = img_byte_arr.getvalue()
-
-            return frame_bytes
-
-        # Since PIL is synchronous, run it all in another thread
-        return await asyncio.get_event_loop().run_in_executor(None, _create_image)
-
-    async def _get_radar_image(self, frame_time):
-        params = dict(
-            **radar_params,
-            **self.map_params,
-            layers=precip_layers[self.layer_key],
-            time=frame_time.strftime("%Y-%m-%dT%H:%M:00Z"),
-        )
-        return await cache_get(geomet_url, params)
-        # response = await session.get(url=geomet_url, params=params)
-        # return await response.read()
-
     async def get_latest_frame(self):
         """Get the latest image from Environment Canada."""
         dimensions = await self._get_dimensions()
@@ -448,6 +367,10 @@ class ECRadar(object):
                 subrectangles=True,
             )
             return gif_bytes
+
+        # Prime the cache
+        await self._get_basemap()
+        await self._get_legend() if self.show_legend else None
 
         """Build list of frame timestamps."""
         timespan = await self._get_dimensions()
