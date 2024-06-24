@@ -9,10 +9,12 @@ import dateutil.parser
 import defusedxml.ElementTree as et
 import imageio.v2 as imageio
 import voluptuous as vol
+from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
 from PIL import Image, ImageDraw, ImageFont
 
-from .ec_cache import Resource
+from .constants import USER_AGENT
+from .ec_cache import Cache
 
 ATTRIBUTION = {
     "english": "Data provided by Environment Canada",
@@ -77,7 +79,7 @@ timestamp_label = {
 }
 
 
-def compute_bounding_box(distance, latittude, longitude):
+def _compute_bounding_box(distance, latittude, longitude):
     """
     Modified from https://gist.github.com/alexcpn/f95ae83a7ee0293a5225
     """
@@ -100,6 +102,16 @@ def compute_bounding_box(distance, latittude, longitude):
     lat_min = round(math.degrees(lat_min), 5)
 
     return lat_min, lon_min, lat_max, lon_max
+
+
+async def _get_resource(url, params, bytes=True):
+    async with ClientSession(raise_for_status=True) as session:
+        response = await session.get(
+            url=url, params=params, headers={"User-Agent": USER_AGENT}
+        )
+        if bytes:
+            return await response.read()
+        return await response.text()
 
 
 class ECRadar(object):
@@ -145,24 +157,21 @@ class ECRadar(object):
         self.image = None
         self.width = kwargs["width"]
         self.height = kwargs["height"]
-        self.bbox = compute_bounding_box(kwargs["radius"], *kwargs["coordinates"])
+        self.bbox = _compute_bounding_box(kwargs["radius"], *kwargs["coordinates"])
         self.map_params = {
             "bbox": ",".join([str(coord) for coord in self.bbox]),
             "width": self.width,
             "height": self.height,
         }
-        self.map_image = None
         self.radar_opacity = kwargs["radar_opacity"]
 
         # Get overlay parameters
 
         self.show_legend = kwargs["legend"]
-        self.legend_layer = None
-        self.legend_image = None
-        self.legend_position = None
-
         self.show_timestamp = kwargs["timestamp"]
-        self.font = None
+
+        self._font = None
+        self._legend_layer = None
 
     @property
     def precip_type(self):
@@ -188,32 +197,32 @@ class ECRadar(object):
 
     async def _get_basemap(self):
         """Fetch the background map image."""
-        if base_bytes := Resource.get_from_cache("basemap"):
+        if base_bytes := Cache.get("basemap"):
             return base_bytes
 
         basemap_params.update(self.map_params)
         try:
-            base_bytes = await Resource.get(basemap_url, basemap_params)
+            base_bytes = await _get_resource(basemap_url, basemap_params)
 
         except ClientConnectorError as e:
             logging.warning("NRCan base map could not be retrieved: %s" % e)
             try:
-                base_bytes = await Resource.get(backup_map_url, basemap_params)
+                base_bytes = await _get_resource(backup_map_url, basemap_params)
 
             except ClientConnectorError:
                 logging.warning("Mapbox base map could not be retrieved")
                 return None
 
-        return Resource.add_to_cache("basemap", base_bytes)
+        return Cache.add("basemap", base_bytes)
 
     async def _get_legend(self):
         """Fetch legend image."""
 
-        if self.legend_layer == self.layer_key:
-            if legend := Resource.get_from_cache("legend"):
+        if self._legend_layer == self.layer_key:
+            if legend := Cache.get("legend"):
                 return legend
 
-        self.legend_layer = self.layer_key
+        self._legend_layer = self.layer_key
 
         legend_params.update(
             dict(
@@ -221,8 +230,8 @@ class ECRadar(object):
             )
         )
         try:
-            legend = await Resource.get(geomet_url, legend_params)
-            return Resource.add_to_cache("legend", legend)
+            legend = await _get_resource(geomet_url, legend_params)
+            return Cache.add("legend", legend)
 
         except ClientConnectorError:
             logging.warning("Legend could not be retrieved")
@@ -230,12 +239,12 @@ class ECRadar(object):
 
     async def _get_dimensions(self):
         """Get time range of available data."""
-        if not (capabilities_xml := Resource.get_from_cache("capabilities")):
+        if not (capabilities_xml := Cache.get("capabilities")):
             capabilities_params["layer"] = precip_layers[self.layer_key]
-            capabilities_xml = await Resource.get(
+            capabilities_xml = await _get_resource(
                 geomet_url, capabilities_params, bytes=False
             )
-            Resource.add_to_cache(
+            Cache.add(
                 "capabilities",
                 capabilities_xml,
                 cache_time=datetime.timedelta(minutes=5),
@@ -277,8 +286,8 @@ class ECRadar(object):
                 radar_copy.putalpha(alpha)
                 radar_image.paste(radar_copy, radar_image)
 
-            if self.show_timestamp and not self.font:
-                self.font = ImageFont.load(
+            if self.show_timestamp and not self._font:
+                self._font = ImageFont.load(
                     os.path.join(os.path.dirname(__file__), "10x20.pil")
                 )
 
@@ -294,19 +303,19 @@ class ECRadar(object):
 
             # Add timestamp
             if self.show_timestamp:
-                if not self.font:
-                    self.font = ImageFont.load(
+                if not self._font:
+                    self._font = ImageFont.load(
                         os.path.join(os.path.dirname(__file__), "10x20.pil")
                     )
 
-                if self.font:
+                if self._font:
                     timestamp = f"{timestamp_label[self.layer_key][self.language]} @ {frame_time.astimezone().strftime("%H:%M")}"
                     text_box = Image.new(
-                        "RGBA", self.font.getbbox(timestamp)[2:], "white"
+                        "RGBA", self._font.getbbox(timestamp)[2:], "white"
                     )
                     box_draw = ImageDraw.Draw(text_box)
                     box_draw.text(
-                        xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self.font
+                        xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self._font
                     )
                     double_box = text_box.resize(
                         (text_box.width * 2, text_box.height * 2)
@@ -318,11 +327,11 @@ class ECRadar(object):
             img_byte_arr = BytesIO()
             frame.save(img_byte_arr, format="PNG")
 
-            return Resource.add_to_cache(f"radar-{time}", img_byte_arr.getvalue())
+            return Cache.add(f"radar-{time}", img_byte_arr.getvalue())
 
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
 
-        if img := Resource.get_from_cache(f"radar-{time}"):
+        if img := Cache.get(f"radar-{time}"):
             return img
 
         base_bytes = await self._get_basemap()
@@ -334,7 +343,7 @@ class ECRadar(object):
             layers=precip_layers[self.layer_key],
             time=time,
         )
-        radar_bytes = await Resource.get(geomet_url, params)
+        radar_bytes = await _get_resource(geomet_url, params)
 
         # Since PIL is synchronous, run all PIL stuff in another thread
         return await asyncio.get_event_loop().run_in_executor(None, _create_image)
