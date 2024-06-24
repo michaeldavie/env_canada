@@ -194,7 +194,6 @@ class ECRadar(object):
         basemap_params.update(self.map_params)
         try:
             base_bytes = await Resource.get(basemap_url, basemap_params)
-            print("Retrieved basemap.")
 
         except ClientConnectorError as e:
             logging.warning("NRCan base map could not be retrieved: %s" % e)
@@ -255,7 +254,7 @@ class ECRadar(object):
                 return (start, end)
         return None
 
-    async def _get_radar_image2(self, frame_time):
+    async def _get_radar_image(self, frame_time):
         # All the synchronous PIL stuff here
         def _create_image():
             radar_image = Image.open(BytesIO(radar_bytes)).convert("RGBA")
@@ -346,7 +345,7 @@ class ECRadar(object):
         if not dimensions:
             return None
         latest = dimensions[1]
-        return await self._get_radar_image2(frame_time=latest)
+        return await self._get_radar_image(frame_time=latest)
 
     async def update(self):
         if self.precip_type == "auto":
@@ -357,7 +356,9 @@ class ECRadar(object):
     async def get_loop(self, fps=5):
         """Build an animated GIF of recent radar images."""
 
-        def build_image():
+        def create_gif():
+            """Assemble animated GIF."""
+            duration = 1000 / fps
             gif_frames = [imageio.imread(f, mode="RGBA") for f in radar_layers]
             gif_bytes = imageio.mimwrite(
                 imageio.RETURN_BYTES,
@@ -368,28 +369,26 @@ class ECRadar(object):
             )
             return gif_bytes
 
-        # Prime the cache
+        # Prime the cache - without this the tasks below all compete
+        # to load these at the same time.
         await self._get_basemap()
         await self._get_legend() if self.show_legend else None
 
         """Build list of frame timestamps."""
         timespan = await self._get_dimensions()
         if not timespan:
+            logging.error("Cannot get capabilities")
             return None
 
         tasks = []
         curr = timespan[0]
         while curr <= timespan[1]:
-            tasks.append(self._get_radar_image2(frame_time=curr))
+            tasks.append(self._get_radar_image(frame_time=curr))
             curr = curr + datetime.timedelta(minutes=radar_interval)
         radar_layers = await asyncio.gather(*tasks)
 
-        for i in range(3):
+        for _ in range(3):
             radar_layers.append(radar_layers[-1])
 
-        """Assemble animated GIF."""
-        duration = 1000 / fps
-
         loop = asyncio.get_running_loop()
-        gif_bytes = await loop.run_in_executor(None, build_image)
-        return gif_bytes
+        return await loop.run_in_executor(None, create_gif)
