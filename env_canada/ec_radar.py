@@ -351,16 +351,18 @@ class ECRadar(object):
 
         def create_gif():
             """Assemble animated GIF."""
-            duration = 1000 / fps
-            gif_frames = [imageio.imread(f, mode="RGBA") for f in radar_layers]
-            gif_bytes = imageio.mimwrite(
-                imageio.RETURN_BYTES,
-                gif_frames,
+            duration = 1000 / 5
+            images = [Image.open(BytesIO(img)) for img in radar_layers]
+            gif = BytesIO()
+            images[0].save(
+                gif,
                 format="GIF",
+                save_all=True,
+                append_images=images[1:],
                 duration=duration,
-                subrectangles=True,
+                loop=0,
             )
-            return gif_bytes
+            return gif.getvalue()
 
         # Prime the cache - without this the tasks below each compete
         # to load map/legend at the same time.
