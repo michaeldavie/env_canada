@@ -7,11 +7,6 @@ class Cache:
     _cache = {}
 
     @classmethod
-    def flush(cls):
-        """Empty the cache."""
-        _cache = {}  # type: ignore
-
-    @classmethod
     def add(cls, cache_key, item, cache_time=CACHE_EXPIRE_TIME):
         """Add an entry to the cache."""
 
