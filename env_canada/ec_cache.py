@@ -1,13 +1,11 @@
-from datetime import datetime, timedelta
-
-CACHE_EXPIRE_TIME = timedelta(minutes=200)  # Time is tuned for 3h radar image
+from datetime import datetime
 
 
 class Cache:
     _cache = {}
 
     @classmethod
-    def add(cls, cache_key, item, cache_time=CACHE_EXPIRE_TIME):
+    def add(cls, cache_key, item, cache_time):
         """Add an entry to the cache."""
 
         cls._cache[cache_key] = (datetime.now() + cache_time, item)

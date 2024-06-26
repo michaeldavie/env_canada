@@ -226,7 +226,7 @@ class ECRadar(object):
             capabilities_xml = await _get_resource(
                 geomet_url, capabilities_params, bytes=False
             )
-            Cache.add("capabilities", capabilities_xml, cache_time=timedelta(minutes=5))
+            Cache.add("capabilities", capabilities_xml, timedelta(minutes=5))
 
         dimension_string = et.fromstring(capabilities_xml).find(
             dimension_xpath.format(layer=precip_layers[self._precip_type_actual]),
@@ -302,7 +302,10 @@ class ECRadar(object):
             img_byte_arr = BytesIO()
             frame.save(img_byte_arr, format="PNG")
 
-            return Cache.add(f"radar-{time}", img_byte_arr.getvalue())
+            # Time is tuned for 3h radar image
+            return Cache.add(
+                f"radar-{time}", img_byte_arr.getvalue(), timedelta(minutes=200)
+            )
 
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
 
