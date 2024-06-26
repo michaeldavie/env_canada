@@ -145,15 +145,10 @@ class ECRadar(object):
         self.language = kwargs["language"]
         self.metadata = {"attribution": ATTRIBUTION[self.language]}
 
-        # Set precipitation type
-
-        if "precip_type" in kwargs and kwargs["precip_type"] is not None:
-            self.precip_type = kwargs["precip_type"]
-        else:
-            self.precip_type = "auto"
+        self._precip_type_setting = kwargs.get("precip_type")
+        self._precip_type_actual = self.precip_type[1]
 
         # Get map parameters
-
         self.image = None
         self.width = kwargs["width"]
         self.height = kwargs["height"]
@@ -166,29 +161,27 @@ class ECRadar(object):
         self.radar_opacity = kwargs["radar_opacity"]
 
         # Get overlay parameters
-
         self.show_legend = kwargs["legend"]
         self.show_timestamp = kwargs["timestamp"]
 
         self._font = None
-        self._cached_layer_key = None
 
     @property
     def precip_type(self):
-        return self.layer_key
+        # NOTE: this is a breaking change for this lib; HA doesn't use this so not breaking for that
+        if self._precip_type_setting in ["rain", "snow"]:
+            return (self._precip_type_setting, self._precip_type_setting)
+        self._precip_type_actual = (
+            "rain" if date.today().month in range(4, 11) else "snow"
+        )
+        return ("auto", self._precip_type_actual)
 
     @precip_type.setter
     def precip_type(self, user_input):
         if user_input not in ["rain", "snow", "auto"]:
             raise ValueError("precip_type must be 'rain', 'snow', or 'auto'")
-
-        if user_input == "auto":
-            self._auto_precip_type()
-        else:
-            self.layer_key = user_input
-
-    def _auto_precip_type(self):
-        self.layer_key = "rain" if date.today().month in range(4, 11) else "snow"
+        self._precip_type_setting = user_input
+        self._precip_type_actual = self.precip_type[1]
 
     async def _get_basemap(self):
         """Fetch the background map image."""
@@ -199,7 +192,7 @@ class ECRadar(object):
         for map_url in [basemap_url, backup_map_url]:
             try:
                 base_bytes = await _get_resource(map_url, basemap_params)
-                return Cache.add("basemap", base_bytes)
+                return Cache.add("basemap", base_bytes, timedelta(days=7))
 
             except ClientConnectorError as e:
                 logging.warning("Map from %s could not be retrieved: %s" % map_url, e)
@@ -207,35 +200,36 @@ class ECRadar(object):
     async def _get_legend(self):
         """Fetch legend image."""
 
-        if self._cached_layer_key == self.layer_key:
-            if legend := Cache.get("legend"):
-                return legend
+        legend_cache_key = f"legend-{self._precip_type_actual}"
+        if legend := Cache.get(legend_cache_key):
+            return legend
 
         legend_params.update(
             dict(
-                layer=precip_layers[self.layer_key], style=legend_style[self.layer_key]
+                layer=precip_layers[self._precip_type_actual],
+                style=legend_style[self._precip_type_actual],
             )
         )
         try:
             legend = await _get_resource(geomet_url, legend_params)
-            self._cached_layer_key = self.layer_key
-            return Cache.add("legend", legend)
+            return Cache.add(legend_cache_key, legend, timedelta(days=7))
 
         except ClientConnectorError:
             logging.warning("Legend could not be retrieved")
             return None
 
     async def _get_dimensions(self):
-        """Get time range of available data."""
+        """Get time range of available radar images."""
+
         if not (capabilities_xml := Cache.get("capabilities")):
-            capabilities_params["layer"] = precip_layers[self.layer_key]
+            capabilities_params["layer"] = precip_layers[self._precip_type_actual]
             capabilities_xml = await _get_resource(
                 geomet_url, capabilities_params, bytes=False
             )
             Cache.add("capabilities", capabilities_xml, cache_time=timedelta(minutes=5))
 
         dimension_string = et.fromstring(capabilities_xml).find(
-            dimension_xpath.format(layer=precip_layers[self.layer_key]),
+            dimension_xpath.format(layer=precip_layers[self._precip_type_actual]),
             namespaces=wms_namespace,
         )
         if dimension_string is not None:
@@ -248,8 +242,9 @@ class ECRadar(object):
         return None
 
     async def _get_radar_image(self, frame_time):
-        # All the synchronous PIL stuff here
         def _create_image():
+            """Contains all the PIL calls; run in another thread."""
+
             radar_image = Image.open(BytesIO(cast(bytes, radar_bytes))).convert("RGBA")
 
             map_image = None
@@ -270,11 +265,6 @@ class ECRadar(object):
                 radar_copy.putalpha(alpha)
                 radar_image.paste(radar_copy, radar_image)
 
-            if self.show_timestamp and not self._font:
-                self._font = ImageFont.load(
-                    os.path.join(os.path.dirname(__file__), "10x20.pil")
-                )
-
             # Overlay radar on basemap
             if map_image:
                 frame = Image.alpha_composite(map_image, radar_image)
@@ -293,7 +283,8 @@ class ECRadar(object):
                     )
 
                 if self._font:
-                    timestamp = f"{timestamp_label[self.layer_key][self.language]} @ {frame_time.astimezone().strftime('%H:%M')}"
+                    label = timestamp_label[self._precip_type_actual][self.language]
+                    timestamp = f"{label} @ {frame_time.astimezone().strftime('%H:%M')}"
                     text_box = Image.new(
                         "RGBA", self._font.getbbox(timestamp)[2:], "white"
                     )
@@ -324,12 +315,10 @@ class ECRadar(object):
         params = dict(
             **radar_params,
             **self.map_params,
-            layers=precip_layers[self.layer_key],
+            layers=precip_layers[self._precip_type_actual],
             time=time,
         )
         radar_bytes = await _get_resource(geomet_url, params)
-
-        # Since PIL is synchronous, run all PIL stuff in another thread
         return await asyncio.get_event_loop().run_in_executor(None, _create_image)
 
     async def get_latest_frame(self):
@@ -337,13 +326,9 @@ class ECRadar(object):
         dimensions = await self._get_dimensions()
         if not dimensions:
             return None
-        latest = dimensions[1]
-        return await self._get_radar_image(frame_time=latest)
+        return await self._get_radar_image(frame_time=dimensions[1])
 
     async def update(self):
-        if self.precip_type == "auto":
-            self._auto_precip_type()
-
         self.image = await self.get_loop()
 
     async def get_loop(self, fps=5):
@@ -352,27 +337,26 @@ class ECRadar(object):
         def create_gif():
             """Assemble animated GIF."""
             duration = 1000 / fps
-            images = [Image.open(BytesIO(img)).convert("RGBA") for img in radar_layers]
+            imgs = [Image.open(BytesIO(img)).convert("RGBA") for img in radar_layers]
             gif = BytesIO()
-            images[0].save(
+            imgs[0].save(
                 gif,
                 format="GIF",
                 save_all=True,
-                append_images=images[1:],
+                append_images=imgs[1:],
                 duration=duration,
                 loop=0,
             )
             return gif.getvalue()
 
-        # Prime the cache - without this the tasks below each compete
-        # to load map/legend at the same time.
+        # Without this cache priming the tasks below each compete to load map/legend
+        # at the same time, resulting in them getting retrieved for each radar image.
         await self._get_basemap()
         await self._get_legend() if self.show_legend else None
 
-        """Build list of frame timestamps."""
         timespan = await self._get_dimensions()
         if not timespan:
-            logging.error("Cannot get capabilities")
+            logging.error("Cannot retrieve radar times.")
             return None
 
         tasks = []
