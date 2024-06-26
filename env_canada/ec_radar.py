@@ -221,12 +221,14 @@ class ECRadar(object):
     async def _get_dimensions(self):
         """Get time range of available radar images."""
 
-        if not (capabilities_xml := Cache.get("capabilities")):
+        capabilities_cache_key = f"capabilities-{self._precip_type_actual}"
+
+        if not (capabilities_xml := Cache.get(capabilities_cache_key)):
             capabilities_params["layer"] = precip_layers[self._precip_type_actual]
             capabilities_xml = await _get_resource(
                 geomet_url, capabilities_params, bytes=False
             )
-            Cache.add("capabilities", capabilities_xml, timedelta(minutes=5))
+            Cache.add(capabilities_cache_key, capabilities_xml, timedelta(minutes=5))
 
         dimension_string = et.fromstring(capabilities_xml).find(
             dimension_xpath.format(layer=precip_layers[self._precip_type_actual]),
