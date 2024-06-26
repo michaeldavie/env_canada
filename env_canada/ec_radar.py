@@ -4,6 +4,7 @@ import logging
 import math
 import os
 from io import BytesIO
+from typing import cast
 
 import dateutil.parser
 import defusedxml.ElementTree as et
@@ -249,7 +250,7 @@ class ECRadar(object):
     async def _get_radar_image(self, frame_time):
         # All the synchronous PIL stuff here
         def _create_image():
-            radar_image = Image.open(BytesIO(radar_bytes)).convert("RGBA")
+            radar_image = Image.open(BytesIO(cast(bytes, radar_bytes))).convert("RGBA")
 
             map_image = None
             if base_bytes:
