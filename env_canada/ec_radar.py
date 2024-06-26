@@ -7,7 +7,6 @@ from io import BytesIO
 
 import dateutil.parser
 import defusedxml.ElementTree as et
-import imageio.v2 as imageio
 import voluptuous as vol
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
