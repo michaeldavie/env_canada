@@ -351,7 +351,7 @@ class ECRadar(object):
 
         def create_gif():
             """Assemble animated GIF."""
-            duration = 1000 / 5
+            duration = 1000 / fps
             images = [Image.open(BytesIO(img)).convert("RGBA") for img in radar_layers]
             gif = BytesIO()
             images[0].save(
