@@ -84,7 +84,6 @@ async def find_closest_region(language, lat, lon):
 
 
 class ECAirQuality(object):
-
     """Get air quality data from Environment Canada."""
 
     def __init__(self, **kwargs):
@@ -172,7 +171,7 @@ class ECAirQuality(object):
         # Fetch current measurement
         aqhi_current = await self.get_aqhi_data(url=AQHI_OBSERVATION_URL)
 
-        if aqhi_current:
+        if aqhi_current is not None:
             # Update region name
             element = aqhi_current.find("region")
             self.region_name = element.attrib[
@@ -202,7 +201,7 @@ class ECAirQuality(object):
         # Update AQHI forecasts
         aqhi_forecast = await self.get_aqhi_data(url=AQHI_FORECAST_URL)
 
-        if aqhi_forecast:
+        if aqhi_forecast is not None:
             # Update AQHI daily forecasts
             for f in aqhi_forecast.findall("./forecastGroup/forecast"):
                 for p in f.findall("./period"):
@@ -214,6 +213,6 @@ class ECAirQuality(object):
 
             # Update AQHI hourly forecasts
             for f in aqhi_forecast.findall("./hourlyForecastGroup/hourlyForecast"):
-                self.forecasts["hourly"][
-                    timestamp_to_datetime(f.attrib["UTCTime"])
-                ] = int(f.text or 0)
+                self.forecasts["hourly"][timestamp_to_datetime(f.attrib["UTCTime"])] = (
+                    int(f.text or 0)
+                )

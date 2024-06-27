@@ -1,38 +1,25 @@
-from aiohttp import ClientSession
-from datetime import datetime, timedelta
-
-from .constants import USER_AGENT
-
-CACHE_EXPIRE_TIME = timedelta(minutes=200)  # Time is tuned for 3h radar image
+from datetime import datetime
 
 
-class CacheClientSession(ClientSession):
-    """Shim to cache ClientSession requests."""
-
+class Cache:
     _cache = {}
 
-    def _flush_cache(self):
-        """Flush expired cache entries."""
+    @classmethod
+    def add(cls, cache_key, item, cache_time):
+        """Add an entry to the cache."""
 
+        cls._cache[cache_key] = (datetime.now() + cache_time, item)
+        return item  # Returning item useful for chaining calls
+
+    @classmethod
+    def get(cls, cache_key):
+        """Get an entry from the cache."""
+
+        # Delete expired entries at start so we don't use expired entries
         now = datetime.now()
-        expired = [key for key, value in self._cache.items() if value[0] < now]
+        expired = [key for key, value in cls._cache.items() if value[0] < now]
         for key in expired:
-            del self._cache[key]
+            del cls._cache[key]
 
-    async def get(self, url, params, cache_time=CACHE_EXPIRE_TIME):
-        """Thin wrapper around ClientSession.get to cache responses."""
-
-        self._flush_cache()  # Flush at start so we don't use expired entries
-
-        cache_key = (url, tuple(sorted(params.items())))
-        result = self._cache.get(cache_key)
-        if not result:
-            result = (
-                datetime.now() + cache_time,
-                await super().get(
-                    url=url, params=params, headers={"User-Agent": USER_AGENT}
-                ),
-            )
-            self._cache[cache_key] = result
-
-        return result[1]
+        result = cls._cache.get(cache_key)
+        return result[1] if result else None
