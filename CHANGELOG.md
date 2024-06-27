@@ -1,5 +1,9 @@
 # Changelog for `env_canada`
 
+## v0.7.1
+
+- Fix memory leak and improve performance of `ec_radar`
+
 ## v0.7.0
 
 - BREAKING CHANGE: Remove yesterday's data (high temp, low temp, and precipitation) from weather. Environment Canada removed these values from the source data.
