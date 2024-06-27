@@ -1,4 +1,4 @@
-.PHONY: install clean isort lint test
+.PHONY: install install-core clean isort lint test
 
 clean:
 	find . -name '*.pyc' -exec rm -f {} +
@@ -9,11 +9,17 @@ clean:
 	rm -rf build dist *.egg-info .venv
 
 install:
-	python -m venv .venv
+ifndef VIRTUAL_ENV
+	$(error Create venv (python -m venv .venv) and activate virtual env first.)
+else
 	pip install -e .
 	pip install pytest
 	pip install pylint
 	pip install ruff
+endif
+
+install-core:
+	pip install -e .
 
 isort:
 	sh -c "isort --skip-glob=.tox ."
