@@ -1,5 +1,9 @@
 # Changelog for `env_canada`
 
+## v0.7.2
+
+- Add timestamps to daily forecasts
+
 ## v0.7.1
 
 - Fix memory leak and improve performance of `ec_radar`
