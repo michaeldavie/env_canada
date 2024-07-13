@@ -451,6 +451,7 @@ class ECWeather(object):
         self.hourly_forecasts = []
 
         # Update daily forecasts
+        forecast_time = self.forecast_time
         for f in weather_tree.findall("./forecastGroup/forecast"):
             self.daily_forecasts.append(
                 {
@@ -464,8 +465,11 @@ class ECWeather(object):
                     "precip_probability": int(
                         f.findtext("./abbreviatedForecast/pop") or "0"
                     ),
+                    "timestamp": forecast_time,
                 }
             )
+            if self.daily_forecasts[-1]["temperature_class"] == "low":
+                forecast_time = forecast_time + datetime.timedelta(days=1)
 
         # Update hourly forecasts
         for f in weather_tree.findall("./hourlyForecastGroup/hourlyForecast"):
