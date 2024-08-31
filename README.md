@@ -5,6 +5,16 @@
 
 This package provides access to various data sources published by [Environment and Climate Change Canada](https://www.canada.ca/en/environment-climate-change.html).
 
+> [!IMPORTANT]
+> If you're using the library in a Jupyter notebook, replace `asyncio.run(...)` with `await ...` in the examples below. For example:
+> ```python
+> asyncio.run(ec_en.update())
+> ```
+> becomes
+> ```python
+> await ec_en.update()
+> ```
+
 ## Weather Observations and Forecasts
 
 `ECWeather` provides current conditions and forecasts. It automatically determines which weather station to use based on latitude/longitude provided. It is also possible to specify a specific station code of the form `AB/s0000123` based on those listed in [this CSV file](https://dd.weather.gc.ca/citypage_weather/docs/site_list_towns_en.csv). For example:
