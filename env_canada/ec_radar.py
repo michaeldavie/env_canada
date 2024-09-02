@@ -195,7 +195,7 @@ class ECRadar(object):
                 return Cache.add("basemap", base_bytes, timedelta(days=7))
 
             except ClientConnectorError as e:
-                logging.warning("Map from %s could not be retrieved: %s" % map_url, e)
+                logging.warning("Map from %s could not be retrieved: %s",  map_url, e)
 
     async def _get_legend(self):
         """Fetch legend image."""
