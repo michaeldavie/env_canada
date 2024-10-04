@@ -6,23 +6,32 @@ from env_canada import ECHistorical
 
 
 @pytest.mark.parametrize(
-    "init_parameters", [
+    "init_parameters",
+    [
         {"station_id": 48370, "year": 2021},
         {"station_id": 48370, "year": 2021, "language": "english"},
         {"station_id": 48370, "year": 2021, "language": "french"},
         {"station_id": 48370, "year": 2021, "format": "csv"},
         {"station_id": 48370, "year": 2021, "format": "xml"},
-        {"station_id": 48370, "year": 2021, "month": 5, "format": "xml", "timeframe": 1},
+        {
+            "station_id": 48370,
+            "year": 2021,
+            "month": 5,
+            "format": "xml",
+            "timeframe": 1,
+        },
         {"station_id": 48370, "year": 2021, "format": "csv", "timeframe": 1},
-    ]
+    ],
 )
 def test_echistorical(init_parameters):
     weather = ECHistorical(**init_parameters)
     assert isinstance(weather, ECHistorical)
 
+
 @pytest.fixture()
 def test_historical():
     return ECHistorical(station_id=48370, year=2021)
+
 
 def test_update(test_historical):
     asyncio.run(test_historical.update())

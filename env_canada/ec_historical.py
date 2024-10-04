@@ -1,21 +1,19 @@
+import asyncio
 import copy
 import csv
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-from io import StringIO
 import logging
-import xml.etree.ElementTree as et
-import pandas as pd
-import asyncio
+from datetime import datetime
+from io import StringIO
 
+import lxml.html
+import pandas as pd
+import voluptuous as vol
 from aiohttp import ClientSession
 from dateutil import parser, tz
-import defusedxml.ElementTree as et
-import lxml.html
-import voluptuous as vol
+from dateutil.relativedelta import relativedelta
+from lxml import etree as et
 
 from .constants import USER_AGENT
-
 
 STATIONS_URL = "https://climate.weather.gc.ca/historical_data/search_historic_data_stations_{}.html"
 
@@ -204,8 +202,7 @@ async def get_historical_stations(
         return stations
 
 
-class ECHistorical(object):
-
+class ECHistorical:
     """Get historical weather data from Environment Canada."""
 
     def __init__(self, **kwargs):
@@ -353,7 +350,7 @@ def flip_daterange(f):
     return wrapper
 
 
-class ECHistoricalRange(object):
+class ECHistoricalRange:
     """Get historical weather data from Environment Canada in the given range for the given station.
 
     options are daily or hourly data
@@ -477,7 +474,10 @@ class ECHistoricalRange(object):
     @flip_daterange
     def monthlist(self, daterange):
         startdate, stopdate = daterange
-        total_months = lambda dt: dt.month + 12 * dt.year
+
+        def total_months(dt):
+            return dt.month + 12 * dt.year
+
         mlist = []
         for tot_m in range(total_months(startdate) - 1, total_months(stopdate)):
             y, m = divmod(tot_m, 12)

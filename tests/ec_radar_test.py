@@ -1,9 +1,9 @@
 import asyncio
-from datetime import datetime, date
+from datetime import date, datetime
 from io import BytesIO
-from PIL import Image
 
 import pytest
+from PIL import Image
 
 from env_canada import ECRadar
 

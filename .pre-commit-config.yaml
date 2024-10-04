@@ -1,0 +1,61 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: mixed-line-ending
+      - id: name-tests-test
+      - id: check-added-large-files
+      - id: check-ast # checks if files parse as valid python
+      - id: check-case-conflict # files that would conflict in case-insensitive filesystems
+      - id: check-docstring-first # docstring before code
+      - id: check-toml
+      - id: check-json
+      - id: pretty-format-json
+        args: [--autofix]
+      - id: check-yaml
+        args: [--allow-multiple-documents] # required for multi-document .yml files
+      - id: detect-private-key
+      - id: end-of-file-fixer # ensure that file is either empty, or ends with one newline
+      - id: trailing-whitespace
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black", "--filter-files"]
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.17
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-black
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2 # Use the sha / tag you want to point at
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-requests
+          - types-python-dateutil
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.6.5
+    hooks:
+    # Run the linter.
+    - id: ruff
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.17.0
+    hooks:
+    - id: pyupgrade
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+    - id: python-use-type-annotations
+    - id: python-check-blanket-noqa
+    - id: python-check-blanket-type-ignore
+    - id: python-check-mock-methods
+    - id: python-no-eval
+    - id: python-no-log-warn

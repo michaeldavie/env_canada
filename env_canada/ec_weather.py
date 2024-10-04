@@ -3,11 +3,11 @@ import datetime
 import logging
 import re
 
+import voluptuous as vol
 from aiohttp import ClientSession
 from dateutil import parser, relativedelta, tz
-import defusedxml.ElementTree as et
 from geopy import distance
-import voluptuous as vol
+from lxml import etree as et
 
 from . import ec_exc
 from .constants import USER_AGENT
@@ -259,7 +259,7 @@ def closest_site(site_list, lat, lon):
     return "{}/{}".format(closest["Province Codes"], closest["Codes"])
 
 
-class ECWeather(object):
+class ECWeather:
     """Get weather data from Environment Canada."""
 
     def __init__(self, **kwargs):
@@ -342,7 +342,7 @@ class ECWeather(object):
                 timeout=10,
             )
             result = await response.read()
-        weather_xml = result.decode()
+        weather_xml = result
 
         try:
             weather_tree = et.fromstring(weather_xml)

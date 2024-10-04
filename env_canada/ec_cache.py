@@ -1,8 +1,9 @@
 from datetime import datetime
+from typing import Any
 
 
 class Cache:
-    _cache = {}
+    _cache: dict[str, tuple[datetime, Any]] = {}
 
     @classmethod
     def add(cls, cache_key, item, cache_time):

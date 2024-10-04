@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 
-from env_canada import ec_aqhi, ECAirQuality
+from env_canada import ECAirQuality, ec_aqhi
 
 
 def test_get_aqhi_regions():
