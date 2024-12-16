@@ -23,18 +23,18 @@ repos:
       - id: isort
         args: ["--profile", "black", "--filter-files"]
   - repo: https://github.com/psf/black
-    rev: 24.8.0
+    rev: 24.10.0
     hooks:
       - id: black
   - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.17
+    rev: 0.7.19
     hooks:
       - id: mdformat
         additional_dependencies:
           - mdformat-gfm
           - mdformat-black
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2 # Use the sha / tag you want to point at
+    rev: v1.13.0
     hooks:
       - id: mypy
         additional_dependencies:
@@ -42,12 +42,12 @@ repos:
           - types-python-dateutil
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.6.9
+    rev: v0.8.3
     hooks:
     # Run the linter.
     - id: ruff
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.17.0
+    rev: v3.19.0
     hooks:
     - id: pyupgrade
   - repo: https://github.com/pre-commit/pygrep-hooks

@@ -5,7 +5,7 @@
 
 This package provides access to various data sources published by [Environment and Climate Change Canada](https://www.canada.ca/en/environment-climate-change.html).
 
-> \[!IMPORTANT\]
+> [!IMPORTANT]
 > If you're using the library in a Jupyter notebook, replace `asyncio.run(...)` with `await ...` in the examples below. For example:
 >
 > ```python
