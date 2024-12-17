@@ -2,6 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/env-canada.svg)](https://badge.fury.io/py/env-canada)
 [![Snyk rating](https://snyk-widget.herokuapp.com/badge/pip/env-canada/badge.svg)](https://snyk.io/vuln/pip:env-canada@0.7.2?utm_source=badge)
+[![Python Lint and Test](../..//actions/workflows/python-app.yml/badge.svg)](../../actions/workflows/python-app.yml)
 
 This package provides access to various data sources published by [Environment and Climate Change Canada](https://www.canada.ca/en/environment-climate-change.html).
 
