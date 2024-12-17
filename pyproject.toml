@@ -39,5 +39,8 @@ Repository = "https://github.com/michaeldavie/env_canada"
 "Bug Tracker" = "https://github.com/michaeldavie/env_canada/issues"
 Changelog = "https://github.com/michaeldavie/env_canada/blob/master/CHANGELOG.md"
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [tool.setuptools]
 include-package-data = true
