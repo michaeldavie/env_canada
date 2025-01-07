@@ -346,8 +346,10 @@ class ECWeather:
 
         try:
             weather_tree = et.fromstring(weather_xml)
-        except et.ParseError:
-            raise ECWeatherUpdateFailed("Weather update failed; could not parse result")
+        except et.ParseError as err:
+            raise ECWeatherUpdateFailed(
+                "Weather update failed; could not parse result"
+            ) from err
 
         # Update metadata
         for m, meta in metadata_meta.items():

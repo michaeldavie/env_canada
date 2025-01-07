@@ -19,6 +19,10 @@ STATIONS_URL = "https://climate.weather.gc.ca/historical_data/search_historic_da
 
 WEATHER_URL = "https://climate.weather.gc.ca/climate_data/bulk_data_{}.html"
 
+_TODAY = datetime.today().date()
+_ONE_YEAR_AGO = _TODAY - relativedelta(years=1, months=1, day=1)
+_YEAR = datetime.today().year
+
 LOG = logging.getLogger(__name__)
 
 __all__ = ["ECHistorical"]
@@ -124,7 +128,7 @@ async def get_historical_stations(
     coordinates,
     radius=25,
     start_year=1840,
-    end_year=datetime.today().year,
+    end_year=_YEAR,
     limit=25,
     language="english",
     timeframe=2,
@@ -353,27 +357,27 @@ def flip_daterange(f):
 class ECHistoricalRange:
     """Get historical weather data from Environment Canada in the given range for the given station.
 
-    options are daily or hourly data
+        options are daily or hourly data
 
-    Example:
-        import pandas as pd
-        import asyncio
-        from env_canada import ECHistoricalRange, get_historical_stations
-        from datetime import datetime
+        Example:
+            import pandas as pd
+            import asyncio
+            from env_canada import ECHistoricalRange, get_historical_stations
+            from datetime import datetime
 
-        coordinates = ['48.508333', '-68.467667']
+            coordinates = ['48.508333', '-68.467667']
 
-        stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
-                                                        end_year=2022, radius=200, limit=100))).T
+            stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
+                                                            end_year=2022, radius=200, limit=100))).T
 
-        ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="hourly",
-                                daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
+            ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="hourly",
+                                    daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
 
-        ec.get_data()
+            ec.get_data()
 
-        ec.xml #yield an XML formatted str. For more options, use ec.to_xml(*arg, **kwargs) with pandas options
-
-        ec.csv #yield an CSV formatted str. For more options, use ec.to_csv(*arg, **kwargs) with pandas options
+            ec.xml #yield an XML formatted str. For more options, use ec.to_xml(*arg, **kwargs) with pandas options
+    =
+            ec.csv #yield an CSV formatted str. For more options, use ec.to_csv(*arg, **kwargs) with pandas options
     """
 
     @flip_daterange
@@ -381,8 +385,8 @@ class ECHistoricalRange:
         self,
         station_id,
         daterange=(
-            datetime.today().date() - relativedelta(years=1, months=1, day=1),
-            datetime.today().date(),
+            _ONE_YEAR_AGO,
+            _TODAY,
         ),
         language="english",
         timeframe="daily",
@@ -423,7 +427,6 @@ class ECHistoricalRange:
         """
         if not self.df.empty:
             self.df = pd.DataFrame()
-        print(self.months)
         ec = [
             ECHistorical(
                 station_id=self.station_id,
@@ -441,7 +444,7 @@ class ECHistoricalRange:
             self.df = pd.concat((self.df, pd.read_csv(data.station_data)))
 
         self.df = self.df.set_index(
-            self.df.filter(regex="Date/*", axis=1).columns.values[0]
+            self.df.filter(regex="Date/*", axis=1).columns.to_numpy()[0]
         )
         self.df.index = pd.to_datetime(self.df.index)
 
