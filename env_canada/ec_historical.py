@@ -406,7 +406,14 @@ class ECHistoricalRange:
         self.months = self.monthlist(daterange=daterange)
         self.language = language
         _tf = {"hourly": 1, "daily": 2, "monthly": 3}
-        self.timeframe = _tf[timeframe]
+        timeframe_int = _tf[timeframe]
+        if timeframe_int == 2:
+            # prune the months list so it only has unique years. if daily is selected.
+            years = set()
+            for year, _ in self.months:
+                years.add(year)
+            self.months = [(year, 1) for year in years]
+        self.timeframe = timeframe_int
 
     def get_data(self):
         """
@@ -416,7 +423,7 @@ class ECHistoricalRange:
         """
         if not self.df.empty:
             self.df = pd.DataFrame()
-
+        print(self.months)
         ec = [
             ECHistorical(
                 station_id=self.station_id,
