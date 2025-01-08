@@ -1,5 +1,13 @@
 # Changelog for `env_canada`
 
+## v0.8.0
+
+- Change packaging to `pyproject.toml`
+- Improve code checks
+- Switch from `defusedxml` to `lxml`
+- Update Github actions
+- Fix historical range query
+
 ## v0.7.2
 
 - Add timestamps to daily forecasts
