@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
 import logging
+from datetime import datetime, timezone
 
-from aiohttp import ClientSession
-import defusedxml.ElementTree as et
-from geopy import distance
 import voluptuous as vol
+from aiohttp import ClientSession
+from geopy import distance
+from lxml import etree as et
 
 from .constants import USER_AGENT
 
@@ -43,7 +43,7 @@ async def get_aqhi_regions(language):
         )
         result = await response.read()
 
-    site_xml = result.decode("utf-8")
+    site_xml = result
     xml_object = et.fromstring(site_xml)
 
     for zone in xml_object.findall("./EC_administrativeZone"):
@@ -83,7 +83,7 @@ async def find_closest_region(language, lat, lon):
     return min(region_list, key=site_distance)
 
 
-class ECAirQuality(object):
+class ECAirQuality:
     """Get air quality data from Environment Canada."""
 
     def __init__(self, **kwargs):
@@ -152,7 +152,7 @@ class ECAirQuality(object):
                 return None
 
             result = await response.read()
-            aqhi_xml = result.decode("ISO-8859-1")
+            aqhi_xml = result
             return et.fromstring(aqhi_xml)
 
     async def update(self):

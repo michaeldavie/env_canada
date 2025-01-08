@@ -1,16 +1,16 @@
 import asyncio
-from datetime import date, timedelta
 import logging
 import math
 import os
+from datetime import date, timedelta
 from io import BytesIO
 from typing import cast
 
 import dateutil.parser
-import defusedxml.ElementTree as et
 import voluptuous as vol
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
+from lxml import etree as et
 from PIL import Image, ImageDraw, ImageFont
 
 from .constants import USER_AGENT
@@ -114,7 +114,7 @@ async def _get_resource(url, params, bytes=True):
         return await response.text()
 
 
-class ECRadar(object):
+class ECRadar:
     def __init__(self, **kwargs):
         """Initialize the radar object."""
 
@@ -195,7 +195,7 @@ class ECRadar(object):
                 return Cache.add("basemap", base_bytes, timedelta(days=7))
 
             except ClientConnectorError as e:
-                logging.warning("Map from %s could not be retrieved: %s",  map_url, e)
+                logging.warning("Map from %s could not be retrieved: %s", map_url, e)
 
     async def _get_legend(self):
         """Fetch legend image."""
@@ -226,7 +226,7 @@ class ECRadar(object):
         if not (capabilities_xml := Cache.get(capabilities_cache_key)):
             capabilities_params["layer"] = precip_layers[self._precip_type_actual]
             capabilities_xml = await _get_resource(
-                geomet_url, capabilities_params, bytes=False
+                geomet_url, capabilities_params, bytes=True
             )
             Cache.add(capabilities_cache_key, capabilities_xml, timedelta(minutes=5))
 
@@ -236,9 +236,9 @@ class ECRadar(object):
         )
         if dimension_string is not None:
             if dimension_string := dimension_string.text:
-                start, end = [
+                start, end = (
                     dateutil.parser.isoparse(t) for t in dimension_string.split("/")[:2]
-                ]
+                )
                 self.timestamp = end.isoformat()
                 return (start, end)
         return None

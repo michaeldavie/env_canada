@@ -2,15 +2,19 @@
 
 [![PyPI version](https://badge.fury.io/py/env-canada.svg)](https://badge.fury.io/py/env-canada)
 [![Snyk rating](https://snyk-widget.herokuapp.com/badge/pip/env-canada/badge.svg)](https://snyk.io/vuln/pip:env-canada@0.7.2?utm_source=badge)
+[![Python Lint and Test](../..//actions/workflows/python-app.yml/badge.svg)](../../actions/workflows/python-app.yml)
 
 This package provides access to various data sources published by [Environment and Climate Change Canada](https://www.canada.ca/en/environment-climate-change.html).
 
 > [!IMPORTANT]
 > If you're using the library in a Jupyter notebook, replace `asyncio.run(...)` with `await ...` in the examples below. For example:
+>
 > ```python
 > asyncio.run(ec_en.update())
 > ```
+>
 > becomes
+>
 > ```python
 > await ec_en.update()
 > ```
@@ -25,7 +29,7 @@ import asyncio
 from env_canada import ECWeather
 
 ec_en = ECWeather(coordinates=(50, -100))
-ec_fr = ECWeather(station_id='ON/s0000430', language='french')
+ec_fr = ECWeather(station_id="ON/s0000430", language="french")
 
 asyncio.run(ec_en.update())
 
@@ -106,7 +110,7 @@ from env_canada import ECHistorical
 from env_canada.ec_historical import get_historical_stations
 
 # search for stations, response contains station_ids
-coordinates = [53.916944, -122.749444] # [lat, long]
+coordinates = [53.916944, -122.749444]  # [lat, long]
 
 # coordinates: [lat, long]
 # radius: km
@@ -122,8 +126,12 @@ ec_fr_csv = ECHistorical(station_id=31688, year=2020, language="french", format=
 # timeframe argument can be passed to change the granularity
 # timeframe=1 hourly (need to create of for every month in that case, use ECHistoricalRange to handle it automatically)
 # timeframe=2 daily (default)
-ec_en_xml = ECHistorical(station_id=31688, year=2020, month=1, language="english", format="xml", timeframe=1)
-ec_en_csv = ECHistorical(station_id=31688, year=2020, month=1, language="english", format="csv", timeframe=1)
+ec_en_xml = ECHistorical(
+    station_id=31688, year=2020, month=1, language="english", format="xml", timeframe=1
+)
+ec_en_csv = ECHistorical(
+    station_id=31688, year=2020, month=1, language="english", format="csv", timeframe=1
+)
 
 asyncio.run(ec_en_xml.update())
 asyncio.run(ec_en_csv.update())
@@ -136,8 +144,8 @@ ec_en_xml.station_data
 
 # csv-generated responses return csv-like station data
 import pandas as pd
-df = pd.read_csv(ec_en_csv.station_data)
 
+df = pd.read_csv(ec_en_csv.station_data)
 ```
 
 `ECHistoricalRange` provides historical weather data within a specific range and handles the update by itself.
@@ -156,21 +164,29 @@ from env_canada import ECHistoricalRange
 from env_canada.ec_historical import get_historical_stations
 from datetime import datetime
 
-coordinates = ['48.508333', '-68.467667']
+coordinates = ["48.508333", "-68.467667"]
 
-stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
-                                                end_year=2022, radius=200, limit=100))).T
+stations = pd.DataFrame(
+    asyncio.run(
+        get_historical_stations(
+            coordinates, start_year=2022, end_year=2022, radius=200, limit=100
+        )
+    )
+).T
 
-ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="daily",
-                        daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
+ec = ECHistoricalRange(
+    station_id=int(stations.iloc[0, 2]),
+    timeframe="daily",
+    daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)),
+)
 
 ec.get_data()
 
-#yield an XML formated str.
+# yield an XML formated str.
 # For more options, use ec.to_xml(*arg, **kwargs) with pandas options
 ec.xml
 
-#yield an CSV formated str.
+# yield an CSV formated str.
 # For more options, use ec.to_csv(*arg, **kwargs) with pandas options
 ec.csv
 ```

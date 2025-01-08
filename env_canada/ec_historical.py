@@ -1,25 +1,27 @@
+import asyncio
 import copy
 import csv
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-from io import StringIO
 import logging
-import xml.etree.ElementTree as et
-import pandas as pd
-import asyncio
+from datetime import datetime
+from io import StringIO
 
+import lxml.html
+import pandas as pd
+import voluptuous as vol
 from aiohttp import ClientSession
 from dateutil import parser, tz
-import defusedxml.ElementTree as et
-import lxml.html
-import voluptuous as vol
+from dateutil.relativedelta import relativedelta
+from lxml import etree as et
 
 from .constants import USER_AGENT
-
 
 STATIONS_URL = "https://climate.weather.gc.ca/historical_data/search_historic_data_stations_{}.html"
 
 WEATHER_URL = "https://climate.weather.gc.ca/climate_data/bulk_data_{}.html"
+
+_TODAY = datetime.today().date()
+_ONE_YEAR_AGO = _TODAY - relativedelta(years=1, months=1, day=1)
+_YEAR = datetime.today().year
 
 LOG = logging.getLogger(__name__)
 
@@ -126,7 +128,7 @@ async def get_historical_stations(
     coordinates,
     radius=25,
     start_year=1840,
-    end_year=datetime.today().year,
+    end_year=_YEAR,
     limit=25,
     language="english",
     timeframe=2,
@@ -204,8 +206,7 @@ async def get_historical_stations(
         return stations
 
 
-class ECHistorical(object):
-
+class ECHistorical:
     """Get historical weather data from Environment Canada."""
 
     def __init__(self, **kwargs):
@@ -353,30 +354,30 @@ def flip_daterange(f):
     return wrapper
 
 
-class ECHistoricalRange(object):
+class ECHistoricalRange:
     """Get historical weather data from Environment Canada in the given range for the given station.
 
-    options are daily or hourly data
+        options are daily or hourly data
 
-    Example:
-        import pandas as pd
-        import asyncio
-        from env_canada import ECHistoricalRange, get_historical_stations
-        from datetime import datetime
+        Example:
+            import pandas as pd
+            import asyncio
+            from env_canada import ECHistoricalRange, get_historical_stations
+            from datetime import datetime
 
-        coordinates = ['48.508333', '-68.467667']
+            coordinates = ['48.508333', '-68.467667']
 
-        stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
-                                                        end_year=2022, radius=200, limit=100))).T
+            stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
+                                                            end_year=2022, radius=200, limit=100))).T
 
-        ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="hourly",
-                                daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
+            ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="hourly",
+                                    daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
 
-        ec.get_data()
+            ec.get_data()
 
-        ec.xml #yield an XML formatted str. For more options, use ec.to_xml(*arg, **kwargs) with pandas options
-
-        ec.csv #yield an CSV formatted str. For more options, use ec.to_csv(*arg, **kwargs) with pandas options
+            ec.xml #yield an XML formatted str. For more options, use ec.to_xml(*arg, **kwargs) with pandas options
+    =
+            ec.csv #yield an CSV formatted str. For more options, use ec.to_csv(*arg, **kwargs) with pandas options
     """
 
     @flip_daterange
@@ -384,8 +385,8 @@ class ECHistoricalRange(object):
         self,
         station_id,
         daterange=(
-            datetime.today().date() - relativedelta(years=1, months=1, day=1),
-            datetime.today().date(),
+            _ONE_YEAR_AGO,
+            _TODAY,
         ),
         language="english",
         timeframe="daily",
@@ -409,7 +410,14 @@ class ECHistoricalRange(object):
         self.months = self.monthlist(daterange=daterange)
         self.language = language
         _tf = {"hourly": 1, "daily": 2, "monthly": 3}
-        self.timeframe = _tf[timeframe]
+        timeframe_int = _tf[timeframe]
+        if timeframe_int == 2:
+            # prune the months list so it only has unique years. if daily is selected.
+            years = set()
+            for year, _ in self.months:
+                years.add(year)
+            self.months = [(year, 1) for year in years]
+        self.timeframe = timeframe_int
 
     def get_data(self):
         """
@@ -419,7 +427,6 @@ class ECHistoricalRange(object):
         """
         if not self.df.empty:
             self.df = pd.DataFrame()
-
         ec = [
             ECHistorical(
                 station_id=self.station_id,
@@ -437,7 +444,7 @@ class ECHistoricalRange(object):
             self.df = pd.concat((self.df, pd.read_csv(data.station_data)))
 
         self.df = self.df.set_index(
-            self.df.filter(regex="Date/*", axis=1).columns.values[0]
+            self.df.filter(regex="Date/*", axis=1).columns.to_numpy()[0]
         )
         self.df.index = pd.to_datetime(self.df.index)
 
@@ -477,7 +484,10 @@ class ECHistoricalRange(object):
     @flip_daterange
     def monthlist(self, daterange):
         startdate, stopdate = daterange
-        total_months = lambda dt: dt.month + 12 * dt.year
+
+        def total_months(dt):
+            return dt.month + 12 * dt.year
+
         mlist = []
         for tot_m in range(total_months(startdate) - 1, total_months(stopdate)):
             y, m = divmod(tot_m, 12)

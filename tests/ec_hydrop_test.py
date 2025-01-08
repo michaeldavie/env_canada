@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pytest
 
-from env_canada import ec_hydro, ECHydro
+from env_canada import ECHydro, ec_hydro
 
 
 def test_get_hydro_sites():

@@ -1,10 +1,10 @@
 import csv
 import io
 
+import voluptuous as vol
 from aiohttp import ClientSession
 from dateutil.parser import isoparse
 from geopy import distance
-import voluptuous as vol
 
 from .constants import USER_AGENT
 
@@ -54,8 +54,7 @@ async def closest_site(lat, lon):
     return closest
 
 
-class ECHydro(object):
-
+class ECHydro:
     """Get hydrometric data from Environment Canada."""
 
     def __init__(self, **kwargs):

@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from env_canada import ec_weather, ECWeather
+from env_canada import ECWeather, ec_weather
 
 
 def test_get_ec_sites():
