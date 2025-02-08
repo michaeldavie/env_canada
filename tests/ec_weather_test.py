@@ -1,8 +1,6 @@
 import asyncio
-from logging import exception
 from unittest.mock import AsyncMock, patch
 
-import aiohttp
 import pytest
 from freezegun import freeze_time
 from syrupy.assertion import SnapshotAssertion
@@ -57,7 +55,7 @@ async def test_weather_retrieved_weather_updates_ok(snapshot: SnapshotAssertion)
 
 
 @pytest.mark.asyncio
-async def test_weather_exception_on_old_forecast_data(snapshot: SnapshotAssertion):
+async def test_weather_exception_on_old_forecast_data():
     ecw, resp = setup_test(
         {
             "station": "ON/s0000430",
@@ -68,7 +66,7 @@ async def test_weather_exception_on_old_forecast_data(snapshot: SnapshotAssertio
 
     with patch("aiohttp.ClientSession.get", AsyncMock(return_value=resp)):
         with freeze_time("2025-02-06 03:00"):
-            with pytest.raises(Exception):
+            with pytest.raises(ec_weather.ECWeatherUpdateFailed):
                 await ecw.update()
 
 
