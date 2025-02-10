@@ -78,6 +78,6 @@ def test_get_ec_sites():
 
 @pytest.mark.slow
 def test_update_ec_weather():
-    ecw, _ = setup_test("ON/s0000430")
+    ecw, _ = setup_test({"station": "ON/s0000430"})
     asyncio.run(ecw.update())
     assert ecw.conditions
