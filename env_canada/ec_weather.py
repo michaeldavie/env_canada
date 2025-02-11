@@ -341,11 +341,11 @@ class ECWeather:
                 headers={"User-Agent": USER_AGENT},
                 timeout=10,
             )
-            result = await response.read()
+            result = await response.text()
         weather_xml = result
 
         try:
-            weather_tree = et.fromstring(weather_xml)
+            weather_tree = et.fromstring(bytes(weather_xml, encoding="utf-8"))
         except et.ParseError as err:
             raise ECWeatherUpdateFailed(
                 "Weather update failed; could not parse result"
