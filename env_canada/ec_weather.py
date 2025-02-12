@@ -1,13 +1,14 @@
 import csv
-import datetime
 import logging
 import re
+from datetime import datetime, timedelta, timezone
 
 import voluptuous as vol
-from aiohttp import ClientSession
-from dateutil import parser, relativedelta, tz
+from aiohttp import ClientSession, ClientTimeout
+from dateutil import parser, tz
 from geopy import distance
 from lxml import etree as et
+from lxml.etree import _Element
 
 from . import ec_exc
 from .constants import USER_AGENT
@@ -15,6 +16,8 @@ from .constants import USER_AGENT
 SITE_LIST_URL = "https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv"
 
 WEATHER_URL = "https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml"
+
+CLIENT_TIMEOUT = ClientTimeout(10)
 
 LOG = logging.getLogger(__name__)
 
@@ -205,11 +208,6 @@ alerts_meta = {
     },
 }
 
-metadata_meta = {
-    "timestamp": {"xpath": "./dateTime/timeStamp"},
-    "location": {"xpath": "./location/name"},
-}
-
 
 def validate_station(station):
     """Check that the station ID is well-formed."""
@@ -220,8 +218,15 @@ def validate_station(station):
     return station
 
 
-def parse_timestamp(t):
-    return parser.parse(t).replace(tzinfo=tz.UTC)
+def _parse_timestamp(time_str: str | None) -> datetime | None:
+    if time_str is not None:
+        return parser.parse(time_str).replace(tzinfo=tz.UTC)
+    return None
+
+
+def _get_xml_text(xml_root: _Element, xpath: str) -> str | None:
+    element = xml_root.find(xpath)
+    return None if element is None or element.text is None else element.text
 
 
 async def get_ec_sites():
@@ -231,7 +236,7 @@ async def get_ec_sites():
 
     async with ClientSession(raise_for_status=True) as session:
         response = await session.get(
-            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=10
+            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=CLIENT_TIMEOUT
         )
         sites_csv_string = await response.text()
 
@@ -292,7 +297,9 @@ class ECWeather:
 
         self.language = kwargs["language"]
         self.max_data_age = kwargs["max_data_age"]
-        self.metadata = {"attribution": ATTRIBUTION[self.language]}
+        self.metadata: dict[str, str | datetime | None] = {
+            "attribution": ATTRIBUTION[self.language]
+        }
         self.conditions = {}
         self.alerts = {}
         self.daily_forecasts = []
@@ -339,7 +346,7 @@ class ECWeather:
             response = await session.get(
                 WEATHER_URL.format(self.station_id, self.language[0]),
                 headers={"User-Agent": USER_AGENT},
-                timeout=10,
+                timeout=CLIENT_TIMEOUT,
             )
             result = await response.text()
         weather_xml = result
@@ -352,25 +359,20 @@ class ECWeather:
             ) from err
 
         # Update metadata
-        for m, meta in metadata_meta.items():
-            element = weather_tree.find(meta["xpath"])
-            if element is not None:
-                self.metadata[m] = weather_tree.find(meta["xpath"]).text
-                if m == "timestamp":
-                    self.metadata[m] = parse_timestamp(self.metadata[m])
-            else:
-                self.metadata[m] = None
-
-        # Check data age
-        if self.metadata["timestamp"] is None:
-            raise ECWeatherUpdateFailed("Weather update failed; no timestamp found")
-
-        max_age = datetime.datetime.now(
-            datetime.timezone.utc
-        ) - relativedelta.relativedelta(hours=self.max_data_age)
-
-        if self.metadata["timestamp"] < max_age:
+        timestamp = _parse_timestamp(
+            _get_xml_text(weather_tree, "./dateTime/timeStamp")
+        )
+        if timestamp is None:
+            raise ECWeatherUpdateFailed("Weather update failed; timestamp not found")
+        max_age = datetime.now(timezone.utc) - timedelta(hours=self.max_data_age)
+        if timestamp < max_age:
             raise ECWeatherUpdateFailed("Weather update failed; outdated data returned")
+
+        self.metadata["timestamp"] = timestamp
+        self.metadata["location"] = _get_xml_text(weather_tree, "./location/name")
+        self.metadata["station"] = _get_xml_text(
+            weather_tree, "./currentConditions/station"
+        )
 
         # Parse condition
         def get_condition(meta):
@@ -404,20 +406,16 @@ class ECWeather:
                     elif meta["type"] == "str":
                         condition["value"] = element.text
                     elif meta["type"] == "timestamp":
-                        condition["value"] = parse_timestamp(element.text)
+                        condition["value"] = _parse_timestamp(element.text)
 
             return condition
 
         # Update current conditions
-        if len(weather_tree.find("./currentConditions")) > 0:
+        current_conditions = weather_tree.find("./currentConditions")
+        if current_conditions is not None and len(current_conditions) > 0:
             for c, meta in conditions_meta.items():
                 self.conditions[c] = {"label": meta[self.language]}
                 self.conditions[c].update(get_condition(meta))
-
-            # Update station metadata
-            self.metadata["station"] = weather_tree.find(
-                "./currentConditions/station"
-            ).text
 
             # Update text summary
             period = get_condition(summary_meta["forecast_period"])["value"]
@@ -435,57 +433,61 @@ class ECWeather:
         alert_elements = weather_tree.findall("./warnings/event")
 
         for a in alert_elements:
-            title = a.attrib.get("description").strip()
+            title = a.attrib.get("description", "").strip()
             for category, meta in alerts_meta.items():
                 category_match = re.search(meta[self.language]["pattern"], title)
                 if category_match:
                     alert = {
                         "title": title.title(),
-                        "date": a.find("./dateTime[last()]/textSummary").text,
+                        "date": _get_xml_text(a, "./dateTime[last()]/textSummary"),
                     }
                     self.alerts[category]["value"].append(alert)
 
         # Update forecasts
-        self.forecast_time = parse_timestamp(
-            weather_tree.findtext("./forecastGroup/dateTime/timeStamp")
+        self.forecast_time = _parse_timestamp(
+            _get_xml_text(weather_tree, "./forecastGroup/dateTime/timeStamp")
         )
         self.daily_forecasts = []
         self.hourly_forecasts = []
 
         # Update daily forecasts
-        forecast_time = self.forecast_time
-        for f in weather_tree.findall("./forecastGroup/forecast"):
-            self.daily_forecasts.append(
-                {
-                    "period": f.findtext("period"),
-                    "text_summary": f.findtext("textSummary"),
-                    "icon_code": f.findtext("./abbreviatedForecast/iconCode"),
-                    "temperature": int(f.findtext("./temperatures/temperature") or 0),
-                    "temperature_class": f.find(
-                        "./temperatures/temperature"
-                    ).attrib.get("class"),
-                    "precip_probability": int(
-                        f.findtext("./abbreviatedForecast/pop") or "0"
-                    ),
-                    "timestamp": forecast_time,
-                }
-            )
-            if self.daily_forecasts[-1]["temperature_class"] == "low":
-                forecast_time = forecast_time + datetime.timedelta(days=1)
+        if self.forecast_time is not None:
+            forecast_time = self.forecast_time
+            for f in weather_tree.findall("./forecastGroup/forecast"):
+                temperature_element = f.find("./temperatures/temperature")
+                self.daily_forecasts.append(
+                    {
+                        "period": f.findtext("period"),
+                        "text_summary": f.findtext("textSummary"),
+                        "icon_code": f.findtext("./abbreviatedForecast/iconCode"),
+                        "temperature": int(
+                            f.findtext("./temperatures/temperature") or 0
+                        ),
+                        "temperature_class": temperature_element.attrib.get("class")
+                        if temperature_element is not None
+                        else None,
+                        "precip_probability": int(
+                            f.findtext("./abbreviatedForecast/pop") or "0"
+                        ),
+                        "timestamp": forecast_time,
+                    }
+                )
+                if self.daily_forecasts[-1]["temperature_class"] == "low":
+                    forecast_time = forecast_time + timedelta(days=1)
 
         # Update hourly forecasts
         for f in weather_tree.findall("./hourlyForecastGroup/hourlyForecast"):
             wind_speed_text = f.findtext("./wind/speed")
             self.hourly_forecasts.append(
                 {
-                    "period": parse_timestamp(f.attrib.get("dateTimeUTC")),
+                    "period": _parse_timestamp(f.attrib.get("dateTimeUTC")),
                     "condition": f.findtext("./condition"),
                     "temperature": int(f.findtext("./temperature") or 0),
                     "icon_code": f.findtext("./iconCode"),
                     "precip_probability": int(f.findtext("./lop") or "0"),
-                    "wind_speed": int(
-                        wind_speed_text if wind_speed_text.isnumeric() else 0
-                    ),
+                    "wind_speed": int(wind_speed_text)
+                    if wind_speed_text and wind_speed_text.isnumeric()
+                    else 0,
                     "wind_direction": f.findtext("./wind/direction"),
                 }
             )
