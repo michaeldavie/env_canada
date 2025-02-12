@@ -182,30 +182,30 @@ summary_meta = {
     "label": {"english": "Forecast", "french": "Prévision"},
 }
 
-alerts_meta = {
-    "warnings": {
-        "english": {"label": "Warnings", "pattern": ".*WARNING((?!ENDED).)*$"},
-        "french": {
-            "label": "Alertes",
-            "pattern": ".*(ALERTE|AVERTISSEMENT)((?!TERMINÉ).)*$",
-        },
+ALERTS_INIT = {
+    "english": {
+        "warnings": {"label": "Warnings", "value": []},
+        "watches": {"label": "Watches", "value": []},
+        "advisories": {"label": "Advisories", "value": []},
+        "statements": {"label": "Statements", "value": []},
+        "endings": {"label": "Endings", "value": []},
     },
-    "watches": {
-        "english": {"label": "Watches", "pattern": ".*WATCH((?!ENDED).)*$"},
-        "french": {"label": "Veilles", "pattern": ".*VEILLE((?!TERMINÉ).)*$"},
+    "french": {
+        "warnings": {"label": "Alertes", "value": []},
+        "watches": {"label": "Veilles", "value": []},
+        "advisories": {"label": "Avis", "value": []},
+        "statements": {"label": "Bulletins", "value": []},
+        "endings": {"label": "Terminaisons", "value": []},
     },
-    "advisories": {
-        "english": {"label": "Advisories", "pattern": ".*ADVISORY((?!ENDED).)*$"},
-        "french": {"label": "Avis", "pattern": ".*AVIS((?!TERMINÉ).)*$"},
-    },
-    "statements": {
-        "english": {"label": "Statements", "pattern": ".*STATEMENT((?!ENDED).)*$"},
-        "french": {"label": "Bulletins", "pattern": ".*BULLETIN((?!TERMINÉ).)*$"},
-    },
-    "endings": {
-        "english": {"label": "Endings", "pattern": ".*ENDED"},
-        "french": {"label": "Terminaisons", "pattern": ".*TERMINÉE?"},
-    },
+}
+
+# Maps "type" in XML alert attribute to name used
+ALERT_TYPE_TO_NAME = {
+    "advisory": "advisories",
+    "ending": "endings",
+    "statement": "statements",
+    "warning": "warnings",
+    "watch": "watches",
 }
 
 
@@ -427,21 +427,18 @@ class ECWeather:
             }
 
         # Update alerts
-        for category, meta in alerts_meta.items():
-            self.alerts[category] = {"value": [], "label": meta[self.language]["label"]}
-
+        self.alerts = ALERTS_INIT[self.language].copy()
         alert_elements = weather_tree.findall("./warnings/event")
-
-        for a in alert_elements:
-            title = a.attrib.get("description", "").strip()
-            for category, meta in alerts_meta.items():
-                category_match = re.search(meta[self.language]["pattern"], title)
-                if category_match:
-                    alert = {
-                        "title": title.title(),
-                        "date": _get_xml_text(a, "./dateTime[last()]/textSummary"),
+        for alert in alert_elements:
+            title = alert.attrib.get("description")
+            type_ = alert.attrib.get("type")
+            if title is not None and type_ is not None and type_ in ALERT_TYPE_TO_NAME:
+                self.alerts[ALERT_TYPE_TO_NAME[type_]]["value"].append(
+                    {
+                        "title": title.strip().title(),
+                        "date": _get_xml_text(alert, "./dateTime[last()]/textSummary"),
                     }
-                    self.alerts[category]["value"].append(alert)
+                )
 
         # Update forecasts
         self.forecast_time = _parse_timestamp(
