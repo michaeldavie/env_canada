@@ -50,7 +50,7 @@ repos:
       - id: ruff
       # Run the formatter.
       - id: ruff-format
-        args: [--no-fix]
+        args: [--check]
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.19.1
     hooks:
