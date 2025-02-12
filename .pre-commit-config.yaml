@@ -1,11 +1,11 @@
 ci:
   autofix_commit_msg: |
-        [pre-commit.ci] auto fixes from pre-commit.com hooks
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
 
-        for more information, see https://pre-commit.ci
+    for more information, see https://pre-commit.ci
   autofix_prs: true
-  autoupdate_branch: ''
-  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
   skip: []
   submodules: false
@@ -28,15 +28,6 @@ repos:
       - id: detect-private-key
       - id: end-of-file-fixer # ensure that file is either empty, or ends with one newline
       - id: trailing-whitespace
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: ["--profile", "black", "--filter-files"]
-  - repo: https://github.com/psf/black
-    rev: 24.10.0
-    hooks:
-      - id: black
   - repo: https://github.com/executablebooks/mdformat
     rev: 0.7.21
     hooks:
@@ -53,20 +44,23 @@ repos:
           - types-python-dateutil
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.8.6
+    rev: v0.9.6
     hooks:
-    # Run the linter.
-    - id: ruff
+      # Run the linter.
+      - id: ruff
+      # Run the formatter.
+      - id: ruff-format
+        args: [--no-fix]
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.19.1
     hooks:
-    - id: pyupgrade
+      - id: pyupgrade
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
     hooks:
-    - id: python-use-type-annotations
-    - id: python-check-blanket-noqa
-    - id: python-check-blanket-type-ignore
-    - id: python-check-mock-methods
-    - id: python-no-eval
-    - id: python-no-log-warn
+      - id: python-use-type-annotations
+      - id: python-check-blanket-noqa
+      - id: python-check-blanket-type-ignore
+      - id: python-check-mock-methods
+      - id: python-no-eval
+      - id: python-no-log-warn
