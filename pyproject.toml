@@ -65,4 +65,4 @@ include-package-data = true
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "B", "T201", "PD", "RUF", "ERA", "LOG", "G"]
-ignore = ["ERA001"]
+ignore = ["ERA001", "T201"]
