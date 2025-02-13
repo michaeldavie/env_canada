@@ -1,5 +1,4 @@
 import asyncio
-import base64
 from datetime import date, datetime
 from io import BytesIO
 from unittest.mock import AsyncMock, patch
@@ -7,7 +6,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from PIL import Image
 from syrupy.assertion import SnapshotAssertion
-from syrupy.filters import paths
 
 from env_canada import ECRadar
 
