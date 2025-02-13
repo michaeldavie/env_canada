@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from datetime import date, datetime
 from io import BytesIO
 from unittest.mock import AsyncMock, patch
@@ -79,5 +80,8 @@ async def test_get_radar_image_with_mock_data(test_radar, snapshot: SnapshotAsse
         "env_canada.ec_radar._get_resource", AsyncMock(side_effect=mock_get_resource)
     ):
         await test_radar.update()
+        # Bit hacky. This gets around syrupy not comparing snapshots as equal while
+        # binary data is present. Changing the image to b64 should not compromise the test.
+        test_radar.image = base64.b64encode(test_radar.image)
 
     assert test_radar == snapshot
