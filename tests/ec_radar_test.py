@@ -74,7 +74,13 @@ async def test_get_radar_image_with_mock_data(test_radar, snapshot: SnapshotAsse
     def mock_get_resource(_, params, bytes=True):
         fname = f"tests/fixtures/radar/{params['request']}_{params.get('time', '')}"
         with open(fname, "rb") as f:
-            return f.read()
+            data = f.read()
+            from functools import reduce
+
+            print(
+                f"{fname} len={len(data)} sum={(256 - reduce(lambda x, y: x + y, data)) % 256}"
+            )
+            return data
 
     with patch(
         "env_canada.ec_radar._get_resource", AsyncMock(side_effect=mock_get_resource)
