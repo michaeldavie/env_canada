@@ -82,7 +82,6 @@ async def test_get_radar_image_with_mock_data(test_radar, snapshot: SnapshotAsse
         await test_radar.update()
         # Bit hacky. This gets around syrupy not comparing snapshots as equal while
         # binary data is present. Changing the image to b64 should not compromise the test.
-        breakpoint()
         test_radar.image = base64.b64encode(test_radar.image).decode()
 
     assert test_radar == snapshot
