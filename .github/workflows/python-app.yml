@@ -32,4 +32,4 @@ jobs:
           pre-commit run -a
       - name: Test with pytest
         run: |
-          uv run pytest -s tests
+          uv run pytest tests

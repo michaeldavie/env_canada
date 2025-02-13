@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from PIL import Image
 from syrupy.assertion import SnapshotAssertion
+from syrupy.filters import paths
 
 from env_canada import ECRadar
 
@@ -64,7 +65,7 @@ def test_set_precip_type(test_radar):
 
 
 @pytest.mark.asyncio
-async def test_get_radar_image_with_mock_data(test_radar, snapshot: SnapshotAssertion):
+async def test_get_radar_image_with_mock_data(snapshot: SnapshotAssertion):
     """
     This is still technically a slow test, in that it uses a lot of CPU.
     Still useful as it is a complete test of the entire radar code
@@ -74,20 +75,15 @@ async def test_get_radar_image_with_mock_data(test_radar, snapshot: SnapshotAsse
     def mock_get_resource(_, params, bytes=True):
         fname = f"tests/fixtures/radar/{params['request']}_{params.get('time', '')}"
         with open(fname, "rb") as f:
-            data = f.read()
-            from functools import reduce
+            return f.read()
 
-            print(
-                f"{fname} len={len(data)} sum={(256 - reduce(lambda x, y: x + y, data)) % 256}"
-            )
-            return data
-
+    tr = ECRadar(coordinates=(50, -100), width=100, height=100)
     with patch(
         "env_canada.ec_radar._get_resource", AsyncMock(side_effect=mock_get_resource)
     ):
-        await test_radar.update()
+        await tr.update()
         # Bit hacky. This gets around syrupy not comparing snapshots as equal while
         # binary data is present. Changing the image to b64 should not compromise the test.
-        test_radar.image = base64.b64encode(test_radar.image).decode()
+        # tr.image = base64.b64encode(tr.image).decode()
 
     assert test_radar == snapshot
