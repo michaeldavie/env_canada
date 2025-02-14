@@ -75,13 +75,18 @@ async def test_get_radar_image_with_mock_data(snapshot: SnapshotAssertion):
         with open(fname, "rb") as f:
             return f.read()
 
+    # Using 800x800 this test works locally but fails in GitHub CI. Using 100x100,
+    # the test works in both places. Consider this fragile, but we at least have
+    # a local test. It's unclear why the test doesn't work at the bigger size
+    # in CI. Best guess is PIL library generates a different image based on CPU
+    # architecture. If need be the image can be ignored in the snapshot compare.
     tr = ECRadar(coordinates=(50, -100), width=100, height=100)
     with patch(
         "env_canada.ec_radar._get_resource", AsyncMock(side_effect=mock_get_resource)
-    ):
+    ) as mock:
         await tr.update()
-        # Bit hacky. This gets around syrupy not comparing snapshots as equal while
-        # binary data is present. Changing the image to b64 should not compromise the test.
-        # tr.image = base64.b64encode(tr.image).decode()
+
+        # Should catch if something happens with number of radar frames retrieved
+        assert mock.call_count == 34
 
     assert test_radar == snapshot
