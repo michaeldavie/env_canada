@@ -4,7 +4,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 import voluptuous as vol
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientResponseError, ClientSession, ClientTimeout
 from dateutil import parser, tz
 from geopy import distance
 from lxml import etree as et
@@ -27,7 +27,7 @@ ATTRIBUTION = {
 }
 
 
-__all__ = ["ECWeather"]
+__all__ = ["ECWeather", "ECWeatherUpdateFailed"]
 
 
 conditions_meta = {
@@ -342,20 +342,24 @@ class ECWeather:
         )
 
         # Get weather data
-        async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(
-                WEATHER_URL.format(self.station_id, self.language[0]),
-                headers={"User-Agent": USER_AGENT},
-                timeout=CLIENT_TIMEOUT,
-            )
-            result = await response.text()
-        weather_xml = result
+        try:
+            async with ClientSession(raise_for_status=True) as session:
+                response = await session.get(
+                    WEATHER_URL.format(self.station_id, self.language[0]),
+                    headers={"User-Agent": USER_AGENT},
+                    timeout=CLIENT_TIMEOUT,
+                )
+                weather_xml = await response.text()
+        except ClientResponseError as err:
+            raise ECWeatherUpdateFailed(
+                f"Unable to retrieve weather '{err.request_info.url}': {err.message} ({err.status})"
+            ) from err
 
         try:
             weather_tree = et.fromstring(bytes(weather_xml, encoding="utf-8"))
         except et.ParseError as err:
             raise ECWeatherUpdateFailed(
-                "Weather update failed; could not parse result"
+                f"Could not parse retrieved weather; length {len(weather_xml)}"
             ) from err
 
         # Update metadata
@@ -363,10 +367,14 @@ class ECWeather:
             _get_xml_text(weather_tree, "./dateTime/timeStamp")
         )
         if timestamp is None:
-            raise ECWeatherUpdateFailed("Weather update failed; timestamp not found")
+            raise ECWeatherUpdateFailed(
+                "Timestamp not found in retrieved weather; response not used"
+            )
         max_age = datetime.now(timezone.utc) - timedelta(hours=self.max_data_age)
         if timestamp < max_age:
-            raise ECWeatherUpdateFailed("Weather update failed; outdated data returned")
+            raise ECWeatherUpdateFailed(
+                f"Outdated weather data returned from Environment Canada '{timestamp}'; not used"
+            )
 
         self.metadata["timestamp"] = timestamp
         self.metadata["location"] = _get_xml_text(weather_tree, "./location/name")
