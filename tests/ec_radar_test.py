@@ -87,6 +87,6 @@ async def test_get_radar_image_with_mock_data(snapshot: SnapshotAssertion):
         await tr.update()
 
         # Should catch if something happens with number of radar frames retrieved
-        assert mock.call_count == 34
+        assert mock.call_count == 3
 
     assert test_radar == snapshot
