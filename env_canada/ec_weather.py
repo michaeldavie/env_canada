@@ -307,6 +307,10 @@ class ECWeather:
         self.forecast_time = ""
         self.site_list = []
 
+        # Time of last successful update and number of times update returned cached data after failure
+        self.last_successful_update: datetime | None = None
+        self.cache_returned: int = 0
+
         if "station_id" in kwargs and kwargs["station_id"] is not None:
             self.station_id = kwargs["station_id"]
             self.lat = None
@@ -316,7 +320,18 @@ class ECWeather:
             self.lat = kwargs["coordinates"][0]
             self.lon = kwargs["coordinates"][1]
 
-    async def update(self):
+    def handle_error(self, err: Exception | None, msg: str) -> None:
+        if self.last_successful_update is not None:
+            update_age = datetime.now(timezone.utc) - self.last_successful_update
+            if update_age < timedelta(hours=self.max_data_age):
+                self.cache_returned += 1
+                LOG.debug("Returning cached data")
+                return
+
+        self.cache_returned = 0
+        raise ECWeatherUpdateFailed(msg) from err
+
+    async def update(self) -> None:
         """Get the latest data from Environment Canada."""
 
         # Determine station ID or coordinates if not provided
@@ -351,16 +366,20 @@ class ECWeather:
                 )
                 weather_xml = await response.text()
         except ClientResponseError as err:
-            raise ECWeatherUpdateFailed(
-                f"Unable to retrieve weather '{err.request_info.url}': {err.message} ({err.status})"
-            ) from err
+            self.handle_error(
+                err,
+                f"Unable to retrieve weather '{err.request_info.url}': {err.message} ({err.status})",
+            )
+            return
 
         try:
             weather_tree = et.fromstring(bytes(weather_xml, encoding="utf-8"))
         except et.ParseError as err:
-            raise ECWeatherUpdateFailed(
-                f"Could not parse retrieved weather; length {len(weather_xml)}"
-            ) from err
+            # Parse error happens when data return is malformed (truncated, possibly because of network error)
+            self.handle_error(
+                err, f"Could not parse retrieved weather; length {len(weather_xml)}"
+            )
+            return
 
         # Update metadata
         timestamp = _parse_timestamp(
@@ -496,6 +515,10 @@ class ECWeather:
                     "wind_direction": f.findtext("./wind/direction"),
                 }
             )
+
+        # Save time of the last successful update
+        self.last_successful_update = datetime.now(timezone.utc)
+        self.cache_returned = 0
 
 
 class ECWeatherUpdateFailed(Exception):
