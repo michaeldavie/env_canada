@@ -268,7 +268,7 @@ def closest_site(site_list, lat, lon):
 class ECWeather:
     """Get weather data from Environment Canada."""
 
-    def __init__(self, **kwargs: dict[str, Any]) -> None:
+    def __init__(self, **kwargs):
         """Initialize the data object."""
 
         init_schema = vol.Schema(
