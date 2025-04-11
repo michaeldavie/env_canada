@@ -2,6 +2,7 @@ import csv
 import logging
 import re
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import voluptuous as vol
 from aiohttp import ClientResponseError, ClientSession, ClientTimeout
@@ -267,7 +268,7 @@ def closest_site(site_list, lat, lon):
 class ECWeather:
     """Get weather data from Environment Canada."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: dict[str, Any]) -> None:
         """Initialize the data object."""
 
         init_schema = vol.Schema(
