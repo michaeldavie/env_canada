@@ -2,7 +2,6 @@ import csv
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 import voluptuous as vol
 from aiohttp import ClientResponseError, ClientSession, ClientTimeout
@@ -461,7 +460,7 @@ class ECWeather:
             title = alert.attrib.get("description")
             type_ = alert.attrib.get("type")
             if title is not None and type_ is not None and type_ in ALERT_TYPE_TO_NAME:
-                self.alerts[ALERT_TYPE_TO_NAME[type_]]["value"].append(
+                self.alerts[ALERT_TYPE_TO_NAME[type_]]["value"].append(  # type: ignore
                     {
                         "title": title.strip().title(),
                         "date": _get_xml_text(alert, "./dateTime[last()]/textSummary"),
