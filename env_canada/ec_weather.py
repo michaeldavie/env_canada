@@ -33,7 +33,7 @@ __all__ = ["ECWeather", "ECWeatherUpdateFailed"]
 @dataclass
 class MetaData:
     attribution: str
-    timestamp: datetime = datetime(1970, 1, 1, 0, 0)
+    timestamp: datetime = datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc)
     station: str | None = None
     location: str | None = None
     cache_returned_on_update: int = 0  # Resets to 0 after successful update
@@ -378,7 +378,6 @@ class ECWeather:
                     timeout=CLIENT_TIMEOUT,
                 )
                 weather_xml = await response.text()
-                self.station_id = ""
         except ClientResponseError as err:
             self.handle_error(
                 err,
