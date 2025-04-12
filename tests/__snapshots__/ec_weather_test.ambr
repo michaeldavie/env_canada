@@ -473,7 +473,6 @@
       }),
     ]),
     language='english',
-    last_successful_update=FakeDatetime(2025, 2, 6, 0, 0, tzinfo=datetime.timezone.utc),
     lat=45.33,
     lon=-75.58,
     max_data_age=2,
