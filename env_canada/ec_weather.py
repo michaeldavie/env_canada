@@ -1,9 +1,8 @@
 import csv
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import cast
-
 import voluptuous as vol
 from aiohttp import ClientResponseError, ClientSession, ClientTimeout
 from dateutil import parser, tz
@@ -29,6 +28,16 @@ ATTRIBUTION = {
 
 
 __all__ = ["ECWeather", "ECWeatherUpdateFailed"]
+
+
+@dataclass
+class MetaData:
+    attribution: str
+    timestamp: datetime = datetime(1970, 1, 1, 0, 0)
+    station: str | None = None
+    location: str | None = None
+    cache_returned_on_update: int = 0  # Resets to 0 after successful update
+    last_update_error: str = ""
 
 
 conditions_meta = {
@@ -298,20 +307,13 @@ class ECWeather:
 
         self.language = kwargs["language"]
         self.max_data_age = kwargs["max_data_age"]
-        self.metadata: dict[str, str | datetime | None] = {
-            "attribution": ATTRIBUTION[self.language],
-            "timestamp": None,
-        }
+        self.metadata = MetaData(ATTRIBUTION[self.language])
         self.conditions = {}
         self.alerts = {}
         self.daily_forecasts = []
         self.hourly_forecasts = []
         self.forecast_time = ""
         self.site_list = []
-
-        # Number of times update returned cached data after failure;
-        # resets to 0 on successful update
-        self.cache_returned: int = 0
 
         if "station_id" in kwargs and kwargs["station_id"] is not None:
             self.station_id = kwargs["station_id"]
@@ -323,20 +325,27 @@ class ECWeather:
             self.lon = kwargs["coordinates"][1]
 
     def handle_error(self, err: Exception | None, msg: str) -> None:
-        if self.metadata["timestamp"] is not None:
-            expiry = cast(datetime, self.metadata["timestamp"]) + timedelta(
-                hours=self.max_data_age
-            )
-            if expiry > datetime.now(timezone.utc):
-                self.cache_returned += 1
-                LOG.debug("Returning cached data")
-                return
+        """
+        Handle an known error, returning previous results if they have not expired, or
+        raising an exception if previous results have expired. Set the last_update_error
+        to the error no matter what.
 
-        self.cache_returned = 0
+        On returning previous results, bump the cache returned counter else clear the counter.
+        """
+        expiry = self.metadata.timestamp + timedelta(hours=self.max_data_age)
+        self.metadata.last_update_error = msg
+        if expiry > datetime.now(timezone.utc):
+            self.metadata.cache_returned_on_update += 1
+            return
+
+        self.metadata.cache_returned_on_update = 0
         raise ECWeatherUpdateFailed(msg) from err
 
     async def update(self) -> None:
         """Get the latest data from Environment Canada."""
+
+        # Clear error at start, any error that is handled will set it
+        self.metadata.last_update_error = ""
 
         # Determine station ID or coordinates if not provided
         if not self.site_list:
@@ -369,6 +378,7 @@ class ECWeather:
                     timeout=CLIENT_TIMEOUT,
                 )
                 weather_xml = await response.text()
+                self.station_id = ""
         except ClientResponseError as err:
             self.handle_error(
                 err,
@@ -385,25 +395,21 @@ class ECWeather:
             )
             return
 
-        # Update metadata
         timestamp = _parse_timestamp(
             _get_xml_text(weather_tree, "./dateTime/timeStamp")
         )
         if timestamp is None:
-            raise ECWeatherUpdateFailed(
-                "Timestamp not found in retrieved weather; response not used"
+            self.handle_error(
+                None, "Timestamp not found in retrieved weather; response ignored"
             )
-        max_age = datetime.now(timezone.utc) - timedelta(hours=self.max_data_age)
-        if timestamp < max_age:
-            raise ECWeatherUpdateFailed(
-                f"Outdated weather data returned from Environment Canada '{timestamp}'; not used"
+            return
+        expiry = timestamp + timedelta(hours=self.max_data_age)
+        if expiry < datetime.now(timezone.utc):
+            self.handle_error(
+                None,
+                f"Outdated conditions returned from Environment Canada '{timestamp}'; not used",
             )
-
-        self.metadata["timestamp"] = timestamp
-        self.metadata["location"] = _get_xml_text(weather_tree, "./location/name")
-        self.metadata["station"] = _get_xml_text(
-            weather_tree, "./currentConditions/station"
-        )
+            return
 
         # Parse condition
         def get_condition(meta):
@@ -520,7 +526,13 @@ class ECWeather:
                 }
             )
 
-        self.cache_returned = 0
+        # Update metadata at the end
+        self.metadata.cache_returned_on_update = 0
+        self.metadata.timestamp = timestamp
+        self.metadata.location = _get_xml_text(weather_tree, "./location/name")
+        self.metadata.station = _get_xml_text(
+            weather_tree, "./currentConditions/station"
+        )
 
 
 class ECWeatherUpdateFailed(Exception):
