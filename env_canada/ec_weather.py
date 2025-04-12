@@ -2,6 +2,7 @@ import csv
 import logging
 import re
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 import voluptuous as vol
 from aiohttp import ClientResponseError, ClientSession, ClientTimeout
@@ -298,7 +299,8 @@ class ECWeather:
         self.language = kwargs["language"]
         self.max_data_age = kwargs["max_data_age"]
         self.metadata: dict[str, str | datetime | None] = {
-            "attribution": ATTRIBUTION[self.language]
+            "attribution": ATTRIBUTION[self.language],
+            "timestamp": None,
         }
         self.conditions = {}
         self.alerts = {}
@@ -307,8 +309,8 @@ class ECWeather:
         self.forecast_time = ""
         self.site_list = []
 
-        # Time of last successful update and number of times update returned cached data after failure
-        self.last_successful_update: datetime | None = None
+        # Number of times update returned cached data after failure;
+        # resets to 0 on successful update
         self.cache_returned: int = 0
 
         if "station_id" in kwargs and kwargs["station_id"] is not None:
@@ -321,9 +323,11 @@ class ECWeather:
             self.lon = kwargs["coordinates"][1]
 
     def handle_error(self, err: Exception | None, msg: str) -> None:
-        if self.last_successful_update is not None:
-            update_age = datetime.now(timezone.utc) - self.last_successful_update
-            if update_age < timedelta(hours=self.max_data_age):
+        if self.metadata["timestamp"] is not None:
+            expiry = cast(datetime, self.metadata["timestamp"]) + timedelta(
+                hours=self.max_data_age
+            )
+            if expiry > datetime.now(timezone.utc):
                 self.cache_returned += 1
                 LOG.debug("Returning cached data")
                 return
@@ -516,8 +520,6 @@ class ECWeather:
                 }
             )
 
-        # Save time of the last successful update
-        self.last_successful_update = datetime.now(timezone.utc)
         self.cache_returned = 0
 
 
