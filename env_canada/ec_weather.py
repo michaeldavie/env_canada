@@ -4,7 +4,12 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import voluptuous as vol
-from aiohttp import ClientResponseError, ClientSession, ClientTimeout
+from aiohttp import (
+    ClientConnectorDNSError,
+    ClientResponseError,
+    ClientSession,
+    ClientTimeout,
+)
 from dateutil import parser, tz
 from geopy import distance
 from lxml import etree as et
@@ -378,6 +383,9 @@ class ECWeather:
                     timeout=CLIENT_TIMEOUT,
                 )
                 weather_xml = await response.text()
+        except (ClientConnectorDNSError, TimeoutError) as err:
+            self.handle_error(err, f"Unable to retrieve weather: {err}")
+            return
         except ClientResponseError as err:
             self.handle_error(
                 err,
