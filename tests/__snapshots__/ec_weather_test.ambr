@@ -475,12 +475,7 @@
     lat=45.33,
     lon=-75.58,
     max_data_age=2,
-    metadata=dict({
-      'attribution': 'Data provided by Environment Canada',
-      'location': 'Ottawa (Kanata - Orléans)',
-      'station': "Ottawa Macdonald-Cartier Int'l Airport",
-      'timestamp': FakeDatetime(2025, 2, 5, 23, 8, 27, tzinfo=tzutc()),
-    }),
+    metadata=MetaData(attribution='Data provided by Environment Canada', timestamp=FakeDatetime(2025, 2, 5, 23, 8, 27, tzinfo=tzutc()), station="Ottawa Macdonald-Cartier Int'l Airport", location='Ottawa (Kanata - Orléans)', cache_returned_on_update=0, last_update_error=''),
     site_list=list([
       dict({
         'Codes': 's0000001',

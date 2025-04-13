@@ -70,6 +70,42 @@ async def test_weather_exception_on_old_forecast_data():
                 await ecw.update()
 
 
+@pytest.mark.asyncio
+async def test_weather_exception_returns_cached_data():
+    ecw, resp = setup_test(
+        {
+            "station": "ON/s0000430",
+            "sites": "tests/fixtures/site_list.csv",
+            "forecast": "tests/fixtures/weather.xml",
+        }
+    )
+
+    # Do the initial update with a good response
+    with patch("aiohttp.ClientSession.get", AsyncMock(return_value=resp)):
+        with freeze_time("2025-02-06 00:00"):
+            await ecw.update()
+
+    with patch("aiohttp.ClientSession.get", side_effect=TimeoutError):
+        with freeze_time("2025-02-06 00:00"):
+            await ecw.update()
+
+    assert ecw.metadata.cache_returned_on_update == 1
+
+    with patch("aiohttp.ClientSession.get", side_effect=TimeoutError):
+        with freeze_time("2025-02-06 00:00"):
+            await ecw.update()
+
+    assert ecw.metadata.cache_returned_on_update == 2
+
+    # Move date into future, should not return cached data now
+    with patch("aiohttp.ClientSession.get", side_effect=TimeoutError):
+        with freeze_time("2025-02-06 11:42"):
+            with pytest.raises(ec_weather.ECWeatherUpdateFailed):
+                await ecw.update()
+
+    assert ecw.metadata.cache_returned_on_update == 0
+
+
 @pytest.mark.slow
 def test_get_ec_sites():
     sites = asyncio.run(ec_weather.get_ec_sites())

@@ -1,10 +1,15 @@
 import csv
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-
 import voluptuous as vol
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import (
+    ClientConnectorDNSError,
+    ClientResponseError,
+    ClientSession,
+    ClientTimeout,
+)
 from dateutil import parser, tz
 from geopy import distance
 from lxml import etree as et
@@ -27,7 +32,17 @@ ATTRIBUTION = {
 }
 
 
-__all__ = ["ECWeather"]
+__all__ = ["ECWeather", "ECWeatherUpdateFailed"]
+
+
+@dataclass
+class MetaData:
+    attribution: str
+    timestamp: datetime = datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc)
+    station: str | None = None
+    location: str | None = None
+    cache_returned_on_update: int = 0  # Resets to 0 after successful update
+    last_update_error: str = ""
 
 
 conditions_meta = {
@@ -297,9 +312,7 @@ class ECWeather:
 
         self.language = kwargs["language"]
         self.max_data_age = kwargs["max_data_age"]
-        self.metadata: dict[str, str | datetime | None] = {
-            "attribution": ATTRIBUTION[self.language]
-        }
+        self.metadata = MetaData(ATTRIBUTION[self.language])
         self.conditions = {}
         self.alerts = {}
         self.daily_forecasts = []
@@ -316,8 +329,28 @@ class ECWeather:
             self.lat = kwargs["coordinates"][0]
             self.lon = kwargs["coordinates"][1]
 
-    async def update(self):
+    def handle_error(self, err: Exception | None, msg: str) -> None:
+        """
+        Handle an known error, returning previous results if they have not expired, or
+        raising an exception if previous results have expired. Set the last_update_error
+        to the error no matter what.
+
+        On returning previous results, bump the cache returned counter else clear the counter.
+        """
+        expiry = self.metadata.timestamp + timedelta(hours=self.max_data_age)
+        self.metadata.last_update_error = msg
+        if expiry > datetime.now(timezone.utc):
+            self.metadata.cache_returned_on_update += 1
+            return
+
+        self.metadata.cache_returned_on_update = 0
+        raise ECWeatherUpdateFailed(msg) from err
+
+    async def update(self) -> None:
         """Get the latest data from Environment Canada."""
+
+        # Clear error at start, any error that is handled will set it
+        self.metadata.last_update_error = ""
 
         # Determine station ID or coordinates if not provided
         if not self.site_list:
@@ -342,37 +375,43 @@ class ECWeather:
         )
 
         # Get weather data
-        async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(
-                WEATHER_URL.format(self.station_id, self.language[0]),
-                headers={"User-Agent": USER_AGENT},
-                timeout=CLIENT_TIMEOUT,
+        try:
+            async with ClientSession(raise_for_status=True) as session:
+                response = await session.get(
+                    WEATHER_URL.format(self.station_id, self.language[0]),
+                    headers={"User-Agent": USER_AGENT},
+                    timeout=CLIENT_TIMEOUT,
+                )
+                weather_xml = await response.text()
+        except (ClientConnectorDNSError, TimeoutError) as err:
+            return self.handle_error(err, f"Unable to retrieve weather: {err}")
+        except ClientResponseError as err:
+            return self.handle_error(
+                err,
+                f"Unable to retrieve weather '{err.request_info.url}': {err.message} ({err.status})",
             )
-            result = await response.text()
-        weather_xml = result
 
         try:
             weather_tree = et.fromstring(bytes(weather_xml, encoding="utf-8"))
         except et.ParseError as err:
-            raise ECWeatherUpdateFailed(
-                "Weather update failed; could not parse result"
-            ) from err
+            # Parse error happens when data return is malformed (truncated, possibly because of network error)
+            return self.handle_error(
+                err, f"Could not parse retrieved weather; length {len(weather_xml)}"
+            )
 
-        # Update metadata
         timestamp = _parse_timestamp(
             _get_xml_text(weather_tree, "./dateTime/timeStamp")
         )
         if timestamp is None:
-            raise ECWeatherUpdateFailed("Weather update failed; timestamp not found")
-        max_age = datetime.now(timezone.utc) - timedelta(hours=self.max_data_age)
-        if timestamp < max_age:
-            raise ECWeatherUpdateFailed("Weather update failed; outdated data returned")
-
-        self.metadata["timestamp"] = timestamp
-        self.metadata["location"] = _get_xml_text(weather_tree, "./location/name")
-        self.metadata["station"] = _get_xml_text(
-            weather_tree, "./currentConditions/station"
-        )
+            return self.handle_error(
+                None, "Timestamp not found in retrieved weather; response ignored"
+            )
+        expiry = timestamp + timedelta(hours=self.max_data_age)
+        if expiry < datetime.now(timezone.utc):
+            return self.handle_error(
+                None,
+                f"Outdated conditions returned from Environment Canada '{timestamp}'; not used",
+            )
 
         # Parse condition
         def get_condition(meta):
@@ -433,7 +472,7 @@ class ECWeather:
             title = alert.attrib.get("description")
             type_ = alert.attrib.get("type")
             if title is not None and type_ is not None and type_ in ALERT_TYPE_TO_NAME:
-                self.alerts[ALERT_TYPE_TO_NAME[type_]]["value"].append(
+                self.alerts[ALERT_TYPE_TO_NAME[type_]]["value"].append(  # type: ignore[attr-defined]
                     {
                         "title": title.strip().title(),
                         "date": _get_xml_text(alert, "./dateTime[last()]/textSummary"),
@@ -488,6 +527,14 @@ class ECWeather:
                     "wind_direction": f.findtext("./wind/direction"),
                 }
             )
+
+        # Update metadata at the end
+        self.metadata.cache_returned_on_update = 0
+        self.metadata.timestamp = timestamp
+        self.metadata.location = _get_xml_text(weather_tree, "./location/name")
+        self.metadata.station = _get_xml_text(
+            weather_tree, "./currentConditions/station"
+        )
 
 
 class ECWeatherUpdateFailed(Exception):
