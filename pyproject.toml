@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "env_canada"
 description="A package to access meteorological data from Environment Canada"
-version="0.10.0"
+version="0.10.1"
 authors = [
   {name = "Michael Davie", email = "michael.davie@gmail.com"},
 ]
@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "aiohttp >=3.9.0",
-    "geopy >= 2.4.1",
+    "geopy >= 2.3.0",
     "imageio >=2.28.0",
     "lxml >= 5.3.0",
     "numpy >=1.22.2",
