@@ -1,8 +1,9 @@
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import voluptuous as vol
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from geopy import distance
 from lxml import etree as et
 
@@ -12,12 +13,24 @@ AQHI_SITE_LIST_URL = "https://dd.weather.gc.ca/air_quality/doc/AQHI_XML_File_Lis
 AQHI_OBSERVATION_URL = "https://dd.weather.gc.ca/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml"
 AQHI_FORECAST_URL = "https://dd.weather.gc.ca/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml"
 
+CLIENT_TIMEOUT = ClientTimeout(10)
+
 LOG = logging.getLogger(__name__)
 
 ATTRIBUTION = {
     "EN": "Data provided by Environment Canada",
     "FR": "Données fournies par Environnement Canada",
 }
+
+
+@dataclass
+class MetaData:
+    attribution: str
+    timestamp: datetime | None = None
+    location: str | None = None
+
+    # Not used; needed for compatability with ec_weather metadata
+    station: str | None = None
 
 
 __all__ = ["ECAirQuality"]
@@ -39,7 +52,9 @@ async def get_aqhi_regions(language):
     regions = []
     async with ClientSession(raise_for_status=True) as session:
         response = await session.get(
-            AQHI_SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=10
+            AQHI_SITE_LIST_URL,
+            headers={"User-Agent": USER_AGENT},
+            timeout=CLIENT_TIMEOUT,
         )
         result = await response.read()
 
@@ -133,7 +148,7 @@ class ECAirQuality:
             self.region_id = None
             self.coordinates = kwargs["coordinates"]
 
-        self.metadata = {"attribution": ATTRIBUTION[self.language]}
+        self.metadata = MetaData(ATTRIBUTION[self.language])
         self.region_name = None
         self.current = None
         self.current_timestamp = None
@@ -145,7 +160,7 @@ class ECAirQuality:
                 response = await session.get(
                     url.format(self.zone_id, self.region_id),
                     headers={"User-Agent": USER_AGENT},
-                    timeout=10,
+                    timeout=CLIENT_TIMEOUT,
                 )
             except Exception:
                 LOG.debug("Retrieving AQHI failed", exc_info=True)
@@ -177,7 +192,7 @@ class ECAirQuality:
             self.region_name = element.attrib[
                 "name{lang}".format(lang=self.language.title())
             ]
-            self.metadata["location"] = self.region_name
+            self.metadata.location = self.region_name
 
             # Update AQHI current condition
             element = aqhi_current.find("airQualityHealthIndex")
@@ -191,7 +206,7 @@ class ECAirQuality:
                 self.current_timestamp = timestamp_to_datetime(element.text)
             else:
                 self.current_timestamp = None
-            self.metadata["timestamp"] = self.current_timestamp
+            self.metadata.timestamp = self.current_timestamp
             LOG.debug(
                 "update(): aqhi_current %d timestamp %s",
                 self.current,

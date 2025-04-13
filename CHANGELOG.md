@@ -1,9 +1,13 @@
 # Changelog for `env_canada`
 
+## v0.10.0
+
+- BREAKING CHANGE: AQHI `metadata` changed from `dict` type to a `dataclass` providing better type checking and discoverability
+
 ## v0.9.0
 
 - BREAKING CHANGE: Weather update now only has `ECWeatherUpdateException` on network error
-- BREAKING CHANGE: Weather update `metadata` changed from `dict` type to a `dataclass` providing better type checking and discoverability
+- BREAKING CHANGE: Weather `metadata` changed from `dict` type to a `dataclass` providing better type checking and discoverability
 - On a caught exception cached data will be returned if the data is not stale (older than `max_age`, which defaults to 2 hours)
 - When cached data is returned a cached data return count is incremented in `metadata` so that API users know the data returned is unchanged from the previous `update` call
 - The cached data count is reset to 0 on any successful `update`
