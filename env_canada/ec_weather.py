@@ -384,39 +384,34 @@ class ECWeather:
                 )
                 weather_xml = await response.text()
         except (ClientConnectorDNSError, TimeoutError) as err:
-            self.handle_error(err, f"Unable to retrieve weather: {err}")
-            return
+            return self.handle_error(err, f"Unable to retrieve weather: {err}")
         except ClientResponseError as err:
-            self.handle_error(
+            return self.handle_error(
                 err,
                 f"Unable to retrieve weather '{err.request_info.url}': {err.message} ({err.status})",
             )
-            return
 
         try:
             weather_tree = et.fromstring(bytes(weather_xml, encoding="utf-8"))
         except et.ParseError as err:
             # Parse error happens when data return is malformed (truncated, possibly because of network error)
-            self.handle_error(
+            return self.handle_error(
                 err, f"Could not parse retrieved weather; length {len(weather_xml)}"
             )
-            return
 
         timestamp = _parse_timestamp(
             _get_xml_text(weather_tree, "./dateTime/timeStamp")
         )
         if timestamp is None:
-            self.handle_error(
+            return self.handle_error(
                 None, "Timestamp not found in retrieved weather; response ignored"
             )
-            return
         expiry = timestamp + timedelta(hours=self.max_data_age)
         if expiry < datetime.now(timezone.utc):
-            self.handle_error(
+            return self.handle_error(
                 None,
                 f"Outdated conditions returned from Environment Canada '{timestamp}'; not used",
             )
-            return
 
         # Parse condition
         def get_condition(meta):
