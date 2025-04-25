@@ -1,8 +1,10 @@
+import copy
 import csv
 import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+
 import voluptuous as vol
 from aiohttp import (
     ClientConnectorDNSError,
@@ -466,7 +468,7 @@ class ECWeather:
             }
 
         # Update alerts
-        self.alerts = ALERTS_INIT[self.language].copy()
+        self.alerts = copy.deepcopy(ALERTS_INIT[self.language])
         alert_elements = weather_tree.findall("./warnings/event")
         for alert in alert_elements:
             title = alert.attrib.get("description")
