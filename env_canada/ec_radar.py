@@ -16,6 +16,8 @@ from PIL import Image, ImageDraw, ImageFont
 from .constants import USER_AGENT
 from .ec_cache import Cache
 
+LOG = logging.getLogger(__name__)
+
 ATTRIBUTION = {
     "english": "Data provided by Environment Canada",
     "french": "Données fournies par Environnement Canada",
@@ -195,7 +197,7 @@ class ECRadar:
                 return Cache.add("basemap", base_bytes, timedelta(days=7))
 
             except ClientConnectorError as e:
-                logging.warning("Map from %s could not be retrieved: %s", map_url, e)
+                LOG.warning("Map from %s could not be retrieved: %s", map_url, e)
 
     async def _get_legend(self):
         """Fetch legend image."""
@@ -215,7 +217,7 @@ class ECRadar:
             return Cache.add(legend_cache_key, legend, timedelta(days=7))
 
         except ClientConnectorError:
-            logging.warning("Legend could not be retrieved")
+            LOG.warning("Legend could not be retrieved")
             return None
 
     async def _get_dimensions(self):
@@ -361,7 +363,7 @@ class ECRadar:
 
         timespan = await self._get_dimensions()
         if not timespan:
-            logging.error("Cannot retrieve radar times.")
+            LOG.error("Cannot retrieve radar times.")
             return None
 
         tasks = []
