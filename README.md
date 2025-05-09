@@ -76,6 +76,40 @@ animated_gif = asyncio.run(radar_coords.get_loop())
 latest_png = asyncio.run(radar_coords.get_latest_frame())
 ```
 
+## Multi-Layer Weather Maps
+
+`ECMap` extends the functionality of `ECRadar` to support multiple WMS layers. This allows you to create composite images with various data layers such as radar, lightning, temperature, etc.
+
+```python
+import asyncio
+
+from env_canada import ECMap
+
+# Create a map with both rain radar and lightning layers
+map_coords = ECMap(
+    coordinates=(50, -100),
+    layers=["rain", "lightning"]
+)
+
+# Get the latest composite image with all specified layers
+latest_png = asyncio.run(map_coords.get_latest_frame())
+
+# Get an animated GIF with all specified layers
+animated_gif = asyncio.run(map_coords.get_loop())
+```
+
+Available layers include:
+- `rain`: Precipitation rain radar
+- `snow`: Precipitation snow radar
+- `lightning`: Lightning density
+- `temperature`: Temperature data
+- `pressure`: Atmospheric pressure
+- `humidity`: Humidity data
+- `wind_speed`: Wind speed
+- `wind_direction`: Wind direction
+
+You can specify one or more layers when creating the ECMap object, and they will be composited together in the resulting image.
+
 ## Air Quality Health Index (AQHI)
 
 `ECAirQuality` provides Environment Canada [air quality](https://weather.gc.ca/airquality/pages/index_e.html) data.

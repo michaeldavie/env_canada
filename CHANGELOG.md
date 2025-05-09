@@ -1,5 +1,11 @@
 # Changelog for `env_canada`
 
+## Unreleased
+
+- Add new `ECMap` class that extends `ECRadar` functionality to support multiple WMS layers
+- `ECMap` allows specifying one or more WMS layers to create composite images
+- Added support for additional layers like lightning, temperature, pressure, etc.
+
 ## v0.10.0
 
 - BREAKING CHANGE: AQHI `metadata` changed from `dict` type to a `dataclass` providing better type checking and discoverability
