@@ -24,6 +24,30 @@ def mock_capabilities_xml():
         <Layer>
             <Name>RADAR_1KM_RRAI</Name>
             <Dimension name="time" units="ISO8601" default="2025-02-13T16:54:00Z">2025-02-13T13:54:00Z/2025-02-13T16:54:00Z/PT6M</Dimension>
+            <Style>
+                <Name>RADARURPPRECIPR</Name>
+                <Title>Rain Style</Title>
+            </Style>
+        </Layer>
+        <Layer>
+            <Name>RADAR_1KM_RSNO</Name>
+            <Dimension name="time" units="ISO8601" default="2025-02-13T16:54:00Z">2025-02-13T13:54:00Z/2025-02-13T16:54:00Z/PT6M</Dimension>
+            <Style>
+                <Name>RADARURPPRECIPS14</Name>
+                <Title>Snow Style</Title>
+            </Style>
+        </Layer>
+        <Layer>
+            <Name>Radar_1km_SfcPrecipType</Name>
+            <Dimension name="time" units="ISO8601" default="2025-02-13T16:54:00Z">2025-02-13T13:54:00Z/2025-02-13T16:54:00Z/PT6M</Dimension>
+            <Style>
+                <Name>SfcPrecipType_Dis</Name>
+                <Title>Precipitation Type Style</Title>
+            </Style>
+            <Style>
+                <Name>SfcPrecipType_Dis_Fr</Name>
+                <Title>Style de type de precipitation</Title>
+            </Style>
         </Layer>
     </WMS_Capabilities>"""
 
@@ -240,17 +264,42 @@ class TestECMapCaching:
         mock_cache.add.assert_called()
 
     @patch("env_canada.ec_map.Cache")
-    def test_legend_caching_behavior(self, mock_cache):
+    @patch("env_canada.ec_map._get_resource")
+    def test_legend_caching_behavior(self, mock_get_resource, mock_cache):
         """Test that legend caching works"""
         mock_cache.get.return_value = None
         mock_cache.add.return_value = b"legend_data"
+
+        # Mock capabilities XML with style information
+        mock_capabilities_xml = b"""<?xml version="1.0" encoding="UTF-8"?>
+        <WMS_Capabilities xmlns="http://www.opengis.net/wms">
+            <Layer>
+                <Name>RADAR_1KM_RRAI</Name>
+                <Style>
+                    <Name>RADARURPPRECIPR</Name>
+                </Style>
+            </Layer>
+        </WMS_Capabilities>"""
+
+        # Mock _get_resource to return capabilities XML and legend data
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            else:
+                return b"legend_data"
+
+        mock_get_resource.side_effect = mock_response
 
         map_obj = ECMap(coordinates=(50, -100), layer="rain")
 
         # Should attempt to get legend from cache
         asyncio.run(map_obj._get_legend())
-        mock_cache.get.assert_called_with("legend-rain")
-        mock_cache.add.assert_called()
+
+        # Check that both capabilities and legend caches were accessed
+        cache_calls = [call[0][0] for call in mock_cache.get.call_args_list]
+        assert "capabilities-rain" in cache_calls
+        assert "legend-rain" in cache_calls
+        assert mock_cache.add.call_count >= 2
 
     @patch("env_canada.ec_map.Cache")
     def test_layer_image_caching(self, mock_cache):
