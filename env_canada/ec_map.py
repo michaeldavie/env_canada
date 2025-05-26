@@ -2,9 +2,8 @@ import asyncio
 import logging
 import math
 import os
-from datetime import date, timedelta
+from datetime import timedelta
 from io import BytesIO
-from typing import cast, Dict, List, Optional, Tuple, Union
 
 import dateutil.parser
 import voluptuous as vol
@@ -45,9 +44,18 @@ backup_map_url = (
 # Environment Canada
 
 # Common WMS layers available from Environment Canada
-wms_layers = {"rain": "RADAR_1KM_RRAI", "snow": "RADAR_1KM_RSNO"}
 
-legend_style = {"rain": "RADARURPPRECIPR", "snow": "RADARURPPRECIPS14"}
+wms_layers = {
+    "rain": "RADAR_1KM_RRAI",
+    "snow": "RADAR_1KM_RSNO",
+    "precip_type": "Radar_1km_SfcPrecipType",
+}
+
+legend_style = {
+    "rain": "RADARURPPRECIPR",
+    "snow": "RADARURPPRECIPS14",
+    "precip_type": "SfcPrecipType_Dis",
+}
 
 geomet_url = "https://geo.weather.gc.ca/geomet"
 capabilities_params = {
@@ -134,11 +142,7 @@ class ECMap:
                 vol.Required("layer_opacity", default=65): vol.All(
                     int, vol.Range(0, 100)
                 ),
-                vol.Required("layers", default=["rain"]): vol.All(
-                    vol.Any(list, tuple),
-                    vol.Length(min=1),
-                    vol.Schema([vol.In(wms_layers.keys())]),
-                ),
+                vol.Required("layer", default="rain"): vol.In(wms_layers.keys()),
                 vol.Optional("language", default="english"): vol.In(
                     ["english", "french"]
                 ),
@@ -149,8 +153,8 @@ class ECMap:
         self.language = kwargs["language"]
         self.metadata = {"attribution": ATTRIBUTION[self.language]}
 
-        # Get layers
-        self.layers = kwargs["layers"]
+        # Get layer
+        self.layer = kwargs["layer"]
 
         # Get map parameters
         self.image = None
@@ -185,17 +189,17 @@ class ECMap:
             except ClientConnectorError as e:
                 logging.warning("Map from %s could not be retrieved: %s", map_url, e)
 
-    async def _get_legend(self, layer):
-        """Fetch legend image for a specific layer."""
+    async def _get_legend(self):
+        """Fetch legend image for the layer."""
 
-        legend_cache_key = f"legend-{layer}"
+        legend_cache_key = f"legend-{self.layer}"
         if legend := Cache.get(legend_cache_key):
             return legend
 
         legend_params.update(
             dict(
-                layer=wms_layers[layer],
-                style=legend_style[layer],
+                layer=wms_layers[self.layer],
+                style=legend_style[self.layer],
             )
         )
         try:
@@ -203,23 +207,23 @@ class ECMap:
             return Cache.add(legend_cache_key, legend, timedelta(days=7))
 
         except ClientConnectorError:
-            logging.warning(f"Legend for {layer} could not be retrieved")
+            logging.warning(f"Legend for {self.layer} could not be retrieved")
             return None
 
-    async def _get_dimensions(self, layer):
-        """Get time range of available images for a specific layer."""
+    async def _get_dimensions(self):
+        """Get time range of available images for the layer."""
 
-        capabilities_cache_key = f"capabilities-{layer}"
+        capabilities_cache_key = f"capabilities-{self.layer}"
 
         if not (capabilities_xml := Cache.get(capabilities_cache_key)):
-            capabilities_params["layer"] = wms_layers[layer]
+            capabilities_params["layer"] = wms_layers[self.layer]
             capabilities_xml = await _get_resource(
                 geomet_url, capabilities_params, bytes=True
             )
             Cache.add(capabilities_cache_key, capabilities_xml, timedelta(minutes=5))
 
         dimension_string = et.fromstring(capabilities_xml).find(
-            dimension_xpath.format(layer=wms_layers[layer]),
+            dimension_xpath.format(layer=wms_layers[self.layer]),
             namespaces=wms_namespace,
         )
         if dimension_string is not None:
@@ -231,10 +235,10 @@ class ECMap:
                 return (start, end)
         return None
 
-    async def _get_layer_image(self, layer, frame_time):
-        """Fetch image for a specific layer at a specific time."""
+    async def _get_layer_image(self, frame_time):
+        """Fetch image for the layer at a specific time."""
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
-        layer_cache_key = f"layer-{layer}-{time}"
+        layer_cache_key = f"layer-{self.layer}-{time}"
 
         if img := Cache.get(layer_cache_key):
             return img
@@ -242,7 +246,7 @@ class ECMap:
         params = dict(
             **map_params,
             **self.map_params,
-            layers=wms_layers[layer],
+            layers=wms_layers[self.layer],
             time=time,
         )
 
@@ -250,11 +254,11 @@ class ECMap:
             layer_bytes = await _get_resource(geomet_url, params)
             return Cache.add(layer_cache_key, layer_bytes, timedelta(minutes=200))
         except ClientConnectorError:
-            logging.warning(f"Layer {layer} could not be retrieved")
+            logging.warning(f"Layer {self.layer} could not be retrieved")
             return None
 
     async def _create_composite_image(self, frame_time):
-        """Create a composite image from multiple layers."""
+        """Create a composite image from the layer."""
 
         def _create_image():
             """Contains all the PIL calls; run in another thread."""
@@ -268,32 +272,28 @@ class ECMap:
                     "RGBA", (self.width, self.height), (255, 255, 255, 255)
                 )
 
-            # Add each layer with transparency
-            for layer_name, layer_bytes in layer_images.items():
-                if layer_bytes:
-                    layer_image = Image.open(BytesIO(layer_bytes)).convert("RGBA")
+            # Add the layer with transparency
+            if layer_bytes:
+                layer_image = Image.open(BytesIO(layer_bytes)).convert("RGBA")
 
-                    # Add transparency to layer
-                    if self.layer_opacity < 100:
-                        alpha = round((self.layer_opacity / 100) * 255)
-                        layer_copy = layer_image.copy()
-                        layer_copy.putalpha(alpha)
-                        layer_image.paste(layer_copy, layer_image)
+                # Add transparency to layer
+                if self.layer_opacity < 100:
+                    alpha = round((self.layer_opacity / 100) * 255)
+                    layer_copy = layer_image.copy()
+                    layer_copy.putalpha(alpha)
+                    layer_image.paste(layer_copy, layer_image)
 
-                    # Composite the layer onto the image
-                    composite = Image.alpha_composite(composite, layer_image)
+                # Composite the layer onto the image
+                composite = Image.alpha_composite(composite, layer_image)
 
-            # Add legends
-            legend_y_offset = 0
-            for layer_name, legend_bytes in legend_images.items():
-                if legend_bytes:
-                    legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
-                    legend_position = (
-                        self.width - legend_image.size[0],
-                        legend_y_offset,
-                    )
-                    composite.paste(legend_image, legend_position)
-                    legend_y_offset += legend_image.size[1]
+            # Add legend
+            if legend_bytes:
+                legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
+                legend_position = (
+                    self.width - legend_image.size[0],
+                    0,
+                )
+                composite.paste(legend_image, legend_position)
 
             # Add timestamp
             if self.show_timestamp:
@@ -303,15 +303,14 @@ class ECMap:
                     )
 
                 if self._font:
-                    # Create a timestamp with all active layers
-                    layer_labels = []
-                    for layer in self.layers:
-                        if layer in timestamp_label:
-                            layer_labels.append(timestamp_label[layer][self.language])
+                    # Create a timestamp with the layer
+                    if self.layer in timestamp_label:
+                        layer_text = timestamp_label[self.layer][self.language]
+                    else:
+                        layer_text = self.layer
 
-                    layers_text = ", ".join(layer_labels)
                     timestamp = (
-                        f"{layers_text} @ {frame_time.astimezone().strftime('%H:%M')}"
+                        f"{layer_text} @ {frame_time.astimezone().strftime('%H:%M')}"
                     )
 
                     text_box = Image.new(
@@ -344,25 +343,17 @@ class ECMap:
         # Get the basemap
         base_bytes = await self._get_basemap()
 
-        # Get all layer images
-        layer_images = {}
-        legend_images = {}
-
-        for layer in self.layers:
-            layer_images[layer] = await self._get_layer_image(layer, frame_time)
-            if self.show_legend:
-                legend_images[layer] = await self._get_legend(layer)
+        # Get the layer image and legend
+        layer_bytes = await self._get_layer_image(frame_time)
+        legend_bytes = None
+        if self.show_legend:
+            legend_bytes = await self._get_legend()
 
         return await asyncio.get_event_loop().run_in_executor(None, _create_image)
 
     async def get_latest_frame(self):
-        """Get the latest image with all specified layers."""
-        # Use the first layer to determine the time dimensions
-        if not self.layers:
-            return None
-
-        primary_layer = self.layers[0]
-        dimensions = await self._get_dimensions(primary_layer)
+        """Get the latest image with the specified layer."""
+        dimensions = await self._get_dimensions()
         if not dimensions:
             return None
 
@@ -372,7 +363,7 @@ class ECMap:
         self.image = await self.get_loop()
 
     async def get_loop(self, fps=5):
-        """Build an animated GIF of recent images with all specified layers."""
+        """Build an animated GIF of recent images with the specified layer."""
 
         def create_gif():
             """Assemble animated GIF."""
@@ -394,13 +385,11 @@ class ECMap:
         # Without this cache priming the tasks below each compete to load map/legend
         # at the same time, resulting in them getting retrieved for each image.
         await self._get_basemap()
-        for layer in self.layers:
-            if self.show_legend:
-                await self._get_legend(layer)
+        if self.show_legend:
+            await self._get_legend()
 
-        # Use the first layer to determine the time dimensions
-        primary_layer = self.layers[0]
-        timespan = await self._get_dimensions(primary_layer)
+        # Use the layer to determine the time dimensions
+        timespan = await self._get_dimensions()
         if not timespan:
             logging.error("Cannot retrieve image times.")
             return None
