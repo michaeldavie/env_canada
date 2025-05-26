@@ -86,10 +86,7 @@ import asyncio
 from env_canada import ECMap
 
 # Create a map with both rain radar and lightning layers
-map_coords = ECMap(
-    coordinates=(50, -100),
-    layers=["rain", "lightning"]
-)
+map_coords = ECMap(coordinates=(50, -100), layers=["rain", "lightning"])
 
 # Get the latest composite image with all specified layers
 latest_png = asyncio.run(map_coords.get_latest_frame())
@@ -99,6 +96,7 @@ animated_gif = asyncio.run(map_coords.get_loop())
 ```
 
 Available layers include:
+
 - `rain`: Precipitation rain radar
 - `snow`: Precipitation snow radar
 - `lightning`: Lightning density

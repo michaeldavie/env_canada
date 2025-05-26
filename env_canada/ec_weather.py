@@ -525,7 +525,7 @@ class ECWeather:
                         try:
                             condition["value"] = int(float(element.text))
                         except ValueError:
-                            condition["value"] = int(0)
+                            condition["value"] = 0
                     elif meta["type"] == "float":
                         try:
                             condition["value"] = float(element.text)

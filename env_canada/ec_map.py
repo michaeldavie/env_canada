@@ -187,7 +187,7 @@ class ECMap:
     async def _get_style_for_layer(self):
         """Extract the appropriate style name from capabilities XML."""
         capabilities_cache_key = f"capabilities-{self.layer}"
-        
+
         if not (capabilities_xml := Cache.get(capabilities_cache_key)):
             capabilities_params["layer"] = wms_layers[self.layer]
             capabilities_xml = await _get_resource(
@@ -198,12 +198,12 @@ class ECMap:
         # Parse for style information
         root = et.fromstring(capabilities_xml)
         layer_xpath = f'.//wms:Layer[wms:Name="{wms_layers[self.layer]}"]/wms:Style'
-        
+
         styles = root.findall(layer_xpath, namespaces=wms_namespace)
         if styles:
             # Choose style based on language preference
             for style in styles:
-                style_name = style.find('wms:Name', namespaces=wms_namespace)
+                style_name = style.find("wms:Name", namespaces=wms_namespace)
                 if style_name is not None:
                     name = style_name.text
                     # Prefer language-specific style if available
@@ -211,12 +211,12 @@ class ECMap:
                         return name
                     elif self.language == "english" and not name.endswith("_Fr"):
                         return name
-            
+
             # Fallback to first available style
-            first_style = styles[0].find('wms:Name', namespaces=wms_namespace)
+            first_style = styles[0].find("wms:Name", namespaces=wms_namespace)
             if first_style is not None:
                 return first_style.text
-        
+
         # If no styles found, raise an error
         raise ValueError(f"No styles found for layer {self.layer}")
 
@@ -229,7 +229,7 @@ class ECMap:
 
         # Dynamically determine style
         style_name = await self._get_style_for_layer()
-        
+
         legend_params.update(
             dict(
                 layer=wms_layers[self.layer],

@@ -8,24 +8,24 @@ __all__ = ["ECRadar"]
 class ECRadar:
     def __init__(self, **kwargs):
         """Initialize the radar object."""
-        
+
         # Extract ECRadar-specific parameters
         precip_type = kwargs.pop("precip_type", None)
         radar_opacity = kwargs.pop("radar_opacity", 65)
-        
+
         # Rename radar_opacity to layer_opacity for ECMap
         kwargs["layer_opacity"] = radar_opacity
-        
+
         # Set up precip type logic
         self._precip_type_setting = precip_type
         self._precip_type_actual = self.precip_type[1]
-        
+
         # Map the actual precipitation type to the layer
         kwargs["layer"] = self._precip_type_actual
-        
+
         # Create the underlying ECMap instance
         self._map = ECMap(**kwargs)
-        
+
         # Expose common properties for backward compatibility
         self.language = self._map.language
         self.metadata = self._map.metadata
@@ -36,7 +36,7 @@ class ECRadar:
         self.map_params = self._map.map_params
         self.show_legend = self._map.show_legend
         self.show_timestamp = self._map.show_timestamp
-        self.timestamp = getattr(self._map, 'timestamp', None)
+        self.timestamp = getattr(self._map, "timestamp", None)
 
     @property
     def precip_type(self):
@@ -62,7 +62,7 @@ class ECRadar:
     def radar_opacity(self):
         """Get radar opacity for backward compatibility."""
         return self._map.layer_opacity
-    
+
     @radar_opacity.setter
     def radar_opacity(self, value):
         """Set radar opacity for backward compatibility."""
