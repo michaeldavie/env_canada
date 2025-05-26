@@ -51,11 +51,6 @@ wms_layers = {
     "precip_type": "Radar_1km_SfcPrecipType",
 }
 
-legend_style = {
-    "rain": "RADARURPPRECIPR",
-    "snow": "RADARURPPRECIPS14",
-    "precip_type": "SfcPrecipType_Dis",
-}
 
 geomet_url = "https://geo.weather.gc.ca/geomet"
 capabilities_params = {
@@ -189,6 +184,42 @@ class ECMap:
             except ClientConnectorError as e:
                 logging.warning("Map from %s could not be retrieved: %s", map_url, e)
 
+    async def _get_style_for_layer(self):
+        """Extract the appropriate style name from capabilities XML."""
+        capabilities_cache_key = f"capabilities-{self.layer}"
+        
+        if not (capabilities_xml := Cache.get(capabilities_cache_key)):
+            capabilities_params["layer"] = wms_layers[self.layer]
+            capabilities_xml = await _get_resource(
+                geomet_url, capabilities_params, bytes=True
+            )
+            Cache.add(capabilities_cache_key, capabilities_xml, timedelta(minutes=5))
+
+        # Parse for style information
+        root = et.fromstring(capabilities_xml)
+        layer_xpath = f'.//wms:Layer[wms:Name="{wms_layers[self.layer]}"]/wms:Style'
+        
+        styles = root.findall(layer_xpath, namespaces=wms_namespace)
+        if styles:
+            # Choose style based on language preference
+            for style in styles:
+                style_name = style.find('wms:Name', namespaces=wms_namespace)
+                if style_name is not None:
+                    name = style_name.text
+                    # Prefer language-specific style if available
+                    if self.language == "french" and name.endswith("_Fr"):
+                        return name
+                    elif self.language == "english" and not name.endswith("_Fr"):
+                        return name
+            
+            # Fallback to first available style
+            first_style = styles[0].find('wms:Name', namespaces=wms_namespace)
+            if first_style is not None:
+                return first_style.text
+        
+        # If no styles found, raise an error
+        raise ValueError(f"No styles found for layer {self.layer}")
+
     async def _get_legend(self):
         """Fetch legend image for the layer."""
 
@@ -196,10 +227,13 @@ class ECMap:
         if legend := Cache.get(legend_cache_key):
             return legend
 
+        # Dynamically determine style
+        style_name = await self._get_style_for_layer()
+        
         legend_params.update(
             dict(
                 layer=wms_layers[self.layer],
-                style=legend_style[self.layer],
+                style=style_name,
             )
         )
         try:
