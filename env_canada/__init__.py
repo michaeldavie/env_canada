@@ -3,8 +3,8 @@ __all__ = [
     "ECHistorical",
     "ECHistoricalRange",
     "ECHydro",
-    "ECRadar",
     "ECMap",
+    "ECRadar",
     "ECWeather",
     "ECWeatherUpdateFailed",
 ]

@@ -241,7 +241,7 @@ class ECMap:
             return Cache.add(legend_cache_key, legend, timedelta(days=7))
 
         except ClientConnectorError:
-            logging.warning(f"Legend for {self.layer} could not be retrieved")
+            logging.warning("Legend could not be retrieved")
             return None
 
     async def _get_dimensions(self):
@@ -288,7 +288,7 @@ class ECMap:
             layer_bytes = await _get_resource(geomet_url, params)
             return Cache.add(layer_cache_key, layer_bytes, timedelta(minutes=200))
         except ClientConnectorError:
-            logging.warning(f"Layer {self.layer} could not be retrieved")
+            logging.warning("Layer could not be retrieved")
             return None
 
     async def _create_composite_image(self, frame_time):
