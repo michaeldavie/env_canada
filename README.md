@@ -76,37 +76,54 @@ animated_gif = asyncio.run(radar_coords.get_loop())
 latest_png = asyncio.run(radar_coords.get_latest_frame())
 ```
 
-## Multi-Layer Weather Maps
+## Weather Maps
 
-`ECMap` extends the functionality of `ECRadar` to support multiple WMS layers. This allows you to create composite images with various data layers such as radar, lightning, temperature, etc.
+`ECMap` provides Environment Canada WMS weather map imagery with support for various meteorological layers.
 
 ```python
 import asyncio
 
 from env_canada import ECMap
 
-# Create a map with both rain radar and lightning layers
-map_coords = ECMap(coordinates=(50, -100), layers=["rain", "lightning"])
+# Create a map with rain radar layer
+map_coords = ECMap(coordinates=(50, -100), layer="rain")
 
-# Get the latest composite image with all specified layers
+# Get the latest image with the specified layer
 latest_png = asyncio.run(map_coords.get_latest_frame())
 
-# Get an animated GIF with all specified layers
+# Get an animated GIF with the specified layer
 animated_gif = asyncio.run(map_coords.get_loop())
+
+# Customize the map appearance
+custom_map = ECMap(
+    coordinates=(50, -100),
+    layer="snow",
+    width=1200,
+    height=800,
+    radius=300,
+    layer_opacity=80,
+    legend=True,
+    timestamp=True,
+    language="french",
+)
 ```
 
 Available layers include:
 
 - `rain`: Precipitation rain radar
 - `snow`: Precipitation snow radar
-- `lightning`: Lightning density
-- `temperature`: Temperature data
-- `pressure`: Atmospheric pressure
-- `humidity`: Humidity data
-- `wind_speed`: Wind speed
-- `wind_direction`: Wind direction
+- `precip_type`: Surface precipitation type
 
-You can specify one or more layers when creating the ECMap object, and they will be composited together in the resulting image.
+Additional configuration options:
+
+- `width`/`height`: Image dimensions (default: 800x800)
+- `radius`: Map radius in km around coordinates (default: 200km)
+- `layer_opacity`: Layer transparency 0-100% (default: 65%)
+- `legend`: Show legend (default: True)
+- `timestamp`: Show timestamp (default: True)
+- `language`: "english" or "french" (default: "english")
+
+> **Note**: ECMap automatically discovers available legend styles from Environment Canada's WMS capabilities, ensuring compatibility with any future style changes.
 
 ## Air Quality Health Index (AQHI)
 
