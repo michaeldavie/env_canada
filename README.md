@@ -76,6 +76,55 @@ animated_gif = asyncio.run(radar_coords.get_loop())
 latest_png = asyncio.run(radar_coords.get_latest_frame())
 ```
 
+## Weather Maps
+
+`ECMap` provides Environment Canada WMS weather map imagery with support for various meteorological layers.
+
+```python
+import asyncio
+
+from env_canada import ECMap
+
+# Create a map with rain radar layer
+map_coords = ECMap(coordinates=(50, -100), layer="rain")
+
+# Get the latest image with the specified layer
+latest_png = asyncio.run(map_coords.get_latest_frame())
+
+# Get an animated GIF with the specified layer
+animated_gif = asyncio.run(map_coords.get_loop())
+
+# Customize the map appearance
+custom_map = ECMap(
+    coordinates=(50, -100),
+    layer="snow",
+    width=1200,
+    height=800,
+    radius=300,
+    layer_opacity=80,
+    legend=True,
+    timestamp=True,
+    language="french",
+)
+```
+
+Available layers include:
+
+- `rain`: Precipitation rain radar
+- `snow`: Precipitation snow radar
+- `precip_type`: Surface precipitation type
+
+Additional configuration options:
+
+- `width`/`height`: Image dimensions (default: 800x800)
+- `radius`: Map radius in km around coordinates (default: 200km)
+- `layer_opacity`: Layer transparency 0-100% (default: 65%)
+- `legend`: Show legend (default: True)
+- `timestamp`: Show timestamp (default: True)
+- `language`: "english" or "french" (default: "english")
+
+> **Note**: ECMap automatically discovers available legend styles from Environment Canada's WMS capabilities, ensuring compatibility with any future style changes.
+
 ## Air Quality Health Index (AQHI)
 
 `ECAirQuality` provides Environment Canada [air quality](https://weather.gc.ca/airquality/pages/index_e.html) data.
