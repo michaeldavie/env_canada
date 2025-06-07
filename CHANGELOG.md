@@ -2,9 +2,39 @@
 
 ## Unreleased
 
-- Add new `ECMap` class that extends `ECRadar` functionality to support multiple WMS layers
-- `ECMap` allows specifying one or more WMS layers to create composite images
-- Added support for additional layers like lightning, temperature, pressure, etc.
+## v0.11.0
+
+### Major Features
+
+- **New ECMap class**: Complete weather map functionality using Environment Canada's WMS layers
+  - Support for rain, snow, and precipitation type radar layers
+  - Dynamic legend discovery from WMS capabilities
+  - Customizable map dimensions, radius, opacity, and overlay options
+  - Animated GIF creation for weather loops
+  - Full English/French language support
+
+### New Features
+
+- **Flexible station ID formats**: Support for multiple station ID input formats:
+  - Full format: `"AB/s0000123"` (province code and full station ID)
+  - Station ID only: `"s0000123"` (province resolved automatically)
+  - Numeric only: `"123"` (just the station number)
+- **Dynamic file discovery**: Automatic handling of Environment Canada's new timestamped weather file format (effective June 2025)
+- **Enhanced ECRadar**: Now uses ECMap as internal implementation while maintaining full backward compatibility
+
+### Improvements
+
+- **Mapbox dependency removed**: Now exclusively uses Canadian government data sources (Natural Resources Canada + Environment Canada)
+- **Proper logging**: Module-specific loggers throughout codebase
+- **Enhanced error handling**: Robust network failure handling and caching
+- **Station ID validation**: Improved validation with regex patterns and automatic province resolution
+- **Type safety**: Full mypy compliance and enhanced type annotations
+
+### Infrastructure
+
+- Automatic adaptation to Environment Canada's infrastructure changes
+- Enhanced test coverage with comprehensive mocking
+- Support for dynamic URL structure discovery
 
 ## v0.10.0
 
