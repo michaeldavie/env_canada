@@ -15,6 +15,8 @@ from PIL import Image, ImageDraw, ImageFont
 from .constants import USER_AGENT
 from .ec_cache import Cache
 
+LOG = logging.getLogger(__name__)
+
 ATTRIBUTION = {
     "english": "Data provided by Environment Canada",
     "french": "Données fournies par Environnement Canada",
@@ -35,11 +37,6 @@ basemap_params = {
     "format": "image/png",
 }
 
-# Mapbox Proxy
-
-backup_map_url = (
-    "https://0wmiyoko9f.execute-api.ca-central-1.amazonaws.com/mapbox-proxy"
-)
 
 # Environment Canada
 
@@ -177,13 +174,12 @@ class ECMap:
             return base_bytes
 
         basemap_params.update(self.map_params)
-        for map_url in [basemap_url, backup_map_url]:
-            try:
-                base_bytes = await _get_resource(map_url, basemap_params)
-                return Cache.add("basemap", base_bytes, timedelta(days=7))
-
-            except ClientConnectorError as e:
-                logging.warning("Map from %s could not be retrieved: %s", map_url, e)
+        try:
+            base_bytes = await _get_resource(basemap_url, basemap_params)
+            return Cache.add("basemap", base_bytes, timedelta(days=7))
+        except ClientConnectorError as e:
+            LOG.warning("Map from %s could not be retrieved: %s", basemap_url, e)
+            return None
 
     async def _get_style_for_layer(self):
         """Extract the appropriate style name from capabilities XML."""
@@ -242,7 +238,7 @@ class ECMap:
             return Cache.add(legend_cache_key, legend, timedelta(days=7))
 
         except ClientConnectorError:
-            logging.warning("Legend could not be retrieved")
+            LOG.warning("Legend could not be retrieved")
             return None
 
     async def _get_dimensions(self):
@@ -289,7 +285,7 @@ class ECMap:
             layer_bytes = await _get_resource(geomet_url, params)
             return Cache.add(layer_cache_key, layer_bytes, timedelta(minutes=200))
         except ClientConnectorError:
-            logging.warning("Layer could not be retrieved")
+            LOG.warning("Layer could not be retrieved")
             return None
 
     async def _create_composite_image(self, frame_time):
@@ -426,7 +422,7 @@ class ECMap:
         # Use the layer to determine the time dimensions
         timespan = await self._get_dimensions()
         if not timespan:
-            logging.error("Cannot retrieve image times.")
+            LOG.error("Cannot retrieve image times.")
             return None
 
         tasks = []
