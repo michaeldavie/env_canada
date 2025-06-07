@@ -67,6 +67,7 @@ map_params = {
     "request": "GetMap",
     "crs": "EPSG:4326",
     "format": "image/png",
+    "transparent": "true",
 }
 legend_params = {
     "service": "WMS",
