@@ -4,6 +4,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urljoin
 
 import voluptuous as vol
 from aiohttp import (
@@ -22,7 +23,7 @@ from .constants import USER_AGENT
 
 SITE_LIST_URL = "https://dd.weather.gc.ca/citypage_weather/docs/site_list_en.csv"
 
-WEATHER_URL = "https://dd.weather.gc.ca/citypage_weather/xml/{}_{}.xml"
+WEATHER_BASE_URL = "https://dd.weather.gc.ca/citypage_weather/{province}/{hour}/"
 
 CLIENT_TIMEOUT = ClientTimeout(10)
 
@@ -230,9 +231,16 @@ def validate_station(station):
     """Check that the station ID is well-formed."""
     if station is None:
         return
-    if not re.fullmatch(r"[A-Z]{2}/s0000\d{3}", station):
-        raise vol.Invalid('Station ID must be of the form "XX/s0000###"')
-    return station
+    # Accept either full format "XX/s0000###" or simplified 1-3 digit format
+    if not (
+        re.fullmatch(r"[A-Z]{2}/s0000\d{3}", station)
+        or re.fullmatch(r"s0000\d{3}", station)
+        or re.fullmatch(r"\d{1,3}", station)
+    ):
+        raise vol.Invalid(
+            'Station ID must be of the form "XX/s0000###", "s0000###" or 1-3 digits'
+        )
+    return station[-3:]
 
 
 def _parse_timestamp(time_str: str | None) -> datetime | None:
@@ -269,8 +277,16 @@ async def get_ec_sites():
     return sites
 
 
+def find_province_for_station(site_list, station_number):
+    """Find the province code for a given station number."""
+    for site in site_list:
+        if site["Codes"] == f"s0000{station_number.zfill(3)}":
+            return site["Province Codes"]
+    return None
+
+
 def closest_site(site_list, lat, lon):
-    """Return the province/site_code of the closest station to our lat/lon."""
+    """Return the (province_code, station_number) tuple of the closest station to our lat/lon."""
 
     def site_distance(site):
         """Calculate distance to a site."""
@@ -278,7 +294,55 @@ def closest_site(site_list, lat, lon):
 
     closest = min(site_list, key=site_distance)
 
-    return "{}/{}".format(closest["Province Codes"], closest["Codes"])
+    # Extract station number from "s0000###" format
+    station_number = closest["Codes"][5:]  # Remove "s0000" prefix
+    return (closest["Province Codes"], station_number)
+
+
+async def discover_weather_file_url(session, province_code, station_number, language):
+    """Discover the URL for the most recent weather file."""
+    # Convert language to the file suffix format
+    lang_suffix = "en" if language == "english" else "fr"
+
+    # Start with current UTC hour and work backwards
+    current_utc = datetime.now(timezone.utc)
+
+    for hours_back in range(3):  # Check current hour and 2 hours back
+        check_time = current_utc - timedelta(hours=hours_back)
+        hour_str = f"{check_time.hour:02d}"
+
+        # Construct directory URL
+        directory_url = WEATHER_BASE_URL.format(province=province_code, hour=hour_str)
+
+        try:
+            LOG.debug("Checking directory: %s", directory_url)
+            response = await session.get(
+                directory_url,
+                headers={"User-Agent": USER_AGENT},
+                timeout=CLIENT_TIMEOUT,
+            )
+            html_content = await response.text()
+
+            # Parse HTML directory listing to find matching files
+            station_pattern = f"s0000{station_number.zfill(3)}"
+            file_pattern = rf'href="([^"]*MSC_CitypageWeather_{station_pattern}_{lang_suffix}\.xml)"'
+
+            matches = re.findall(file_pattern, html_content)
+
+            if matches:
+                # Sort by filename (which includes timestamp) and get the most recent
+                matches.sort(reverse=True)
+                latest_file = matches[0]
+                return urljoin(directory_url, latest_file)
+
+        except (ClientConnectorDNSError, TimeoutError, ClientResponseError) as err:
+            LOG.debug("Failed to check directory %s: %s", directory_url, err)
+            continue
+
+    # If no file found in recent hours, raise exception
+    raise ec_exc.UnknownStationId(
+        f"No recent weather data found for station {station_number} in province {province_code}"
+    )
 
 
 class ECWeather:
@@ -323,7 +387,8 @@ class ECWeather:
         self.site_list = []
 
         if "station_id" in kwargs and kwargs["station_id"] is not None:
-            self.station_id = kwargs["station_id"]
+            # Station ID will be converted to tuple (province_code, station_number) during update()
+            self.station_id = kwargs["station_id"]  # Store raw input temporarily
             self.lat = None
             self.lon = None
         else:
@@ -358,13 +423,27 @@ class ECWeather:
         if not self.site_list:
             self.site_list = await get_ec_sites()
             if self.station_id:
-                stn = self.station_id.split("/")
-                if len(stn) == 2:
-                    for site in self.site_list:
-                        if stn[1] == site["Codes"] and stn[0] == site["Province Codes"]:
-                            self.lat = site["Latitude"]
-                            self.lon = site["Longitude"]
-                            break
+                # Convert raw station input to tuple (province_code, station_number)
+                if isinstance(self.station_id, str):
+                    station_number = (
+                        self.station_id
+                    )  # Already normalized by validate_station
+                    province_code = find_province_for_station(
+                        self.site_list, station_number
+                    )
+                    if province_code is None:
+                        raise ec_exc.UnknownStationId
+                    self.station_id = (province_code, station_number)
+
+                # Find lat/lon for the station
+                for site in self.site_list:
+                    if (
+                        site["Codes"] == f"s0000{self.station_id[1].zfill(3)}"
+                        and site["Province Codes"] == self.station_id[0]
+                    ):
+                        self.lat = site["Latitude"]
+                        self.lon = site["Longitude"]
+                        break
                 if not self.lat:
                     raise ec_exc.UnknownStationId
             else:
@@ -379,8 +458,14 @@ class ECWeather:
         # Get weather data
         try:
             async with ClientSession(raise_for_status=True) as session:
+                # Discover the URL for the most recent weather file
+                weather_url = await discover_weather_file_url(
+                    session, self.station_id[0], self.station_id[1], self.language
+                )
+                LOG.debug("Using weather URL: %s", weather_url)
+
                 response = await session.get(
-                    WEATHER_URL.format(self.station_id, self.language[0]),
+                    weather_url,
                     headers={"User-Agent": USER_AGENT},
                     timeout=CLIENT_TIMEOUT,
                 )
@@ -392,6 +477,8 @@ class ECWeather:
                 err,
                 f"Unable to retrieve weather '{err.request_info.url}': {err.message} ({err.status})",
             )
+        except ec_exc.UnknownStationId as err:
+            return self.handle_error(err, f"Unable to discover weather file: {err}")
 
         try:
             weather_tree = et.fromstring(bytes(weather_xml, encoding="utf-8"))
