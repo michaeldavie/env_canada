@@ -21,30 +21,44 @@ This package provides access to various data sources published by [Environment a
 
 ## Weather Observations and Forecasts
 
-`ECWeather` provides current conditions and forecasts. It automatically determines which weather station to use based on latitude/longitude provided. It is also possible to specify a specific station code of the form `AB/s0000123` based on those listed in [this CSV file](https://dd.weather.gc.ca/citypage_weather/docs/site_list_towns_en.csv). For example:
+`ECWeather` provides current conditions and forecasts. It automatically determines which weather station to use based on latitude/longitude provided. It is also possible to specify a station code in multiple flexible formats:
+
+- **Full format**: `"AB/s0000123"` (province code and full station ID)
+- **Station ID only**: `"s0000123"` (station ID without province - province is resolved automatically)
+- **Numeric only**: `"123"` (just the station number - province is resolved automatically)
+
+Station codes are based on those listed in [this CSV file](https://dd.weather.gc.ca/citypage_weather/docs/site_list_towns_en.csv). For example:
 
 ```python
 import asyncio
 
 from env_canada import ECWeather
 
-ec_en = ECWeather(coordinates=(50, -100))
-ec_fr = ECWeather(station_id="ON/s0000430", language="french")
+# Using coordinates (automatic station selection)
+ec_coords = ECWeather(coordinates=(50, -100))
 
-asyncio.run(ec_en.update())
+# Using station ID - multiple formats supported:
+ec_full = ECWeather(station_id="ON/s0000430", language="french")  # Full format
+ec_station = ECWeather(station_id="s0000430")  # Station ID only
+ec_numeric = ECWeather(station_id="430")  # Numeric only
+
+asyncio.run(ec_coords.update())
 
 # current conditions
-ec_en.conditions
+ec_coords.conditions
 
 # daily forecasts
-ec_en.daily_forecasts
+ec_coords.daily_forecasts
 
 # hourly forecasts
-ec_en.hourly_forecasts
+ec_coords.hourly_forecasts
 
 # alerts
-ec_en.alerts
+ec_coords.alerts
 ```
+
+> [!NOTE]
+> As of version 0.11.0, `ECWeather` automatically handles Environment Canada's new timestamped weather file URL structure (effective June 2025). The library dynamically discovers the most recent weather files, ensuring continued functionality during Environment Canada's infrastructure changes.
 
 ## Weather Radar
 
