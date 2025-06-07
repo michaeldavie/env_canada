@@ -240,7 +240,7 @@ def validate_station(station):
         raise vol.Invalid(
             'Station ID must be of the form "XX/s0000###", "s0000###" or 1-3 digits'
         )
-    return station[-3:]
+    return station
 
 
 def _parse_timestamp(time_str: str | None) -> datetime | None:
@@ -385,10 +385,13 @@ class ECWeather:
         self.hourly_forecasts = []
         self.forecast_time = ""
         self.site_list = []
+        self._station_resolved = False
+        self._station_tuple = (
+            None  # Internal storage for (province_code, station_number)
+        )
 
         if "station_id" in kwargs and kwargs["station_id"] is not None:
-            # Station ID will be converted to tuple (province_code, station_number) during update()
-            self.station_id = kwargs["station_id"]  # Store raw input temporarily
+            self.station_id = kwargs["station_id"]  # Keep as string for external API
             self.lat = None
             self.lon = None
         else:
@@ -413,43 +416,57 @@ class ECWeather:
         self.metadata.cache_returned_on_update = 0
         raise ECWeatherUpdateFailed(msg) from err
 
+    async def _resolve_station(self) -> None:
+        """Resolve station ID and coordinates (one-time initialization)."""
+        if self._station_resolved:
+            return
+
+        if not self.site_list:
+            self.site_list = await get_ec_sites()
+
+        if self.station_id:
+            # Convert raw station input to tuple (province_code, station_number)
+            station_number = self.station_id[-3:]
+            province_code = find_province_for_station(self.site_list, station_number)
+            if province_code is None:
+                raise ec_exc.UnknownStationId
+            self._station_tuple = (province_code, station_number)
+
+            # Find lat/lon for the station
+            for site in self.site_list:
+                if (
+                    site["Codes"] == f"s0000{self._station_tuple[1].zfill(3)}"
+                    and site["Province Codes"] == self._station_tuple[0]
+                ):
+                    self.lat = site["Latitude"]
+                    self.lon = site["Longitude"]
+                    break
+            if not self.lat:
+                raise ec_exc.UnknownStationId
+        else:
+            self._station_tuple = closest_site(self.site_list, self.lat, self.lon)
+            if not self._station_tuple:
+                raise ec_exc.UnknownStationId
+            # Set station_id to string format for external API
+            self.station_id = (
+                f"{self._station_tuple[0]}/s0000{self._station_tuple[1].zfill(3)}"
+            )
+
+        self._station_resolved = True
+
+    @property
+    def station_tuple(self):
+        """Return station ID as a tuple (province_code, station_number) for internal use."""
+        return self._station_tuple
+
     async def update(self) -> None:
         """Get the latest data from Environment Canada."""
 
         # Clear error at start, any error that is handled will set it
         self.metadata.last_update_error = ""
 
-        # Determine station ID or coordinates if not provided
-        if not self.site_list:
-            self.site_list = await get_ec_sites()
-            if self.station_id:
-                # Convert raw station input to tuple (province_code, station_number)
-                if isinstance(self.station_id, str):
-                    station_number = (
-                        self.station_id
-                    )  # Already normalized by validate_station
-                    province_code = find_province_for_station(
-                        self.site_list, station_number
-                    )
-                    if province_code is None:
-                        raise ec_exc.UnknownStationId
-                    self.station_id = (province_code, station_number)
-
-                # Find lat/lon for the station
-                for site in self.site_list:
-                    if (
-                        site["Codes"] == f"s0000{self.station_id[1].zfill(3)}"
-                        and site["Province Codes"] == self.station_id[0]
-                    ):
-                        self.lat = site["Latitude"]
-                        self.lon = site["Longitude"]
-                        break
-                if not self.lat:
-                    raise ec_exc.UnknownStationId
-            else:
-                self.station_id = closest_site(self.site_list, self.lat, self.lon)
-                if not self.station_id:
-                    raise ec_exc.UnknownStationId
+        # Resolve station ID and coordinates if not already done
+        await self._resolve_station()
 
         LOG.debug(
             "update(): station %s lat %f lon %f", self.station_id, self.lat, self.lon
@@ -460,7 +477,10 @@ class ECWeather:
             async with ClientSession(raise_for_status=True) as session:
                 # Discover the URL for the most recent weather file
                 weather_url = await discover_weather_file_url(
-                    session, self.station_id[0], self.station_id[1], self.language
+                    session,
+                    self._station_tuple[0],
+                    self._station_tuple[1],
+                    self.language,
                 )
                 LOG.debug("Using weather URL: %s", weather_url)
 

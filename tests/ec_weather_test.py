@@ -148,19 +148,19 @@ def test_update_ec_weather():
 
 
 @pytest.mark.parametrize(
-    "station_input,expected_station_number",
+    "station_input,expected_result",
     [
-        ("ON/s0000430", "430"),
-        ("s0000430", "430"),
+        ("ON/s0000430", "ON/s0000430"),
+        ("s0000430", "s0000430"),
         ("430", "430"),
         ("1", "1"),
         ("99", "99"),
     ],
 )
-def test_validate_station(station_input, expected_station_number):
-    """Test that station validation returns correct 3-digit format."""
+def test_validate_station(station_input, expected_result):
+    """Test that station validation returns the input unchanged when valid."""
     result = ec_weather.validate_station(station_input)
-    assert result == expected_station_number
+    assert result == expected_result
 
 
 @pytest.mark.asyncio
@@ -185,6 +185,29 @@ async def test_station_id_formats_create_tuples():
             with freeze_time("2025-02-06 00:00"):
                 await ecw.update()
 
-        assert ecw.station_id == expected_tuple
+        assert ecw.station_tuple == expected_tuple
         assert ecw.lat is not None
         assert ecw.lon is not None
+
+
+@pytest.mark.asyncio
+async def test_home_assistant_compatibility():
+    """Test that station_id remains a string for Home Assistant compatibility."""
+    ecw, resp = setup_test(
+        {
+            "station": "ON/s0000430",
+            "sites": "tests/fixtures/site_list.csv",
+            "forecast": "tests/fixtures/weather.xml",
+        }
+    )
+
+    with patch("aiohttp.ClientSession.get", AsyncMock(return_value=resp)):
+        with freeze_time("2025-02-06 00:00"):
+            await ecw.update()
+
+    # station_id should remain a string for external API compatibility
+    assert isinstance(ecw.station_id, str)
+    assert ecw.station_id == "ON/s0000430"
+
+    # Internal tuple should be available via property
+    assert ecw.station_tuple == ("ON", "430")

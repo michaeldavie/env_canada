@@ -625,7 +625,8 @@
         'Province Codes': 'NS',
       }),
     ]),
-    station_id=tuple(
+    station_id='ON/s0000430',
+    station_tuple=tuple(
       'ON',
       '430',
     ),
