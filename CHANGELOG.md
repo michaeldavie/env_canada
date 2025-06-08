@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.11.2
+
+### Bug Fixes
+
+- **ECMap**: Fix multi-instance caching issue where different geographic locations shared cached data
+  - Cache keys now include location-specific prefix to prevent data sharing between coordinates
+  - Ensures each ECRadar/ECMap instance maintains separate caches for basemap, legend, and radar overlays
+
 ## v0.11.1
 
 ### Bug Fixes
