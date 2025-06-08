@@ -168,15 +168,20 @@ class ECMap:
         self._font = None
         self.timestamp = None
 
+    def _get_cache_prefix(self):
+        """Generate a location-specific cache prefix based on bounding box."""
+        return f"{self.bbox[0]:.3f},{self.bbox[1]:.3f},{self.bbox[2]:.3f},{self.bbox[3]:.3f}"
+
     async def _get_basemap(self):
         """Fetch the background map image."""
-        if base_bytes := Cache.get("basemap"):
+        basemap_cache_key = f"{self._get_cache_prefix()}-basemap"
+        if base_bytes := Cache.get(basemap_cache_key):
             return base_bytes
 
         basemap_params.update(self.map_params)
         try:
             base_bytes = await _get_resource(basemap_url, basemap_params)
-            return Cache.add("basemap", base_bytes, timedelta(days=7))
+            return Cache.add(basemap_cache_key, base_bytes, timedelta(days=7))
         except ClientConnectorError as e:
             LOG.warning("Map from %s could not be retrieved: %s", basemap_url, e)
             return None
@@ -220,7 +225,7 @@ class ECMap:
     async def _get_legend(self):
         """Fetch legend image for the layer."""
 
-        legend_cache_key = f"legend-{self.layer}"
+        legend_cache_key = f"{self._get_cache_prefix()}-legend-{self.layer}"
         if legend := Cache.get(legend_cache_key):
             return legend
 
@@ -269,7 +274,7 @@ class ECMap:
     async def _get_layer_image(self, frame_time):
         """Fetch image for the layer at a specific time."""
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
-        layer_cache_key = f"layer-{self.layer}-{time}"
+        layer_cache_key = f"{self._get_cache_prefix()}-layer-{self.layer}-{time}"
 
         if img := Cache.get(layer_cache_key):
             return img
@@ -362,11 +367,13 @@ class ECMap:
             composite.save(img_byte_arr, format="PNG")
 
             return Cache.add(
-                f"composite-{time}", img_byte_arr.getvalue(), timedelta(minutes=200)
+                f"{self._get_cache_prefix()}-composite-{time}",
+                img_byte_arr.getvalue(),
+                timedelta(minutes=200),
             )
 
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
-        cache_key = f"composite-{time}"
+        cache_key = f"{self._get_cache_prefix()}-composite-{time}"
 
         if img := Cache.get(cache_key):
             return img
