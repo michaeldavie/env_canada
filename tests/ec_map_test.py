@@ -258,9 +258,10 @@ class TestECMapCaching:
 
         map_obj = ECMap(coordinates=(50, -100), layer="rain")
 
-        # Should attempt to get from cache
+        # Should attempt to get from cache with location-specific key
         asyncio.run(map_obj._get_basemap())
-        mock_cache.get.assert_called_with("basemap")
+        expected_cache_key = f"{map_obj._get_cache_prefix()}-basemap"
+        mock_cache.get.assert_called_with(expected_cache_key)
         mock_cache.add.assert_called()
 
     @patch("env_canada.ec_map.Cache")
@@ -298,7 +299,8 @@ class TestECMapCaching:
         # Check that both capabilities and legend caches were accessed
         cache_calls = [call[0][0] for call in mock_cache.get.call_args_list]
         assert "capabilities-rain" in cache_calls
-        assert "legend-rain" in cache_calls
+        expected_legend_key = f"{map_obj._get_cache_prefix()}-legend-rain"
+        assert expected_legend_key in cache_calls
         assert mock_cache.add.call_count >= 2
 
     @patch("env_canada.ec_map.Cache")
