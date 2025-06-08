@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.11.1
+
+### Bug Fixes
+
+- **ECWeather**: Fix Home Assistant compatibility issue with station ID handling
+  - Keep `station_id` as string for external API compatibility
+  - Move one-time initialization from `update()` to `_resolve_station()` method for better performance
+  - Add `station_tuple` property for accessing internal tuple representation
+  - Update `validate_station` to return input unchanged instead of extracting digits
+
 ## v0.11.0
 
 ### Major Features
