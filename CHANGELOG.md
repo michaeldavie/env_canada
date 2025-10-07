@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## v0.11.3
+
+### Bug Fixes
+
+- **API URLs**: Update Environment Canada API URLs to use new 'today' endpoint structure
+  - ECWeather: Updated SITE_LIST_URL to `site_list_towns_en.csv`
+  - ECHydro: Updated URLs to use 'today' path prefix
+  - ECAQHI: Updated URLs to use 'today' path prefix
+  - Fixes 404 errors from outdated URL endpoints
+- **ECHydro**: Fix test to handle optional discharge measurements
+
+### Infrastructure
+
+- Remove unused dependencies: imageio and numpy
+
 ## v0.11.2
 
 ### Bug Fixes
