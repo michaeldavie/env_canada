@@ -8,7 +8,9 @@ from geopy import distance
 
 from .constants import USER_AGENT
 
-SITE_LIST_URL = "https://dd.weather.gc.ca/today/hydrometric/doc/hydrometric_StationList.csv"
+SITE_LIST_URL = (
+    "https://dd.weather.gc.ca/today/hydrometric/doc/hydrometric_StationList.csv"
+)
 READINGS_URL = "https://dd.weather.gc.ca/today/hydrometric/csv/{prov}/hourly/{prov}_{station}_hourly_hydrometric.csv"
 
 
