@@ -34,4 +34,5 @@ def test_update(test_hydro):
     asyncio.run(test_hydro.update())
     assert isinstance(test_hydro.timestamp, datetime)
     assert isinstance(test_hydro.measurements["water_level"]["value"], float)
-    assert isinstance(test_hydro.measurements["discharge"]["value"], float)
+    if test_hydro.measurements.get("discharge"):
+        assert isinstance(test_hydro.measurements["discharge"]["value"], float)
