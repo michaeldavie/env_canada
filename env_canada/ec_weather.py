@@ -23,7 +23,7 @@ from .constants import USER_AGENT
 
 SITE_LIST_URL = "https://dd.weather.gc.ca/today/citypage_weather/docs/site_list_towns_en.csv"
 
-WEATHER_BASE_URL = "https://dd.weather.gc.ca/citypage_weather/{province}/{hour}/"
+WEATHER_BASE_URL = "https://dd.weather.gc.ca/today/citypage_weather/{province}/{hour}/"
 
 CLIENT_TIMEOUT = ClientTimeout(10)
 
