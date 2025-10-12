@@ -37,7 +37,7 @@ ATTRIBUTION = {
 }
 
 
-__all__ = ["ECWeather", "ECWeatherUpdateFailed"]
+__all__ = ["ECWeather", "ECWeatherUpdateFailed", "get_ec_sites_list"]
 
 
 @dataclass
@@ -277,6 +277,37 @@ async def get_ec_sites():
 
     LOG.debug("get_ec_sites() done, retrieved %d sites", len(sites))
     return sites
+
+
+async def get_ec_sites_list():
+    """
+    Get list of sites formatted for selection dropdowns.
+
+    Returns a list of dictionaries with the form:
+        {"label": "Toronto, ON", "value": "458"}
+    where the value is the last three digits of the site code.
+    """
+    LOG.debug("get_ec_sites_list() started")
+    sites_list = []
+
+    async with ClientSession(raise_for_status=True) as session:
+        response = await session.get(
+            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=CLIENT_TIMEOUT
+        )
+        sites_csv_string = await response.text()
+
+    sites_reader = csv.DictReader(sites_csv_string.splitlines()[1:])
+
+    for site in sites_reader:
+        if site["Province Codes"] != "HEF":
+            # Extract last 3 digits from site code (e.g., "s0000106" -> "106")
+            site_value = site["Codes"][5:]
+            # Create label with city name and province (e.g., "Toronto, ON")
+            label = f"{site['English Names']}, {site['Province Codes']}"
+            sites_list.append({"label": label, "value": site_value})
+
+    LOG.debug("get_ec_sites_list() done, retrieved %d sites", len(sites_list))
+    return sites_list
 
 
 def find_province_for_station(site_list, station_number):
