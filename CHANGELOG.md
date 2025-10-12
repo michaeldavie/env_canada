@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.12.1
+
+### Bug Fixes
+
+- **Packaging**: Fix font file inclusion in wheel distribution
+  - Replace package-dir with explicit package-data declaration
+  - Ensures 10x20.pil and 10x20.pbm files are included in installed package
+  - Fixes FileNotFoundError when rendering radar timestamps
+
 ## v0.12.0
 
 ### New Features
