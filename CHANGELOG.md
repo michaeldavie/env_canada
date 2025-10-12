@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.12.0
+
+### New Features
+
+- **get_ec_sites_list**: Add new async function for UI dropdown selection
+  - Returns formatted list of weather stations with city/province labels
+  - Provides 3-digit station codes as values for easy integration
+  - Designed for use in Home Assistant config flows and other UIs
+
 ## v0.11.3
 
 ### Bug Fixes
