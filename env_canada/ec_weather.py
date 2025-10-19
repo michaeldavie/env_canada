@@ -667,6 +667,7 @@ class ECWeather:
                     if wind_speed_text and wind_speed_text.isnumeric()
                     else 0,
                     "wind_direction": f.findtext("./wind/direction"),
+                    "uv_index": int(f.findtext("./uv/index") or 0),
                 }
             )
 
