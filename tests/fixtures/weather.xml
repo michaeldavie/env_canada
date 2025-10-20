@@ -530,6 +530,9 @@
             <direction windDirFull="South">S</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502060200">
          <condition>Clear</condition>
@@ -543,6 +546,9 @@
             <direction windDirFull="South">S</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502060300">
          <condition>Clear</condition>
@@ -556,6 +562,9 @@
             <direction windDirFull="South">S</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502060400">
          <condition>Clear</condition>
@@ -569,6 +578,9 @@
             <direction windDirFull="South">S</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502060500">
          <condition>Clear</condition>
@@ -582,6 +594,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502060600">
          <condition>Clear</condition>
@@ -595,6 +610,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502060700">
          <condition>A few clouds</condition>
@@ -608,6 +626,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502060800">
          <condition>A few clouds</condition>
@@ -621,6 +642,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502060900">
          <condition>A few clouds</condition>
@@ -634,6 +658,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502061000">
          <condition>Partly cloudy</condition>
@@ -647,6 +674,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502061100">
          <condition>Mainly cloudy</condition>
@@ -660,6 +690,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502061200">
          <condition>Cloudy</condition>
@@ -673,6 +706,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502061300">
          <condition>Cloudy</condition>
@@ -686,6 +722,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502061400">
          <condition>Cloudy</condition>
@@ -715,6 +754,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>1</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502061600">
          <condition>Snow</condition>
@@ -728,6 +770,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>1</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502061700">
          <condition>Snow</condition>
@@ -741,6 +786,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>1</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502061800">
          <condition>Snow</condition>
@@ -754,6 +802,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502061900">
          <condition>Snow</condition>
@@ -767,6 +818,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502062000">
          <condition>Snow. Risk of freezing drizzle</condition>
@@ -780,6 +834,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502062100">
          <condition>Snow. Risk of freezing drizzle</condition>
@@ -793,6 +850,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502062200">
          <condition>Snow. Risk of freezing drizzle</condition>
@@ -806,6 +866,9 @@
             <direction windDirFull="East">E</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
       <hourlyForecast dateTimeUTC="202502062300">
          <condition>Snow. Risk of freezing drizzle</condition>
@@ -819,6 +882,9 @@
             <direction windDirFull="Southwest">SW</direction>
             <gust unitType="metric" units="km/h"/>
          </wind>
+         <uv>
+            <index>0</index>
+         </uv>
       </hourlyForecast>
    </hourlyForecastGroup>
    <riseSet>
