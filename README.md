@@ -27,7 +27,7 @@ This package provides access to various data sources published by [Environment a
 - **Station ID only**: `"s0000123"` (station ID without province - province is resolved automatically)
 - **Numeric only**: `"123"` (just the station number - province is resolved automatically)
 
-Station codes are based on those listed in [this CSV file](https://dd.weather.gc.ca/citypage_weather/docs/site_list_towns_en.csv). For example:
+Station codes are based on those listed in [this CSV file](https://dd.weather.gc.ca/today/citypage_weather/docs/site_list_towns_en.csv). For example:
 
 ```python
 import asyncio
