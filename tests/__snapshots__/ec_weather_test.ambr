@@ -6,8 +6,11 @@
         'label': 'Advisories',
         'value': list([
           dict({
+            'alertColourLevel': None,
             'date': 'Wednesday February 05, 2025 at 18:07 EST',
+            'expiryTime': '20250206150755',
             'title': 'Weather Advisory',
+            'url': 'https://weather.gc.ca/warnings/report_e.html?onrm104#163908069124982532202502050503',
           }),
         ]),
       }),
