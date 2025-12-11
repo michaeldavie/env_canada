@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.12.2
+
+### New Features
+
+- **ECWeather**: Add support for parsing hourly UV index from Environment Canada data
+- **ECWeather**: Add additional alert variables including alert_level, alert_type, and alert_region for enhanced weather alert information
+
+### Documentation
+
+- **README**: Update documentation and examples
+
 ## v0.12.1
 
 ### Bug Fixes
