@@ -618,6 +618,9 @@ class ECWeather:
                     {
                         "title": title.strip().title(),
                         "date": _get_xml_text(alert, "./dateTime[last()]/textSummary"),
+                        "alertColourLevel": alert.attrib.get("alertColourLevel"),
+                        "expiryTime": alert.attrib.get("expiryTime"),
+                        "url": alert.attrib.get("url"),
                     }
                 )
 
