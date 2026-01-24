@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.12.3
+
+### Bug Fixes
+
+- **ECWeather**: Fix alert endings not being parsed from Environment Canada data
+  - Changed `ALERT_TYPE_TO_NAME` mapping from `"ending"` to `"ended"` to match actual XML attribute values
+  - Fixes issue where "Endings" sensor always showed 0 despite ended alerts being present in the data
+
 ## v0.12.2
 
 ### New Features
