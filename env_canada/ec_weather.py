@@ -222,7 +222,7 @@ ALERTS_INIT = {
 # Maps "type" in XML alert attribute to name used
 ALERT_TYPE_TO_NAME = {
     "advisory": "advisories",
-    "ending": "endings",
+    "ended": "endings",
     "statement": "statements",
     "warning": "warnings",
     "watch": "watches",
