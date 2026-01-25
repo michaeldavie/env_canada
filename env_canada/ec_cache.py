@@ -24,3 +24,24 @@ class Cache:
 
         result = cls._cache.get(cache_key)
         return result[1] if result else None
+
+    @classmethod
+    def clear(cls, prefix: str | None = None) -> int:
+        """Clear cache entries.
+
+        Args:
+            prefix: If provided, only clear entries whose keys start with this prefix.
+                    If None, clear all entries.
+
+        Returns:
+            Number of entries cleared.
+        """
+        if prefix is None:
+            count = len(cls._cache)
+            cls._cache.clear()
+            return count
+
+        keys_to_delete = [key for key in cls._cache if key.startswith(prefix)]
+        for key in keys_to_delete:
+            del cls._cache[key]
+        return len(keys_to_delete)

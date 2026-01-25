@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.12.4
+
+### New Features
+
+- **Cache**: Add `Cache.clear()` class method to clear cache entries by prefix or all entries
+- **ECMap**: Add `clear_cache()` method to clear cached basemap, layer, legend, and capabilities data for a map instance
+- **ECRadar**: Add `clear_cache()` method to clear cached radar data, useful when changing `precip_type` to ensure fresh images are fetched
+
 ## v0.12.3
 
 ### Bug Fixes

@@ -68,6 +68,16 @@ class ECRadar:
         """Set radar opacity for backward compatibility."""
         self._map.layer_opacity = value
 
+    def clear_cache(self) -> int:
+        """Clear all cached radar data for this location.
+
+        Call this after changing precip_type to ensure fresh images are fetched.
+
+        Returns:
+            Number of cache entries cleared.
+        """
+        return self._map.clear_cache()
+
     async def get_latest_frame(self):
         """Get the latest radar image from Environment Canada."""
         return await self._map.get_latest_frame()

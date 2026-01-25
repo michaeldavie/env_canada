@@ -172,6 +172,24 @@ class ECMap:
         """Generate a location-specific cache prefix based on bounding box."""
         return f"{self.bbox[0]:.3f},{self.bbox[1]:.3f},{self.bbox[2]:.3f},{self.bbox[3]:.3f}"
 
+    def clear_cache(self) -> int:
+        """Clear all cached data for this map location.
+
+        This clears:
+        - Basemap image
+        - Layer images
+        - Legend images
+        - Composite images
+        - Capabilities data for the current layer
+
+        Returns:
+            Number of cache entries cleared.
+        """
+        prefix = self._get_cache_prefix()
+        count = Cache.clear(prefix)
+        count += Cache.clear(f"capabilities-{self.layer}")
+        return count
+
     async def _get_basemap(self):
         """Fetch the background map image."""
         basemap_cache_key = f"{self._get_cache_prefix()}-basemap"
