@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.13.0
+
+### New Features
+
+- **ECAlerts**: New class providing weather alerts from the GeoMet WFS `Current-Alerts` layer with richer data than the XML source: full alert text, affected area, risk colour, confidence, and impact
+- **ECWeather**: `update()` now uses `ECAlerts` internally; falls back to XML alerts on failure. New `alert_features` property exposes raw WFS feature properties
+
 ## v0.12.4
 
 ### New Features
