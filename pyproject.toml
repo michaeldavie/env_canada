@@ -34,7 +34,7 @@ Homepage = "https://github.com/michaeldavie/env_canada"
 Documentation = "https://github.com/michaeldavie/env_canada"
 Repository = "https://github.com/michaeldavie/env_canada"
 Issues = "https://github.com/michaeldavie/env_canada/issues"
-Changelog = "https://github.com/michaeldavie/env_canada/blob/master/CHANGELOG.md"
+Changelog = "https://github.com/michaeldavie/env_canada/blob/main/CHANGELOG.md"
 
 [tool.uv]
 default-groups = ["dev", "lint", "test"]
