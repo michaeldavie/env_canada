@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.13.1
+
+### Bug Fixes
+
+- **ECWeather**: Fix `TypeError` crash when forecast period or text summary is `None` (#130)
+
 ## v0.13.0
 
 ### New Features
