@@ -1,6 +1,8 @@
 # serializer version: 1
 # name: test_weather_retrieved_weather_updates_ok
   ECWeather(
+    alert_features=list([
+    ]),
     alerts=dict({
       'advisories': dict({
         'label': 'Advisories',

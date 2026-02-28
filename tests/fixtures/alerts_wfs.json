@@ -1,0 +1,53 @@
+{
+  "features": [
+    {
+      "geometry": null,
+      "properties": {
+        "alert_code": "AD",
+        "alert_name_en": "Weather Advisory",
+        "alert_name_fr": "Avis m\u00e9t\u00e9orologique",
+        "alert_text_en": "A weather advisory is in effect for the Ottawa region.",
+        "alert_text_fr": "Un avis m\u00e9t\u00e9orologique est en vigueur pour la r\u00e9gion d'Ottawa.",
+        "alert_type": "advisory",
+        "confidence_en": "Likely",
+        "confidence_fr": "Probable",
+        "expiration_datetime": "2025-02-06T15:07:00Z",
+        "feature_name_en": "Ottawa",
+        "feature_name_fr": "Ottawa",
+        "impact_en": "Moderate",
+        "impact_fr": "Mod\u00e9r\u00e9",
+        "publication_datetime": "2025-02-05T23:07:00Z",
+        "risk_colour_en": "Yellow",
+        "risk_colour_fr": "Jaune",
+        "status_en": "active",
+        "status_fr": "actif"
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": null,
+      "properties": {
+        "alert_code": "WS",
+        "alert_name_en": "Winter Storm Warning",
+        "alert_name_fr": "Avertissement de temp\u00eate hivernale",
+        "alert_text_en": "A winter storm warning is in effect.",
+        "alert_text_fr": "Un avertissement de temp\u00eate hivernale est en vigueur.",
+        "alert_type": "warning",
+        "confidence_en": "High",
+        "confidence_fr": "\u00c9lev\u00e9",
+        "expiration_datetime": "2025-02-06T12:00:00Z",
+        "feature_name_en": "Ottawa Region",
+        "feature_name_fr": "R\u00e9gion d'Ottawa",
+        "impact_en": "High",
+        "impact_fr": "\u00c9lev\u00e9",
+        "publication_datetime": "2025-02-05T20:00:00Z",
+        "risk_colour_en": "Red",
+        "risk_colour_fr": "Rouge",
+        "status_en": "active",
+        "status_fr": "actif"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

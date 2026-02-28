@@ -414,6 +414,7 @@ class ECWeather:
         self.metadata = MetaData(ATTRIBUTION[self.language])
         self.conditions = {}
         self.alerts = {}
+        self.alert_features = []
         self.daily_forecasts = []
         self.hourly_forecasts = []
         self.forecast_time = ""
@@ -623,6 +624,20 @@ class ECWeather:
                         "url": alert.attrib.get("url"),
                     }
                 )
+
+        # Enrich alerts with WFS data (richer than XML); fall back to XML on failure
+        try:
+            from .ec_alerts import ECAlerts  # lazy import to avoid circular dependency
+
+            ec_alerts = ECAlerts(
+                coordinates=(self.lat, self.lon), language=self.language
+            )
+            await ec_alerts.update()
+            self.alerts = ec_alerts.alerts
+            self.alert_features = ec_alerts.alert_features
+        except Exception:
+            LOG.debug("WFS alert fetch failed, using XML alerts", exc_info=True)
+            self.alert_features = []
 
         # Update forecasts
         self.forecast_time = _parse_timestamp(
