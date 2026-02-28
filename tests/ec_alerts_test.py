@@ -99,7 +99,18 @@ async def test_ecalerts_endings():
                     "impact_fr": None,
                     "alert_code": "AD",
                 },
-                "geometry": None,
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-76.0, 45.0],
+                            [-75.0, 45.0],
+                            [-75.0, 46.0],
+                            [-76.0, 46.0],
+                            [-76.0, 45.0],
+                        ]
+                    ],
+                },
             }
         ],
     }
@@ -146,7 +157,18 @@ async def test_ecalerts_unknown_alert_type_skipped():
                     "impact_fr": None,
                     "alert_code": "UK",
                 },
-                "geometry": None,
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-76.0, 45.0],
+                            [-75.0, 45.0],
+                            [-75.0, 46.0],
+                            [-76.0, 46.0],
+                            [-76.0, 45.0],
+                        ]
+                    ],
+                },
             }
         ],
     }

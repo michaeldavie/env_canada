@@ -1,7 +1,33 @@
 {
   "features": [
     {
-      "geometry": null,
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -76.0,
+              45.0
+            ],
+            [
+              -75.0,
+              45.0
+            ],
+            [
+              -75.0,
+              46.0
+            ],
+            [
+              -76.0,
+              46.0
+            ],
+            [
+              -76.0,
+              45.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
       "properties": {
         "alert_code": "AD",
         "alert_name_en": "Weather Advisory",
@@ -25,7 +51,33 @@
       "type": "Feature"
     },
     {
-      "geometry": null,
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              -76.0,
+              45.0
+            ],
+            [
+              -75.0,
+              45.0
+            ],
+            [
+              -75.0,
+              46.0
+            ],
+            [
+              -76.0,
+              46.0
+            ],
+            [
+              -76.0,
+              45.0
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
       "properties": {
         "alert_code": "WS",
         "alert_name_en": "Winter Storm Warning",

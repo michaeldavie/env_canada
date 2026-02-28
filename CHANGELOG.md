@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.13.2
+
+### Bug Fixes
+
+- **ECAlerts**: Fix over-reporting of alerts by replacing the bounding-box-only approach with a 50 km BBOX pre-filter combined with client-side point-in-polygon filtering, so only alerts whose coverage polygon actually contains the queried coordinates are returned
+
 ## v0.13.1
 
 ### Bug Fixes

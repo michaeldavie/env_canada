@@ -1,5 +1,6 @@
 import copy
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -7,6 +8,30 @@ from aiohttp import ClientSession, ClientTimeout
 
 from .constants import USER_AGENT
 from .ec_cache import Cache
+
+
+def _point_in_polygon(lon, lat, ring):
+    """Ray-casting point-in-polygon test for a single ring."""
+    inside = False
+    j = len(ring) - 1
+    for i, (xi, yi) in enumerate(ring):
+        xj, yj = ring[j]
+        if (yi > lat) != (yj > lat) and lon < (xj - xi) * (lat - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def _point_in_geometry(lon, lat, geometry):
+    """Return True if (lon, lat) falls within a GeoJSON Polygon or MultiPolygon."""
+    gtype = geometry.get("type")
+    coords = geometry.get("coordinates", [])
+    if gtype == "Polygon":
+        return _point_in_polygon(lon, lat, coords[0])
+    if gtype == "MultiPolygon":
+        return any(_point_in_polygon(lon, lat, poly[0]) for poly in coords)
+    return False
+
 
 GEOMET_WFS_URL = "https://geo.weather.gc.ca/geomet"
 
@@ -62,9 +87,12 @@ class ECAlerts:
             self.alerts, self.alert_features = cached
             return
 
+        km = 50
+        lat_delta = km / 111.0
+        lon_delta = km / (111.0 * math.cos(math.radians(self.lat)))
         bbox = (
-            f"{self.lat - 2:.4f},{self.lon - 2:.4f},"
-            f"{self.lat + 2:.4f},{self.lon + 2:.4f},EPSG:4326"
+            f"{self.lat - lat_delta:.4f},{self.lon - lon_delta:.4f},"
+            f"{self.lat + lat_delta:.4f},{self.lon + lon_delta:.4f},EPSG:4326"
         )
         params = {**ALERTS_WFS_PARAMS, "BBOX": bbox}
 
@@ -88,6 +116,10 @@ class ECAlerts:
         for feature in data.get("features", []):
             props = feature.get("properties", {})
             if not isinstance(props, dict):
+                continue
+
+            geometry = feature.get("geometry") or {}
+            if not _point_in_geometry(self.lon, self.lat, geometry):
                 continue
 
             self.alert_features.append(props)
