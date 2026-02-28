@@ -53,12 +53,53 @@ ec_coords.daily_forecasts
 # hourly forecasts
 ec_coords.hourly_forecasts
 
-# alerts
+# alerts (categorised dict with warnings, watches, advisories, statements, endings)
 ec_coords.alerts
+
+# raw WFS alert feature properties (includes text, area, confidence, impact, etc.)
+ec_coords.alert_features
 ```
 
 > [!NOTE]
 > As of version 0.11.0, `ECWeather` automatically handles Environment Canada's new timestamped weather file URL structure (effective June 2025). The library dynamically discovers the most recent weather files, ensuring continued functionality during Environment Canada's infrastructure changes.
+
+## Weather Alerts
+
+`ECAlerts` provides direct access to Environment Canada weather alerts via the GeoMet WFS `Current-Alerts` layer. It returns richer data than the alerts embedded in `ECWeather`, including full bilingual alert text, affected area names, risk colour, confidence, and impact. `ECWeather.update()` uses `ECAlerts` internally, so both `ECWeather.alerts` and `ECWeather.alert_features` are automatically populated.
+
+Use `ECAlerts` directly when you only need alerts (no weather conditions or forecasts):
+
+```python
+import asyncio
+
+from env_canada import ECAlerts
+
+ec_alerts = ECAlerts(coordinates=(50, -100))
+
+asyncio.run(ec_alerts.update())
+
+# categorised alerts dict — same structure as ECWeather.alerts
+# keys: warnings, watches, advisories, statements, endings
+ec_alerts.alerts
+
+# list of raw WFS feature property dicts, one per alert polygon
+ec_alerts.alert_features
+```
+
+Each entry in `alerts[category]["value"]` is a dict with these keys:
+
+| Key                | Description                               |
+| ------------------ | ----------------------------------------- |
+| `title`            | Alert name (title-cased)                  |
+| `date`             | Publication datetime (ISO 8601 UTC)       |
+| `expiryTime`       | Expiration datetime (ISO 8601 UTC)        |
+| `alertColourLevel` | Risk colour (e.g. `"Yellow"`, `"Red"`)    |
+| `text`             | Full alert text                           |
+| `area`             | Affected geographic area name             |
+| `status`           | Alert status (e.g. `"active"`, `"ended"`) |
+| `confidence`       | Confidence level (e.g. `"Likely"`)        |
+| `impact`           | Impact level (e.g. `"High"`)              |
+| `alert_code`       | Short alert type code (e.g. `"WS"`)       |
 
 ## Weather Radar
 
