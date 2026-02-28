@@ -605,7 +605,9 @@ class ECWeather:
 
             self.conditions["text_summary"] = {
                 "label": summary_meta["label"][self.language],
-                "value": ". ".join([period, summary]),
+                "value": ". ".join(
+                    part for part in [period, summary] if part is not None
+                ),
             }
 
         # Update alerts
