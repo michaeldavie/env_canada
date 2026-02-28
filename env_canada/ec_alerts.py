@@ -127,6 +127,6 @@ class ECAlerts:
         LOG.debug(
             "update(): fetched %d alert features for (%f, %f)",
             len(self.alert_features),
-            self.lat,
-            self.lon,
+            self.lat,  # lgtm[py/clear-text-logging-sensitive-data]
+            self.lon,  # lgtm[py/clear-text-logging-sensitive-data]
         )
