@@ -124,6 +124,15 @@ def parse_timestamp(t):
     return parser.parse(t).replace(tzinfo=tz.UTC)
 
 
+def coerce_station_id(v):
+    """Coerce station_id to string, accepting both int and str inputs."""
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, str):
+        return v
+    raise vol.Invalid("station_id must be a string or integer")
+
+
 async def get_historical_stations(
     coordinates,
     radius=25,
@@ -209,7 +218,7 @@ class ECHistorical:
 
         init_schema = vol.Schema(
             {
-                vol.Required("station_id"): int,
+                vol.Required("station_id"): vol.All(coerce_station_id),
                 vol.Required("year"): vol.All(
                     int, vol.Range(1840, datetime.today().year)
                 ),
@@ -368,7 +377,7 @@ class ECHistoricalRange:
             stations = pd.DataFrame(asyncio.run(get_historical_stations(coordinates, start_year=2022,
                                                             end_year=2022, radius=200, limit=100))).T
 
-            ec = ECHistoricalRange(station_id=int(stations.iloc[0,2]), timeframe="hourly",
+            ec = ECHistoricalRange(station_id=stations.iloc[0,2], timeframe="hourly",
                                     daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
 
             ec.get_data()
@@ -392,7 +401,7 @@ class ECHistoricalRange:
         """
         Return a DataFrame containing the data from the date range
         :param station_id: the ID of the station found with get_historical_stations
-        :type station_id: int
+        :type station_id: str or int
         :param daterange: the dates between which the data are retrieve
         :type daterange: tuple of datetime
         :param language: language in which the data are retrieved
@@ -403,7 +412,7 @@ class ECHistoricalRange:
 
         self.df = pd.DataFrame()
 
-        self.station_id = int(station_id)
+        self.station_id = str(station_id)
         self.startdate, self.stopdate = daterange
         self.months = self.monthlist(daterange=daterange)
         self.language = language

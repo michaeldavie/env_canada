@@ -10,6 +10,8 @@ from env_canada import ECHistorical, ECHistoricalRange
     "init_parameters",
     [
         {"station_id": 1096453, "year": 2021},
+        {"station_id": "1096453", "year": 2021},
+        {"station_id": "10476F0", "year": 2021},
         {"station_id": 1096453, "year": 2021, "language": "english"},
         {"station_id": 1096453, "year": 2021, "language": "french"},
         {"station_id": 1096453, "year": 2021, "format": "csv"},
@@ -44,6 +46,8 @@ def test_update(test_historical):
     "station_id,timeframe,startdate,enddate",
     [
         (1096453, "daily", datetime(2022, 1, 1), datetime(2022, 12, 31)),
+        ("1096453", "daily", datetime(2022, 1, 1), datetime(2022, 12, 31)),
+        ("10476F0", "daily", datetime(2022, 1, 1), datetime(2022, 12, 31)),
         (1096453, "daily", datetime(2022, 1, 1), datetime(2023, 12, 31)),
         (1096453, "daily", datetime(2022, 1, 1), datetime(2022, 11, 30)),
         (1096453, "hourly", datetime(2022, 1, 1), datetime(2022, 2, 3, 23, 59, 59)),
