@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import math
-import os
 from datetime import timedelta
 from io import BytesIO
 
@@ -10,10 +9,11 @@ import voluptuous as vol
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
 from lxml import etree as et
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from .constants import USER_AGENT
 from .ec_cache import Cache
+from .ec_legend import generate_legend, load_font
 
 LOG = logging.getLogger(__name__)
 
@@ -65,13 +65,6 @@ map_params = {
     "crs": "EPSG:4326",
     "format": "image/png",
     "transparent": "true",
-}
-legend_params = {
-    "service": "WMS",
-    "version": "1.3.0",
-    "request": "GetLegendGraphic",
-    "sld_version": "1.1.0",
-    "format": "image/png",
 }
 image_interval = timedelta(minutes=6)
 
@@ -165,7 +158,6 @@ class ECMap:
         self.show_legend = kwargs["legend"]
         self.show_timestamp = kwargs["timestamp"]
 
-        self._font = None
         self.timestamp = None
 
     def _get_cache_prefix(self):
@@ -204,64 +196,11 @@ class ECMap:
             LOG.warning("Map from %s could not be retrieved: %s", basemap_url, e)
             return None
 
-    async def _get_style_for_layer(self):
-        """Extract the appropriate style name from capabilities XML."""
-        capabilities_cache_key = f"capabilities-{self.layer}"
-
-        if not (capabilities_xml := Cache.get(capabilities_cache_key)):
-            capabilities_params["layer"] = wms_layers[self.layer]
-            capabilities_xml = await _get_resource(
-                geomet_url, capabilities_params, bytes=True
-            )
-            Cache.add(capabilities_cache_key, capabilities_xml, timedelta(minutes=5))
-
-        # Parse for style information
-        root = et.fromstring(capabilities_xml)
-        layer_xpath = f'.//wms:Layer[wms:Name="{wms_layers[self.layer]}"]/wms:Style'
-
-        styles = root.findall(layer_xpath, namespaces=wms_namespace)
-        if styles:
-            # Choose style based on language preference
-            for style in styles:
-                style_name = style.find("wms:Name", namespaces=wms_namespace)
-                if style_name is not None:
-                    name = style_name.text
-                    # Prefer language-specific style if available
-                    if self.language == "french" and name.endswith("_Fr"):
-                        return name
-                    elif self.language == "english" and not name.endswith("_Fr"):
-                        return name
-
-            # Fallback to first available style
-            first_style = styles[0].find("wms:Name", namespaces=wms_namespace)
-            if first_style is not None:
-                return first_style.text
-
-        # If no styles found, raise an error
-        raise ValueError(f"No styles found for layer {self.layer}")
-
-    async def _get_legend(self):
-        """Fetch legend image for the layer."""
-
-        legend_cache_key = f"{self._get_cache_prefix()}-legend-{self.layer}"
-        if legend := Cache.get(legend_cache_key):
-            return legend
-
-        # Dynamically determine style
-        style_name = await self._get_style_for_layer()
-
-        legend_params.update(
-            dict(
-                layer=wms_layers[self.layer],
-                style=style_name,
-            )
-        )
+    def _generate_legend(self) -> Image.Image | None:
+        """Generate a horizontal legend image for the current layer."""
         try:
-            legend = await _get_resource(geomet_url, legend_params)
-            return Cache.add(legend_cache_key, legend, timedelta(days=7))
-
-        except ClientConnectorError:
-            LOG.warning("Legend could not be retrieved")
+            return generate_legend(self.layer, self.language, self.width)
+        except ValueError:
             return None
 
     async def _get_dimensions(self):
@@ -340,70 +279,51 @@ class ECMap:
                 # Composite the layer onto the image
                 composite = Image.alpha_composite(composite, layer_image)
 
-            # Add legend
-            if legend_bytes:
-                legend_image = Image.open(BytesIO(legend_bytes)).convert("RGB")
-                legend_position = (
-                    self.width - legend_image.size[0],
-                    0,
-                )
-                composite.paste(legend_image, legend_position)
+            # Add legend (bottom-centre, solid white background)
+            if legend_image:
+                lw, lh = legend_image.size
+                lx = (self.width - lw) // 2
+                ly = self.height - lh
+                composite.paste(legend_image, (lx, ly))
 
-            # Add timestamp
+            # Add timestamp (top-left)
             if self.show_timestamp:
-                if not self._font:
-                    self._font = ImageFont.load(
-                        os.path.join(os.path.dirname(__file__), "10x20.pil")
-                    )
-
-                if self._font:
-                    # Create a timestamp with the layer
-                    if self.layer in timestamp_label:
-                        layer_text = timestamp_label[self.layer][self.language]
-                    else:
-                        layer_text = self.layer
-
-                    timestamp = (
-                        f"{layer_text} @ {frame_time.astimezone().strftime('%H:%M')}"
-                    )
-
-                    text_box = Image.new(
-                        "RGBA", self._font.getbbox(timestamp)[2:], "white"
-                    )
-                    box_draw = ImageDraw.Draw(text_box)
-                    box_draw.text(
-                        xy=(0, 0), text=timestamp, fill=(0, 0, 0), font=self._font
-                    )
-                    double_box = text_box.resize(
-                        (text_box.width * 2, text_box.height * 2)
-                    )
-                    composite.paste(double_box)
-                    composite = composite.quantize()
+                layer_text = timestamp_label.get(self.layer, {}).get(
+                    self.language, self.layer
+                )
+                ts_text = f"{layer_text} @ {frame_time.astimezone().strftime('%H:%M')}"
+                font = load_font(42)
+                bbox = font.getbbox(ts_text)
+                pad = 8
+                # Size from draw origin (0,pad) to bottom of descenders + pad
+                box_w = bbox[2] - bbox[0] + pad * 2
+                box_h = bbox[3] + pad * 2
+                text_box = Image.new("RGBA", (box_w, box_h), (255, 255, 255, 220))
+                box_draw = ImageDraw.Draw(text_box)
+                box_draw.text((pad - bbox[0], pad), ts_text, fill=(0, 0, 0), font=font)
+                composite.alpha_composite(text_box, (4, 4))
 
             # Convert frame to PNG for return
             img_byte_arr = BytesIO()
             composite.save(img_byte_arr, format="PNG")
 
             return Cache.add(
-                f"{self._get_cache_prefix()}-composite-{time}",
+                f"{self._get_cache_prefix()}-composite-{self.layer}-{self.language}-{time}",
                 img_byte_arr.getvalue(),
                 timedelta(minutes=200),
             )
 
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
-        cache_key = f"{self._get_cache_prefix()}-composite-{time}"
+        cache_key = (
+            f"{self._get_cache_prefix()}-composite-{self.layer}-{self.language}-{time}"
+        )
 
         if img := Cache.get(cache_key):
             return img
 
-        # Get the basemap
         base_bytes = await self._get_basemap()
-
-        # Get the layer image and legend
         layer_bytes = await self._get_layer_image(frame_time)
-        legend_bytes = None
-        if self.show_legend:
-            legend_bytes = await self._get_legend()
+        legend_image = self._generate_legend() if self.show_legend else None
 
         return await asyncio.get_event_loop().run_in_executor(None, _create_image)
 
@@ -438,11 +358,7 @@ class ECMap:
             )
             return gif.getvalue()
 
-        # Without this cache priming the tasks below each compete to load map/legend
-        # at the same time, resulting in them getting retrieved for each image.
         await self._get_basemap()
-        if self.show_legend:
-            await self._get_legend()
 
         # Use the layer to determine the time dimensions
         timespan = await self._get_dimensions()

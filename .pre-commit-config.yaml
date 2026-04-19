@@ -16,6 +16,7 @@ repos:
       - id: mixed-line-ending
       - id: name-tests-test
       - id: check-added-large-files
+        args: ["--maxkb=1024"]
       - id: check-ast # checks if files parse as valid python
       - id: check-case-conflict # files that would conflict in case-insensitive filesystems
       - id: check-docstring-first # docstring before code

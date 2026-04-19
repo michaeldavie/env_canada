@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.15.0
+
+### Changes
+
+- **ECMap / ECRadar**: Replace WMS-fetched legend with locally generated horizontal legends for all three radar layers (rain, snow, precip_type), matching the Environment Canada weather map style
+- **ECMap / ECRadar**: Bundle DejaVu Sans font for legend labels and timestamp overlay, replacing the old bitmap font
+- **ECMap**: Composite cache key now includes language to correctly separate EN/FR cached frames
+
 ## v0.14.1
 
 ### Changes
