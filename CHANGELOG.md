@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.16.1
+
+### Changes
+
+- **ECMap**: Fix `math domain error` and unclamped latitude in the bounding box calculation when a requested map circle encloses a pole (fixes [#141](https://github.com/michaeldavie/env_canada/issues/141))
+
 ## v0.16.0
 
 ### Changes
