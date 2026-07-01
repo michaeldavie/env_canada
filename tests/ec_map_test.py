@@ -132,14 +132,28 @@ class TestECMapInitialization:
         assert map_obj.fps == 10
         assert map_obj.loop_minutes == 30
 
-    def test_bounding_box_math_errors(self):
-        """Test coordinates that cause math domain errors in bounding box computation"""
-        # These coordinates are valid per schema but cause math errors in bounding box calc
-        # Should raise ValueError, not voluptuous error
-        with pytest.raises(ValueError):
-            ECMap(
-                coordinates=(90, -100), layer="rain"
-            )  # cos(90°) = 0, causes division by zero
+    def test_bounding_box_pole_enclosing(self):
+        """Coordinates/radius that enclose a pole should not raise, and should
+        span the full longitude range with latitude clamped to +/-90"""
+        map_obj = ECMap(coordinates=(90, -100), layer="rain")  # cos(90°) = 0
+        _, lon_min, lat_max, lon_max = map_obj.bbox
+        assert lat_max == 90.0
+        assert lon_min == -180.0
+        assert lon_max == 180.0
+
+        # From issue #141: circle radius large enough to enclose the pole
+        map_obj = ECMap(coordinates=(82.5, -62.3), radius=1000, layer="rain")
+        _, lon_min, lat_max, lon_max = map_obj.bbox
+        assert lat_max == 90.0
+        assert lon_min == -180.0
+        assert lon_max == 180.0
+
+    def test_bounding_box_latitude_clamped(self):
+        """Latitude should never exceed +/-90 even with a large radius near a pole"""
+        map_obj = ECMap(coordinates=(80, 0), radius=2000, layer="rain")
+        lat_min, _, lat_max, _ = map_obj.bbox
+        assert lat_max == 90.0
+        assert lat_min >= -90.0
 
     def test_edge_case_coordinates(self):
         """Test edge case coordinates that work with bounding box computation"""
