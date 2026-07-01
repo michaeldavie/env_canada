@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.16.0
+
+### Changes
+
+- **ECMap**: Add `fps` and `loop_minutes` init parameters to control the radar loop's frame rate and how far back the animation goes (fixes [#115](https://github.com/michaeldavie/env_canada/issues/115)). Both default to the previous behaviour (`fps=5`, full available range)
+
 ## v0.15.0
 
 ### Changes

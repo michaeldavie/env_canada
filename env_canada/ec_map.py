@@ -132,6 +132,8 @@ class ECMap:
                 vol.Optional("language", default="english"): vol.In(
                     ["english", "french"]
                 ),
+                vol.Required("fps", default=5): vol.All(int, vol.Range(1, 30)),
+                vol.Required("loop_minutes", default=0): vol.All(int, vol.Range(min=0)),
             }
         )
 
@@ -157,6 +159,11 @@ class ECMap:
         # Get overlay parameters
         self.show_legend = kwargs["legend"]
         self.show_timestamp = kwargs["timestamp"]
+
+        # Get animation parameters
+        self.fps = kwargs["fps"]
+        # 0 means use the full range of images the WMS server reports
+        self.loop_minutes = kwargs["loop_minutes"]
 
         self.timestamp = None
 
@@ -338,8 +345,11 @@ class ECMap:
     async def update(self):
         self.image = await self.get_loop()
 
-    async def get_loop(self, fps=5):
+    async def get_loop(self, fps=None):
         """Build an animated GIF of recent images with the specified layer."""
+
+        if fps is None:
+            fps = self.fps
 
         def create_gif():
             """Assemble animated GIF."""
@@ -366,8 +376,12 @@ class ECMap:
             LOG.error("Cannot retrieve image times.")
             return None
 
+        start = timespan[0]
+        if self.loop_minutes:
+            start = max(start, timespan[1] - timedelta(minutes=self.loop_minutes))
+
         tasks = []
-        curr = timespan[0]
+        curr = start
         while curr <= timespan[1]:
             tasks.append(self._create_composite_image(frame_time=curr))
             curr = curr + image_interval

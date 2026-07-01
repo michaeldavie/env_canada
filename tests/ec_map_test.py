@@ -6,6 +6,7 @@ from PIL import Image
 from unittest.mock import patch
 
 from env_canada import ECMap
+from env_canada.ec_cache import Cache
 from voluptuous import error
 from syrupy.assertion import SnapshotAssertion
 
@@ -106,6 +107,30 @@ class TestECMapInitialization:
         # Invalid width/height
         with pytest.raises(error.MultipleInvalid):
             ECMap(coordinates=(50, -100), width=5, layer="rain")
+
+        # Invalid fps - too low
+        with pytest.raises(error.MultipleInvalid):
+            ECMap(coordinates=(50, -100), fps=0, layer="rain")
+
+        # Invalid fps - too high
+        with pytest.raises(error.MultipleInvalid):
+            ECMap(coordinates=(50, -100), fps=31, layer="rain")
+
+        # Invalid loop_minutes - negative
+        with pytest.raises(error.MultipleInvalid):
+            ECMap(coordinates=(50, -100), loop_minutes=-1, layer="rain")
+
+    def test_fps_and_loop_minutes_defaults(self):
+        """Test that fps and loop_minutes default to previous behaviour"""
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        assert map_obj.fps == 5
+        assert map_obj.loop_minutes == 0
+
+    def test_fps_and_loop_minutes_custom(self):
+        """Test that fps and loop_minutes can be customized"""
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", fps=10, loop_minutes=30)
+        assert map_obj.fps == 10
+        assert map_obj.loop_minutes == 30
 
     def test_bounding_box_math_errors(self):
         """Test coordinates that cause math domain errors in bounding box computation"""
@@ -320,6 +345,65 @@ class TestECMapMocked:
         assert isinstance(frame, bytes)
         image = Image.open(BytesIO(frame))
         assert image.format == "PNG"
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_loop_minutes_truncates_frames(
+        self, mock_get_resource, mock_capabilities_xml, mock_image_bytes
+    ):
+        """Test that loop_minutes limits the loop to recent frames only"""
+        Cache.clear()
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        # Mocked capabilities span 13:54Z-16:54Z (3 hours) at 6-minute intervals:
+        # 31 frames requested.
+        full_loop = ECMap(coordinates=(50, -100), layer="rain")
+        with patch.object(
+            full_loop,
+            "_create_composite_image",
+            wraps=full_loop._create_composite_image,
+        ) as mock_create:
+            asyncio.run(full_loop.get_loop())
+            assert mock_create.call_count == 31
+
+        # Truncated to the last 30 minutes: 6 frames requested.
+        short_loop = ECMap(coordinates=(50, -100), layer="rain", loop_minutes=30)
+        with patch.object(
+            short_loop,
+            "_create_composite_image",
+            wraps=short_loop._create_composite_image,
+        ) as mock_create:
+            asyncio.run(short_loop.get_loop())
+            assert mock_create.call_count == 6
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_fps_controls_frame_duration(
+        self, mock_get_resource, mock_capabilities_xml
+    ):
+        """Test that the fps instance attribute is used by update()/get_loop()"""
+        Cache.clear()
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            # Vary pixel colour per frame so GIF frames aren't coalesced
+            colour = (hash(params.get("time", "")) % 255, 0, 0, 128)
+            img = Image.new("RGBA", (100, 100), colour)
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", fps=10)
+        asyncio.run(map_obj.update())
+        image = Image.open(BytesIO(map_obj.image))
+        assert image.info["duration"] == 100
 
 
 # Legacy tests for backward compatibility
