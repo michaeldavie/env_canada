@@ -163,6 +163,8 @@ Additional configuration options:
 - `legend`: Show legend (default: True)
 - `timestamp`: Show timestamp (default: True)
 - `language`: "english" or "french" (default: "english")
+- `fps`: Frame rate of the animated GIF loop (default: 5)
+- `loop_minutes`: How far back the animated GIF loop goes, in minutes (default: 0, meaning the full available range)
 
 > **Note**: ECMap automatically discovers available legend styles from Environment Canada's WMS capabilities, ensuring compatibility with any future style changes.
 
