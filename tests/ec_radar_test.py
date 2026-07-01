@@ -72,7 +72,8 @@ async def test_get_radar_image_with_mock_data(snapshot: SnapshotAssertion):
     """
 
     def mock_get_resource(_, params, bytes=True):
-        fname = f"tests/fixtures/radar/{params['request']}_{params.get('time', '')}"
+        time = params.get("time", "").replace(":", "-")
+        fname = f"tests/fixtures/radar/{params['request']}_{time}"
         with open(fname, "rb") as f:
             return f.read()
 
