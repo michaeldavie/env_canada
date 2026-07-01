@@ -85,13 +85,20 @@ def _compute_bounding_box(distance, latittude, longitude):
     distance_from_point_km = distance
     angular_distance = distance_from_point_km / 6371.01
 
-    lat_min = latittude - angular_distance
-    lat_max = latittude + angular_distance
+    lat_min = max(-math.pi / 2, latittude - angular_distance)
+    lat_max = min(math.pi / 2, latittude + angular_distance)
 
-    delta_longitude = math.asin(math.sin(angular_distance) / math.cos(latittude))
+    cos_latittude = math.cos(latittude)
+    ratio = math.sin(angular_distance) / cos_latittude if cos_latittude else math.inf
 
-    lon_min = longitude - delta_longitude
-    lon_max = longitude + delta_longitude
+    if abs(ratio) >= 1:
+        # Circle encloses a pole: longitude spans the full range.
+        lon_min = -math.pi
+        lon_max = math.pi
+    else:
+        delta_longitude = math.asin(ratio)
+        lon_min = longitude - delta_longitude
+        lon_max = longitude + delta_longitude
     lon_min = round(math.degrees(lon_min), 5)
     lat_max = round(math.degrees(lat_max), 5)
     lon_max = round(math.degrees(lon_max), 5)
