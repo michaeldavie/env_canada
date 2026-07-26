@@ -115,6 +115,9 @@ radar_coords = ECRadar(coordinates=(50, -100))
 # Conditions Available
 animated_gif = asyncio.run(radar_coords.get_loop())
 latest_png = asyncio.run(radar_coords.get_latest_frame())
+
+# Use the 8-colour radar scale instead of the default 14-colour one
+radar_coords_8 = ECRadar(coordinates=(50, -100), colors=8)
 ```
 
 ## Weather Maps
@@ -165,6 +168,7 @@ Additional configuration options:
 - `language`: "english" or "french" (default: "english")
 - `fps`: Frame rate of the animated GIF loop (default: 5)
 - `loop_minutes`: How far back the animated GIF loop goes, in minutes (default: 0, meaning the full available range)
+- `colors`: Number of colours in the `rain`/`snow` radar scale, `8` or `14` (default: 14)
 
 > **Note**: ECMap automatically discovers available legend styles from Environment Canada's WMS capabilities, ensuring compatibility with any future style changes.
 

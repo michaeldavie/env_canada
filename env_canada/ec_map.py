@@ -48,6 +48,14 @@ wms_layers = {
     "precip_type": "Radar_1km_SfcPrecipType",
 }
 
+# Layers with a colour-count style choice (name prefix used to build the
+# WMS STYLES value, e.g. "Radar-Rain_8colors"). precip_type has only one
+# style, so it's omitted here and always uses the WMS server default.
+wms_style_prefixes = {
+    "rain": "Radar-Rain",
+    "snow": "Radar-Snow",
+}
+
 
 geomet_url = "https://geo.weather.gc.ca/geomet"
 capabilities_params = {
@@ -136,6 +144,7 @@ class ECMap:
                     int, vol.Range(0, 100)
                 ),
                 vol.Required("layer", default="rain"): vol.In(wms_layers.keys()),
+                vol.Required("colors", default=14): vol.In([8, 14]),
                 vol.Optional("language", default="english"): vol.In(
                     ["english", "french"]
                 ),
@@ -150,6 +159,7 @@ class ECMap:
 
         # Get layer
         self.layer = kwargs["layer"]
+        self.colors = kwargs["colors"]
 
         # Get map parameters
         self.image = None
@@ -213,7 +223,7 @@ class ECMap:
     def _generate_legend(self) -> Image.Image | None:
         """Generate a horizontal legend image for the current layer."""
         try:
-            return generate_legend(self.layer, self.language, self.width)
+            return generate_legend(self.layer, self.language, self.width, self.colors)
         except ValueError:
             return None
 
@@ -245,7 +255,9 @@ class ECMap:
     async def _get_layer_image(self, frame_time):
         """Fetch image for the layer at a specific time."""
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
-        layer_cache_key = f"{self._get_cache_prefix()}-layer-{self.layer}-{time}"
+        layer_cache_key = (
+            f"{self._get_cache_prefix()}-layer-{self.layer}-{self.colors}-{time}"
+        )
 
         if img := Cache.get(layer_cache_key):
             return img
@@ -256,6 +268,8 @@ class ECMap:
             layers=wms_layers[self.layer],
             time=time,
         )
+        if style_prefix := wms_style_prefixes.get(self.layer):
+            params["styles"] = f"{style_prefix}_{self.colors}colors"
 
         try:
             layer_bytes = await _get_resource(geomet_url, params)
@@ -322,15 +336,13 @@ class ECMap:
             composite.save(img_byte_arr, format="PNG")
 
             return Cache.add(
-                f"{self._get_cache_prefix()}-composite-{self.layer}-{self.language}-{time}",
+                f"{self._get_cache_prefix()}-composite-{self.layer}-{self.colors}-{self.language}-{time}",
                 img_byte_arr.getvalue(),
                 timedelta(minutes=200),
             )
 
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
-        cache_key = (
-            f"{self._get_cache_prefix()}-composite-{self.layer}-{self.language}-{time}"
-        )
+        cache_key = f"{self._get_cache_prefix()}-composite-{self.layer}-{self.colors}-{self.language}-{time}"
 
         if img := Cache.get(cache_key):
             return img

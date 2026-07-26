@@ -34,7 +34,7 @@ _PRECIP_TYPE_GROUPS: dict[str, list[tuple[str, list[str]]]] = {
 
 # Each entry: (threshold_label, hex_color)
 # Colors match the 14-band RADAR_1KM_RRAI / RADAR_1KM_RSNO WMS styles
-_RAIN_SCALE: list[tuple[str, str]] = [
+_RAIN_SCALE_14: list[tuple[str, str]] = [
     ("0.1", "#9eb2c6"),
     ("1", "#3cb7ec"),
     ("2", "#00e136"),
@@ -51,7 +51,7 @@ _RAIN_SCALE: list[tuple[str, str]] = [
     ("200+", "#9b78ad"),
 ]
 
-_SNOW_SCALE: list[tuple[str, str]] = [
+_SNOW_SCALE_14: list[tuple[str, str]] = [
     ("0.1", "#9eb2c6"),
     ("0.2", "#0098fe"),
     ("0.3", "#00fe66"),
@@ -67,6 +67,33 @@ _SNOW_SCALE: list[tuple[str, str]] = [
     ("10", "#9833cb"),
     ("20+", "#660098"),
 ]
+
+# Colors sampled from the Radar-Rain_8colors / Radar-Snow_8colors
+# GetLegendGraphic images (same gradient, shared by both layers)
+_RAIN_SCALE_8: list[tuple[str, str]] = [
+    ("0.1", "#94fe94"),
+    ("1", "#2ff62f"),
+    ("2", "#008c00"),
+    ("8", "#6a6655"),
+    ("16", "#c74acb"),
+    ("32", "#740fa7"),
+    ("64", "#39006c"),
+    ("125+", "#28004d"),
+]
+
+_SNOW_SCALE_8: list[tuple[str, str]] = [
+    ("0.1", "#94fe94"),
+    ("0.2", "#2ff62f"),
+    ("0.3", "#008c00"),
+    ("0.75", "#6a6655"),
+    ("1.5", "#c74acb"),
+    ("3", "#740fa7"),
+    ("5", "#39006c"),
+    ("10+", "#28004d"),
+]
+
+_RAIN_SCALES: dict[int, list[tuple[str, str]]] = {8: _RAIN_SCALE_8, 14: _RAIN_SCALE_14}
+_SNOW_SCALES: dict[int, list[tuple[str, str]]] = {8: _SNOW_SCALE_8, 14: _SNOW_SCALE_14}
 
 _SCALE_UNITS: dict[str, dict[str, str]] = {
     "rain": {"english": "mm/h", "french": "mm/h"},
@@ -94,13 +121,13 @@ def _text_size(font: ImageFont.FreeTypeFont, text: str) -> tuple[int, int]:
 
 
 def generate_legend(
-    layer: str, language: str = "english", width: int = 800
+    layer: str, language: str = "english", width: int = 800, colors: int = 14
 ) -> Image.Image:
     """Return a PIL Image containing a horizontal legend for *layer*."""
     if layer == "precip_type":
         return _precip_type_legend(language, width)
     if layer in ("rain", "snow"):
-        return _intensity_legend(layer, language, width)
+        return _intensity_legend(layer, language, width, colors)
     raise ValueError(f"No legend defined for layer {layer!r}")
 
 
@@ -148,8 +175,11 @@ def _precip_type_legend(language: str, width: int) -> Image.Image:
 # ── Rain / snow intensity legend ──────────────────────────────────────────────
 
 
-def _intensity_legend(layer: str, language: str, width: int) -> Image.Image:
-    scale = _RAIN_SCALE if layer == "rain" else _SNOW_SCALE
+def _intensity_legend(
+    layer: str, language: str, width: int, colors: int = 14
+) -> Image.Image:
+    scales = _RAIN_SCALES if layer == "rain" else _SNOW_SCALES
+    scale = scales[colors]
     units = _SCALE_UNITS[layer][language]
     font = load_font(11)
     font_units = load_font(11)

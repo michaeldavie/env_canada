@@ -59,6 +59,18 @@ class ECRadar:
         self._map.layer = self._precip_type_actual
 
     @property
+    def colors(self):
+        """Get the number of colours used to render the radar layer."""
+        return self._map.colors
+
+    @colors.setter
+    def colors(self, value):
+        """Set the number of colours used to render the radar layer (8 or 14)."""
+        if value not in (8, 14):
+            raise ValueError("colors must be 8 or 14")
+        self._map.colors = value
+
+    @property
     def radar_opacity(self):
         """Get radar opacity for backward compatibility."""
         return self._map.layer_opacity
