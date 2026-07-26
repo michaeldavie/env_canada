@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.17.0
+
+### Changes
+
+- **ECMap / ECRadar**: Add `colors` init parameter to select between the 8 and 14 colour radar scales published by Environment Canada's WMS (fixes [#143](https://github.com/michaeldavie/env_canada/issues/143)). Defaults to `14`, matching previous behaviour
+
 ## v0.16.1
 
 ### Changes
