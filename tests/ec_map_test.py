@@ -132,6 +132,20 @@ class TestECMapInitialization:
         assert map_obj.fps == 10
         assert map_obj.loop_minutes == 30
 
+    def test_interpolation_and_webp_defaults(self):
+        """Test that interpolation and webp default to off"""
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        assert map_obj.interpolation is False
+        assert map_obj.webp is False
+
+    def test_interpolation_and_webp_custom(self):
+        """Test that interpolation and webp can be enabled"""
+        map_obj = ECMap(
+            coordinates=(50, -100), layer="rain", interpolation=True, webp=True
+        )
+        assert map_obj.interpolation is True
+        assert map_obj.webp is True
+
     def test_bounding_box_pole_enclosing(self):
         """Coordinates/radius that enclose a pole should not raise, and should
         span the full longitude range with latitude clamped to +/-90"""
@@ -418,6 +432,159 @@ class TestECMapMocked:
         asyncio.run(map_obj.update())
         image = Image.open(BytesIO(map_obj.image))
         assert image.info["duration"] == 100
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_interpolation_adds_wms_param(
+        self, mock_get_resource, mock_capabilities_xml, mock_image_bytes
+    ):
+        """Test that interpolation=True adds the INTERPOLATION WMS param"""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", interpolation=True)
+        asyncio.run(map_obj._get_layer_image(datetime(2025, 2, 13, 16, 54, 0)))
+
+        assert any(p.get("interpolation") == "true" for p in captured_params)
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_interpolation_defaults_omit_wms_param(
+        self, mock_get_resource, mock_capabilities_xml, mock_image_bytes
+    ):
+        """Test that interpolation=False (default) omits the WMS param"""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        asyncio.run(map_obj._get_layer_image(datetime(2025, 2, 13, 16, 54, 0)))
+
+        assert all("interpolation" not in p for p in captured_params)
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_webp_requests_webp_format_from_wms(
+        self, mock_get_resource, mock_capabilities_xml, mock_image_bytes
+    ):
+        """Test that webp=True requests format=image/webp from the WMS layer"""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", webp=True)
+        asyncio.run(map_obj._get_layer_image(datetime(2025, 2, 13, 16, 54, 0)))
+
+        assert any(p.get("format") == "image/webp" for p in captured_params)
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_webp_default_requests_png_format_from_wms(
+        self, mock_get_resource, mock_capabilities_xml, mock_image_bytes
+    ):
+        """Test that webp=False (default) keeps requesting format=image/png"""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        asyncio.run(map_obj._get_layer_image(datetime(2025, 2, 13, 16, 54, 0)))
+
+        assert all(p.get("format") == "image/png" for p in captured_params)
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_webp_latest_frame_output_format(
+        self, mock_get_resource, mock_capabilities_xml, mock_image_bytes
+    ):
+        """Test that webp=True returns get_latest_frame() as WebP, end-to-end"""
+        Cache.clear()
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", webp=True)
+        frame = asyncio.run(map_obj.get_latest_frame())
+        image = Image.open(BytesIO(frame))
+        assert image.format == "WEBP"
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_webp_loop_output_format(self, mock_get_resource, mock_capabilities_xml):
+        """Test that webp=True produces an animated WebP instead of a GIF"""
+        Cache.clear()
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            # Vary pixel colour per frame so frames aren't coalesced
+            colour = (hash(params.get("time", "")) % 255, 0, 0, 128)
+            img = Image.new("RGBA", (100, 100), colour)
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", webp=True)
+        loop = asyncio.run(map_obj.get_loop())
+        image = Image.open(BytesIO(loop))
+        assert image.format == "WEBP" and image.is_animated
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_webp_default_loop_output_format(
+        self, mock_get_resource, mock_capabilities_xml
+    ):
+        """Test that webp=False (default) keeps producing an animated GIF"""
+        Cache.clear()
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            # Vary pixel colour per frame so frames aren't coalesced
+            colour = (hash(params.get("time", "")) % 255, 0, 0, 128)
+            img = Image.new("RGBA", (100, 100), colour)
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        loop = asyncio.run(map_obj.get_loop())
+        image = Image.open(BytesIO(loop))
+        assert image.format == "GIF" and image.is_animated
 
 
 # Legacy tests for backward compatibility

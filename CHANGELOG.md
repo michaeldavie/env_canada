@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.18.0
+
+### Changes
+
+- **ECMap / ECRadar**: Add `interpolation` init parameter to smooth the WMS-rendered radar layer instead of leaving it pixelated, using the `INTERPOLATION=TRUE` WMS parameter (suggested in [#143](https://github.com/michaeldavie/env_canada/issues/143)). Defaults to `False`, matching previous behaviour
+- **ECMap / ECRadar**: Add `webp` init parameter to request the radar layer from Environment Canada's WMS as WebP instead of PNG, and return `get_latest_frame()`/`get_loop()` output as WebP instead of PNG/GIF, trading lower bandwidth for higher per-frame latency. Defaults to `False`, matching previous behaviour
+
 ## v0.17.0
 
 ### Changes

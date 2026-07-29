@@ -150,6 +150,8 @@ class ECMap:
                 ),
                 vol.Required("fps", default=5): vol.All(int, vol.Range(1, 30)),
                 vol.Required("loop_minutes", default=0): vol.All(int, vol.Range(min=0)),
+                vol.Required("interpolation", default=False): bool,
+                vol.Required("webp", default=False): bool,
             }
         )
 
@@ -181,6 +183,10 @@ class ECMap:
         self.fps = kwargs["fps"]
         # 0 means use the full range of images the WMS server reports
         self.loop_minutes = kwargs["loop_minutes"]
+        self.webp = kwargs["webp"]
+
+        # Smooths the WMS-rendered radar layer instead of leaving it pixelated
+        self.interpolation = kwargs["interpolation"]
 
         self.timestamp = None
 
@@ -256,7 +262,8 @@ class ECMap:
         """Fetch image for the layer at a specific time."""
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
         layer_cache_key = (
-            f"{self._get_cache_prefix()}-layer-{self.layer}-{self.colors}-{time}"
+            f"{self._get_cache_prefix()}-layer-{self.layer}-{self.colors}"
+            f"-{self.interpolation}-{self.webp}-{time}"
         )
 
         if img := Cache.get(layer_cache_key):
@@ -270,6 +277,10 @@ class ECMap:
         )
         if style_prefix := wms_style_prefixes.get(self.layer):
             params["styles"] = f"{style_prefix}_{self.colors}colors"
+        if self.interpolation:
+            params["interpolation"] = "true"
+        if self.webp:
+            params["format"] = "image/webp"
 
         try:
             layer_bytes = await _get_resource(geomet_url, params)
@@ -331,18 +342,22 @@ class ECMap:
                 box_draw.text((pad - bbox[0], pad), ts_text, fill=(0, 0, 0), font=font)
                 composite.alpha_composite(text_box, (4, 4))
 
-            # Convert frame to PNG for return
+            # Convert frame to PNG (or WebP, if enabled) for return
             img_byte_arr = BytesIO()
-            composite.save(img_byte_arr, format="PNG")
+            composite.save(img_byte_arr, format="WEBP" if self.webp else "PNG")
 
             return Cache.add(
-                f"{self._get_cache_prefix()}-composite-{self.layer}-{self.colors}-{self.language}-{time}",
+                f"{self._get_cache_prefix()}-composite-{self.layer}-{self.colors}"
+                f"-{self.interpolation}-{self.webp}-{self.language}-{time}",
                 img_byte_arr.getvalue(),
                 timedelta(minutes=200),
             )
 
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
-        cache_key = f"{self._get_cache_prefix()}-composite-{self.layer}-{self.colors}-{self.language}-{time}"
+        cache_key = (
+            f"{self._get_cache_prefix()}-composite-{self.layer}-{self.colors}"
+            f"-{self.interpolation}-{self.webp}-{self.language}-{time}"
+        )
 
         if img := Cache.get(cache_key):
             return img
@@ -365,27 +380,27 @@ class ECMap:
         self.image = await self.get_loop()
 
     async def get_loop(self, fps=None):
-        """Build an animated GIF of recent images with the specified layer."""
+        """Build an animated GIF (or WebP, if enabled) of recent images with the specified layer."""
 
         if fps is None:
             fps = self.fps
 
-        def create_gif():
-            """Assemble animated GIF."""
+        def create_animation():
+            """Assemble animated GIF or WebP."""
             duration = 1000 / fps
             imgs = [
                 Image.open(BytesIO(img)).convert("RGBA") for img in composite_frames
             ]
-            gif = BytesIO()
+            animation = BytesIO()
             imgs[0].save(
-                gif,
-                format="GIF",
+                animation,
+                format="WEBP" if self.webp else "GIF",
                 save_all=True,
                 append_images=imgs[1:],
                 duration=duration,
                 loop=0,
             )
-            return gif.getvalue()
+            return animation.getvalue()
 
         await self._get_basemap()
 
@@ -410,4 +425,4 @@ class ECMap:
         for _ in range(3):
             composite_frames.append(composite_frames[-1])
 
-        return await asyncio.get_running_loop().run_in_executor(None, create_gif)
+        return await asyncio.get_running_loop().run_in_executor(None, create_animation)

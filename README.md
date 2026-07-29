@@ -169,6 +169,8 @@ Additional configuration options:
 - `fps`: Frame rate of the animated GIF loop (default: 5)
 - `loop_minutes`: How far back the animated GIF loop goes, in minutes (default: 0, meaning the full available range)
 - `colors`: Number of colours in the `rain`/`snow` radar scale, `8` or `14` (default: 14)
+- `interpolation`: Smooth the WMS-rendered radar layer instead of leaving it pixelated (default: False)
+- `webp`: Request the radar layer from Environment Canada's WMS as WebP instead of PNG, and return `get_latest_frame()`/`get_loop()` output as WebP instead of PNG/GIF. Reduces bandwidth at the cost of higher latency per frame (default: False)
 
 > **Note**: ECMap automatically discovers available legend styles from Environment Canada's WMS capabilities, ensuring compatibility with any future style changes.
 

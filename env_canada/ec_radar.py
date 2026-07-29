@@ -100,7 +100,7 @@ class ECRadar:
         self.image = self._map.image
 
     async def get_loop(self, fps=5):
-        """Build an animated GIF of recent radar images."""
+        """Build an animated GIF (or WebP, if enabled) of recent radar images."""
         return await self._map.get_loop(fps)
 
     # Expose internal methods for backward compatibility if needed
