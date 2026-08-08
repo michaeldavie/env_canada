@@ -48,6 +48,14 @@ wms_layers = {
     "precip_type": "Radar_1km_SfcPrecipType",
 }
 
+# Radar extrapolation (nowcast) counterparts, used to extend a loop into the
+# future. Styles are identical to the observed layer above, so no separate
+# entry is needed in wms_style_prefixes. precip_type has no such layer.
+wms_layers_extrapolation = {
+    "rain": "Radar_1km_RainPrecipRate-Extrapolation",
+    "snow": "Radar_1km_SnowPrecipRate-Extrapolation",
+}
+
 # Layers with a colour-count style choice (name prefix used to build the
 # WMS STYLES value, e.g. "Radar-Rain_8colors"). precip_type has only one
 # style, so it's omitted here and always uses the WMS server default.
@@ -65,7 +73,7 @@ capabilities_params = {
     "request": "GetCapabilities",
 }
 wms_namespace = {"wms": "http://www.opengis.net/wms"}
-dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension'
+dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension[@name="{dim}"]'
 map_params = {
     "service": "WMS",
     "version": "1.3.0",
@@ -152,6 +160,9 @@ class ECMap:
                 vol.Required("loop_minutes", default=0): vol.All(int, vol.Range(min=0)),
                 vol.Required("interpolation", default=False): bool,
                 vol.Required("webp", default=False): bool,
+                vol.Required("future_minutes", default=0): vol.All(
+                    int, vol.Range(min=0)
+                ),
             }
         )
 
@@ -188,6 +199,13 @@ class ECMap:
         # Smooths the WMS-rendered radar layer instead of leaving it pixelated
         self.interpolation = kwargs["interpolation"]
 
+        # How far past "now" to extend get_loop() using the radar
+        # extrapolation (nowcast) layer, if one exists for self.layer.
+        self.future_minutes = kwargs["future_minutes"]
+        self._future_layer = wms_layers_extrapolation.get(self.layer)
+        self._future_boundary = None
+        self._reference_time = None
+
         self.timestamp = None
 
     def _get_cache_prefix(self):
@@ -209,7 +227,9 @@ class ECMap:
         """
         prefix = self._get_cache_prefix()
         count = Cache.clear(prefix)
-        count += Cache.clear(f"capabilities-{self.layer}")
+        count += Cache.clear(f"capabilities-{wms_layers[self.layer]}")
+        if self._future_layer:
+            count += Cache.clear(f"capabilities-{self._future_layer}")
         return count
 
     async def _get_basemap(self):
@@ -233,36 +253,85 @@ class ECMap:
         except ValueError:
             return None
 
-    async def _get_dimensions(self):
-        """Get time range of available images for the layer."""
+    async def _get_layer_dimension(self, layer_name, dimension="time"):
+        """Fetch a WMS layer's dimension range (and default value) from
+        GetCapabilities. Returns (start, end, default) or None if the layer
+        or dimension doesn't exist."""
 
-        capabilities_cache_key = f"capabilities-{self.layer}"
+        capabilities_cache_key = f"capabilities-{layer_name}"
 
         if not (capabilities_xml := Cache.get(capabilities_cache_key)):
-            capabilities_params["layer"] = wms_layers[self.layer]
-            capabilities_xml = await _get_resource(
-                geomet_url, capabilities_params, bytes=True
-            )
+            params = {**capabilities_params, "layer": layer_name}
+            capabilities_xml = await _get_resource(geomet_url, params, bytes=True)
             Cache.add(capabilities_cache_key, capabilities_xml, timedelta(minutes=5))
 
-        dimension_string = et.fromstring(capabilities_xml).find(
-            dimension_xpath.format(layer=wms_layers[self.layer]),
+        element = et.fromstring(capabilities_xml).find(
+            dimension_xpath.format(layer=layer_name, dim=dimension),
             namespaces=wms_namespace,
         )
-        if dimension_string is not None:
-            if dimension_string := dimension_string.text:
-                start, end = (
-                    dateutil.parser.isoparse(t) for t in dimension_string.split("/")[:2]
-                )
-                self.timestamp = end.isoformat()
-                return (start, end)
-        return None
+        if element is None or not element.text:
+            return None
+
+        start, end = (dateutil.parser.isoparse(t) for t in element.text.split("/")[:2])
+        return start, end, element.get("default")
+
+    async def _get_dimensions(self):
+        """Get the time range of currently observed images for the layer.
+
+        Resets any future-extension state from a previous get_loop() call,
+        so get_latest_frame() always returns a real observation rather than
+        a leftover forecast frame.
+        """
+        self._future_boundary = None
+        self._reference_time = None
+
+        result = await self._get_layer_dimension(wms_layers[self.layer])
+        if result is None:
+            return None
+        start, end, _ = result
+        self.timestamp = end.isoformat()
+        return (start, end)
+
+    async def _extend_into_future(self, end):
+        """Extend `end` using the radar extrapolation layer, if
+        future_minutes is set and one exists for self.layer. Pins
+        self._future_boundary/_reference_time for _resolve_layer to use
+        while building the frames for this loop."""
+
+        if not (self.future_minutes and self._future_layer):
+            return end
+
+        future = await self._get_layer_dimension(self._future_layer, "time")
+        if not future:
+            LOG.warning(
+                "Extrapolation layer %s has no data; future_minutes ignored",
+                self._future_layer,
+            )
+            return end
+        future_start, future_end, _ = future
+
+        # Pin all forecast frames to a single model run so the loop doesn't
+        # jitter between runs as "now" advances mid-build.
+        reference = await self._get_layer_dimension(
+            self._future_layer, "reference_time"
+        )
+        self._future_boundary = future_start
+        self._reference_time = reference[2] if reference else None
+
+        return min(future_end, end + timedelta(minutes=self.future_minutes))
+
+    def _resolve_layer(self, frame_time):
+        """Return (wms_layer_name, is_future) for a given frame time."""
+        if self._future_boundary is not None and frame_time >= self._future_boundary:
+            return self._future_layer, True
+        return wms_layers[self.layer], False
 
     async def _get_layer_image(self, frame_time):
         """Fetch image for the layer at a specific time."""
+        layer_name, is_future = self._resolve_layer(frame_time)
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
         layer_cache_key = (
-            f"{self._get_cache_prefix()}-layer-{self.layer}-{self.colors}"
+            f"{self._get_cache_prefix()}-layer-{layer_name}-{self.colors}"
             f"-{self.interpolation}-{self.webp}-{time}"
         )
 
@@ -272,11 +341,13 @@ class ECMap:
         params = dict(
             **map_params,
             **self.map_params,
-            layers=wms_layers[self.layer],
+            layers=layer_name,
             time=time,
         )
         if style_prefix := wms_style_prefixes.get(self.layer):
             params["styles"] = f"{style_prefix}_{self.colors}colors"
+        if is_future and self._reference_time:
+            params["dim_reference_time"] = self._reference_time
         if self.interpolation:
             params["interpolation"] = "true"
         if self.webp:
@@ -291,6 +362,16 @@ class ECMap:
 
     async def _create_composite_image(self, frame_time):
         """Create a composite image from the layer."""
+
+        layer_name, _ = self._resolve_layer(frame_time)
+        time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
+        cache_key = (
+            f"{self._get_cache_prefix()}-composite-{layer_name}-{self.colors}"
+            f"-{self.interpolation}-{self.webp}-{self.language}-{time}"
+        )
+
+        if img := Cache.get(cache_key):
+            return img
 
         def _create_image():
             """Contains all the PIL calls; run in another thread."""
@@ -347,20 +428,10 @@ class ECMap:
             composite.save(img_byte_arr, format="WEBP" if self.webp else "PNG")
 
             return Cache.add(
-                f"{self._get_cache_prefix()}-composite-{self.layer}-{self.colors}"
-                f"-{self.interpolation}-{self.webp}-{self.language}-{time}",
+                cache_key,
                 img_byte_arr.getvalue(),
                 timedelta(minutes=200),
             )
-
-        time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
-        cache_key = (
-            f"{self._get_cache_prefix()}-composite-{self.layer}-{self.colors}"
-            f"-{self.interpolation}-{self.webp}-{self.language}-{time}"
-        )
-
-        if img := Cache.get(cache_key):
-            return img
 
         base_bytes = await self._get_basemap()
         layer_bytes = await self._get_layer_image(frame_time)
@@ -410,13 +481,19 @@ class ECMap:
             LOG.error("Cannot retrieve image times.")
             return None
 
-        start = timespan[0]
+        start, now = timespan
         if self.loop_minutes:
-            start = max(start, timespan[1] - timedelta(minutes=self.loop_minutes))
+            start = max(start, now - timedelta(minutes=self.loop_minutes))
+
+        # Extend the end of the loop using the extrapolation (nowcast) layer,
+        # if future_minutes is set and one exists for self.layer. Anchored to
+        # `now`, not the (possibly loop_minutes-truncated) `start`, so a short
+        # loop_minutes doesn't eat into the forward-looking portion.
+        end = await self._extend_into_future(now)
 
         tasks = []
         curr = start
-        while curr <= timespan[1]:
+        while curr <= end:
             tasks.append(self._create_composite_image(frame_time=curr))
             curr = curr + image_interval
         composite_frames = await asyncio.gather(*tasks)

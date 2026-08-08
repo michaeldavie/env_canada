@@ -54,6 +54,34 @@ def mock_capabilities_xml():
 
 
 @pytest.fixture
+def mock_capabilities_xml_with_extrapolation():
+    """Mock capabilities XML including the rain radar extrapolation
+    (nowcast) layer, mirroring GeoMet 3.0's real response shape: a `time`
+    dimension picking up where the observed layer's ends, plus a
+    `reference_time` dimension identifying the forecast model run."""
+    return b"""<?xml version="1.0" encoding="UTF-8"?>
+    <WMS_Capabilities xmlns="http://www.opengis.net/wms">
+        <Layer>
+            <Name>RADAR_1KM_RRAI</Name>
+            <Dimension name="time" units="ISO8601" default="2025-02-13T16:54:00Z">2025-02-13T13:54:00Z/2025-02-13T16:54:00Z/PT6M</Dimension>
+            <Style>
+                <Name>RADARURPPRECIPR</Name>
+                <Title>Rain Style</Title>
+            </Style>
+        </Layer>
+        <Layer>
+            <Name>Radar_1km_RainPrecipRate-Extrapolation</Name>
+            <Dimension name="time" units="ISO8601" default="2025-02-13T17:00:00Z">2025-02-13T16:54:00Z/2025-02-13T18:00:00Z/PT6M</Dimension>
+            <Dimension name="reference_time" units="ISO8601" default="2025-02-13T16:54:00Z" multipleValues="1">2025-02-13T13:54:00Z/2025-02-13T16:54:00Z/PT6M</Dimension>
+            <Style>
+                <Name>Radar-Rain_14colors</Name>
+                <Title>Rain Style</Title>
+            </Style>
+        </Layer>
+    </WMS_Capabilities>"""
+
+
+@pytest.fixture
 def mock_image_bytes():
     """Mock PNG image bytes"""
     from PIL import Image
@@ -145,6 +173,33 @@ class TestECMapInitialization:
         )
         assert map_obj.interpolation is True
         assert map_obj.webp is True
+
+    def test_future_minutes_default(self):
+        """Test that future_minutes defaults to 0 (no forward extension)"""
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        assert map_obj.future_minutes == 0
+
+    def test_future_minutes_custom(self):
+        """Test that future_minutes can be customized"""
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", future_minutes=30)
+        assert map_obj.future_minutes == 30
+
+    def test_future_minutes_invalid(self):
+        """Test that a negative future_minutes is rejected"""
+        with pytest.raises(error.MultipleInvalid):
+            ECMap(coordinates=(50, -100), layer="rain", future_minutes=-1)
+
+    def test_future_layer_lookup(self):
+        """Test that only rain/snow have an extrapolation counterpart"""
+        assert (
+            ECMap(coordinates=(50, -100), layer="rain")._future_layer
+            == "Radar_1km_RainPrecipRate-Extrapolation"
+        )
+        assert (
+            ECMap(coordinates=(50, -100), layer="snow")._future_layer
+            == "Radar_1km_SnowPrecipRate-Extrapolation"
+        )
+        assert ECMap(coordinates=(50, -100), layer="precip_type")._future_layer is None
 
     def test_bounding_box_pole_enclosing(self):
         """Coordinates/radius that enclose a pole should not raise, and should
@@ -585,6 +640,171 @@ class TestECMapMocked:
         loop = asyncio.run(map_obj.get_loop())
         image = Image.open(BytesIO(loop))
         assert image.format == "GIF" and image.is_animated
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_future_minutes_extends_loop_with_extrapolation_layer(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml_with_extrapolation,
+        mock_image_bytes,
+    ):
+        """Test that future_minutes pulls in extrapolation frames past
+        the observed range, using the same styles, while past/current
+        frames keep using the observed layer."""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml_with_extrapolation
+            if params.get("layers") != "CBMT":  # skip the basemap request
+                captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", future_minutes=30)
+        asyncio.run(map_obj.get_loop())
+
+        # Observed layer: 13:54Z-16:54Z, unchanged. Extrapolation layer
+        # extends the loop from 16:54Z to 17:24Z (min(18:00Z, 16:54+30min)).
+        observed = [p for p in captured_params if p.get("layers") == "RADAR_1KM_RRAI"]
+        future = [
+            p
+            for p in captured_params
+            if p.get("layers") == "Radar_1km_RainPrecipRate-Extrapolation"
+        ]
+        assert len(observed) == 30  # 13:54Z..16:48Z every 6 min
+        assert len(future) == 6  # 16:54Z..17:24Z every 6 min
+
+        # Both use the same rain style prefix/colour count.
+        assert all(p.get("styles") == "Radar-Rain_14colors" for p in observed)
+        assert all(p.get("styles") == "Radar-Rain_14colors" for p in future)
+
+        # Only future frames are pinned to a single forecast model run.
+        assert all("dim_reference_time" not in p for p in observed)
+        assert all(
+            p.get("dim_reference_time") == "2025-02-13T16:54:00Z" for p in future
+        )
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_future_minutes_default_does_not_extend_loop(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml_with_extrapolation,
+        mock_image_bytes,
+    ):
+        """Test that future_minutes=0 (default) never requests the
+        extrapolation layer, even when one exists for the chosen layer."""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml_with_extrapolation
+            if params.get("layers") != "CBMT":  # skip the basemap request
+                captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        asyncio.run(map_obj.get_loop())
+
+        assert all(p.get("layers") == "RADAR_1KM_RRAI" for p in captured_params)
+        assert len(captured_params) == 31
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_future_minutes_ignored_for_precip_type(
+        self, mock_get_resource, mock_capabilities_xml, mock_image_bytes
+    ):
+        """Test that precip_type (no extrapolation layer available) ignores
+        future_minutes and produces the same loop as without it."""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            if params.get("layers") != "CBMT":  # skip the basemap request
+                captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="precip_type", future_minutes=45)
+        asyncio.run(map_obj.get_loop())
+
+        assert all(
+            p.get("layers") == "Radar_1km_SfcPrecipType" for p in captured_params
+        )
+        assert all("dim_reference_time" not in p for p in captured_params)
+        assert len(captured_params) == 31
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_get_latest_frame_unaffected_by_future_minutes(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml_with_extrapolation,
+        mock_image_bytes,
+    ):
+        """Test that get_latest_frame() always returns the latest real
+        observation, never a forecast frame, regardless of future_minutes."""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml_with_extrapolation
+            if params.get("layers") != "CBMT":  # skip the basemap request
+                captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", future_minutes=30)
+        asyncio.run(map_obj.get_latest_frame())
+
+        assert len(captured_params) == 1
+        assert captured_params[0]["layers"] == "RADAR_1KM_RRAI"
+        assert captured_params[0]["time"] == "2025-02-13T16:54:00Z"
+        assert "dim_reference_time" not in captured_params[0]
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_future_boundary_does_not_leak_between_calls(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml_with_extrapolation,
+        mock_image_bytes,
+    ):
+        """Test that a get_loop() call's future-extension state doesn't
+        leak into a later get_latest_frame() call on the same instance."""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml_with_extrapolation
+            if params.get("layers") != "CBMT":  # skip the basemap request
+                captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", future_minutes=30)
+        asyncio.run(map_obj.get_loop())
+        assert map_obj._future_boundary is not None
+
+        captured_params.clear()
+        asyncio.run(map_obj.get_latest_frame())
+
+        assert captured_params[0]["layers"] == "RADAR_1KM_RRAI"
+        assert "dim_reference_time" not in captured_params[0]
 
 
 # Legacy tests for backward compatibility

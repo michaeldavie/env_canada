@@ -47,7 +47,7 @@ class TestCacheClear:
         Cache.add("location1-legend", "legend1", timedelta(hours=1))
         Cache.add("location2-basemap", "basemap2", timedelta(hours=1))
         Cache.add("location2-layer-rain", "rain2", timedelta(hours=1))
-        Cache.add("capabilities-rain", "caps", timedelta(hours=1))
+        Cache.add("capabilities-RADAR_1KM_RRAI", "caps", timedelta(hours=1))
 
         # Clear only location1 entries
         count = Cache.clear("location1")
@@ -60,7 +60,7 @@ class TestCacheClear:
         # location2 and capabilities should still exist
         assert Cache.get("location2-basemap") == "basemap2"
         assert Cache.get("location2-layer-rain") == "rain2"
-        assert Cache.get("capabilities-rain") == "caps"
+        assert Cache.get("capabilities-RADAR_1KM_RRAI") == "caps"
 
     def test_clear_with_prefix_no_matches(self):
         """Test clearing with a prefix that doesn't match any entries."""
@@ -96,7 +96,7 @@ class TestECMapClearCache:
         Cache.add(f"{prefix}-basemap", "basemap", timedelta(hours=1))
         Cache.add(f"{prefix}-layer-rain-2025-01-01", "layer", timedelta(hours=1))
         Cache.add(f"{prefix}-legend-rain", "legend", timedelta(hours=1))
-        Cache.add("capabilities-rain", "caps", timedelta(hours=1))
+        Cache.add("capabilities-RADAR_1KM_RRAI", "caps", timedelta(hours=1))
 
         # Clear the cache
         count = map_obj.clear_cache()
@@ -106,7 +106,7 @@ class TestECMapClearCache:
         assert Cache.get(f"{prefix}-basemap") is None
         assert Cache.get(f"{prefix}-layer-rain-2025-01-01") is None
         assert Cache.get(f"{prefix}-legend-rain") is None
-        assert Cache.get("capabilities-rain") is None
+        assert Cache.get("capabilities-RADAR_1KM_RRAI") is None
 
     def test_clear_cache_does_not_affect_other_locations(self):
         """Test that clearing cache for one location doesn't affect others."""
@@ -133,16 +133,16 @@ class TestECMapClearCache:
         map_obj = ECMap(coordinates=(50, -100), layer="rain")
 
         # Add capabilities cache
-        Cache.add("capabilities-rain", "rain_caps", timedelta(hours=1))
-        Cache.add("capabilities-snow", "snow_caps", timedelta(hours=1))
+        Cache.add("capabilities-RADAR_1KM_RRAI", "rain_caps", timedelta(hours=1))
+        Cache.add("capabilities-RADAR_1KM_RSNO", "snow_caps", timedelta(hours=1))
 
         # Clear the cache
         map_obj.clear_cache()
 
         # rain capabilities should be gone (matches the map's layer)
-        assert Cache.get("capabilities-rain") is None
+        assert Cache.get("capabilities-RADAR_1KM_RRAI") is None
         # snow capabilities should still exist
-        assert Cache.get("capabilities-snow") == "snow_caps"
+        assert Cache.get("capabilities-RADAR_1KM_RSNO") == "snow_caps"
 
 
 class TestECRadarClearCache:
@@ -156,7 +156,7 @@ class TestECRadarClearCache:
         prefix = radar._map._get_cache_prefix()
         Cache.add(f"{prefix}-basemap", "basemap", timedelta(hours=1))
         Cache.add(f"{prefix}-layer-rain-2025-01-01", "layer", timedelta(hours=1))
-        Cache.add("capabilities-rain", "caps", timedelta(hours=1))
+        Cache.add("capabilities-RADAR_1KM_RRAI", "caps", timedelta(hours=1))
 
         # Clear the cache
         count = radar.clear_cache()
@@ -165,7 +165,7 @@ class TestECRadarClearCache:
         assert count == 3
         assert Cache.get(f"{prefix}-basemap") is None
         assert Cache.get(f"{prefix}-layer-rain-2025-01-01") is None
-        assert Cache.get("capabilities-rain") is None
+        assert Cache.get("capabilities-RADAR_1KM_RRAI") is None
 
     def test_clear_cache_after_precip_type_change(self):
         """Test the use case of clearing cache after changing precip_type."""
@@ -174,7 +174,7 @@ class TestECRadarClearCache:
         # Add cache entries for rain
         prefix = radar._map._get_cache_prefix()
         Cache.add(f"{prefix}-layer-rain-2025-01-01", "rain_layer", timedelta(hours=1))
-        Cache.add("capabilities-rain", "rain_caps", timedelta(hours=1))
+        Cache.add("capabilities-RADAR_1KM_RRAI", "rain_caps", timedelta(hours=1))
 
         # Change precip type and clear cache
         radar.precip_type = "snow"
@@ -183,6 +183,6 @@ class TestECRadarClearCache:
         # Cache entries for rain should be gone
         assert Cache.get(f"{prefix}-layer-rain-2025-01-01") is None
         # Capabilities for snow (the new layer) should be cleared
-        assert Cache.get("capabilities-snow") is None
-        # Note: capabilities-rain was already cleared by clear_cache()
+        assert Cache.get("capabilities-RADAR_1KM_RSNO") is None
+        # Note: capabilities-RADAR_1KM_RRAI was already cleared by clear_cache()
         # since it clears capabilities for the current layer (snow)

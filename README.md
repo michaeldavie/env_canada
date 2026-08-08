@@ -171,6 +171,7 @@ Additional configuration options:
 - `colors`: Number of colours in the `rain`/`snow` radar scale, `8` or `14` (default: 14)
 - `interpolation`: Smooth the WMS-rendered radar layer instead of leaving it pixelated (default: False)
 - `webp`: Request the radar layer from Environment Canada's WMS as WebP instead of PNG, and return `get_latest_frame()`/`get_loop()` output as WebP instead of PNG/GIF. Reduces bandwidth at the cost of higher latency per frame (default: False)
+- `future_minutes`: Extend `get_loop()` past "now" using Environment Canada's radar extrapolation (nowcast) layer, in minutes. Only has an effect for `rain`/`snow` (`precip_type` has no extrapolation layer, so it's silently ignored); frames are capped at whatever the extrapolation layer actually has available, which is normally on the order of an hour. Uses the same styles/colours as the observed layer. `get_latest_frame()` is unaffected and always returns the latest real observation (default: 0)
 
 > **Note**: ECMap automatically discovers available legend styles from Environment Canada's WMS capabilities, ensuring compatibility with any future style changes.
 
