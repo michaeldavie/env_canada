@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.19.0
+
+### Changes
+
+- **ECMap / ECRadar**: Add `future_minutes` init parameter to extend `get_loop()` past "now" using Environment Canada's radar extrapolation (nowcast) WMS layers, pairing backward-looking observed frames with forward-looking forecast frames in a single animation. Only has an effect for the `rain`/`snow` layers (`precip_type` has no extrapolation layer). Defaults to `0`, matching previous behaviour
+
 ## v0.18.0
 
 ### Changes
