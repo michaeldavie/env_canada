@@ -203,7 +203,7 @@ wheels = [
 
 [[package]]
 name = "env-canada"
-version = "0.19.1rc2"
+version = "0.19.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },

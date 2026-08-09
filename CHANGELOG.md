@@ -2,17 +2,12 @@
 
 ## Unreleased
 
-## v0.19.1rc2
+## v0.19.1
 
 ### Changes
 
-- No functional changes. Test release to verify PEP 740 attestation generation via GitHub Actions.
-
-## v0.19.1rc1
-
-### Changes
-
-- No functional changes. Test release to verify PyPI trusted publishing (OIDC) via GitHub Actions.
+- Fix broken "Python Lint and Test" badge URL in README
+- Switch PyPI publishing to trusted publishing (OIDC) with PEP 740 attestations, replacing username/password secrets
 
 ## v0.19.0
 
