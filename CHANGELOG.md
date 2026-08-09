@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.19.1rc2
+
+### Changes
+
+- No functional changes. Test release to verify PEP 740 attestation generation via GitHub Actions.
+
 ## v0.19.1rc1
 
 ### Changes
