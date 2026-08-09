@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.19.1rc1
+
+### Changes
+
+- No functional changes. Test release to verify PyPI trusted publishing (OIDC) via GitHub Actions.
+
 ## v0.19.0
 
 ### Changes
