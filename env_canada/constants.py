@@ -1,1 +1,1 @@
-USER_AGENT = "env_canada/0.19.1"
+USER_AGENT = "env_canada/0.19.2"

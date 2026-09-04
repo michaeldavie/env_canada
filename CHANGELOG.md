@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.19.2
+
+### Changes
+
+- **ECMap**: Fix a crash (`PIL.UnidentifiedImageError`) when `future_minutes` is set and a frame's time falls after the observed layer's last frame but before the extrapolation (nowcast) layer's own data window opens. The two layers refresh on independent schedules, so this gap can appear depending on where the nowcast model's run cycle happens to be; affected frames are now clamped to the extrapolation layer's earliest available time instead of requesting an invalid time from the observed layer
+
 ## v0.19.1
 
 ### Changes
