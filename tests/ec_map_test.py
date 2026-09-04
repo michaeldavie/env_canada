@@ -82,6 +82,35 @@ def mock_capabilities_xml_with_extrapolation():
 
 
 @pytest.fixture
+def mock_capabilities_xml_with_extrapolation_gap():
+    """Mock capabilities XML where the extrapolation layer's own data
+    window opens *after* "now" (16:54Z), unlike the real GeoMet response
+    mocked above. The two layers refresh on independent schedules, so
+    this gap can open depending on where the nowcast model's run cycle
+    happens to be relative to the observed layer's latest frame."""
+    return b"""<?xml version="1.0" encoding="UTF-8"?>
+    <WMS_Capabilities xmlns="http://www.opengis.net/wms">
+        <Layer>
+            <Name>RADAR_1KM_RRAI</Name>
+            <Dimension name="time" units="ISO8601" default="2025-02-13T16:54:00Z">2025-02-13T13:54:00Z/2025-02-13T16:54:00Z/PT6M</Dimension>
+            <Style>
+                <Name>RADARURPPRECIPR</Name>
+                <Title>Rain Style</Title>
+            </Style>
+        </Layer>
+        <Layer>
+            <Name>Radar_1km_RainPrecipRate-Extrapolation</Name>
+            <Dimension name="time" units="ISO8601" default="2025-02-13T17:12:00Z">2025-02-13T17:06:00Z/2025-02-13T18:00:00Z/PT6M</Dimension>
+            <Dimension name="reference_time" units="ISO8601" default="2025-02-13T16:54:00Z" multipleValues="1">2025-02-13T13:54:00Z/2025-02-13T16:54:00Z/PT6M</Dimension>
+            <Style>
+                <Name>Radar-Rain_14colors</Name>
+                <Title>Rain Style</Title>
+            </Style>
+        </Layer>
+    </WMS_Capabilities>"""
+
+
+@pytest.fixture
 def mock_image_bytes():
     """Mock PNG image bytes"""
     from PIL import Image
@@ -687,6 +716,50 @@ class TestECMapMocked:
         assert all(
             p.get("dim_reference_time") == "2025-02-13T16:54:00Z" for p in future
         )
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_future_minutes_handles_gap_before_extrapolation_data_starts(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml_with_extrapolation_gap,
+        mock_image_bytes,
+    ):
+        """Test that frames falling after "now" but before the
+        extrapolation layer's own data window opens don't request an
+        invalid time from the observed layer (regression test: this used
+        to raise PIL.UnidentifiedImageError, since the WMS server doesn't
+        return an image for an out-of-range observed-layer time)."""
+        Cache.clear()
+
+        captured_params = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml_with_extrapolation_gap
+            if params.get("layers") != "CBMT":  # skip the basemap request
+                captured_params.append(params)
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", future_minutes=30)
+        # Must not raise. Observed ends 16:54Z, extrapolation starts
+        # 17:06Z - frames at 17:00Z fall in that 12-minute gap.
+        asyncio.run(map_obj.get_loop())
+
+        observed = [p for p in captured_params if p.get("layers") == "RADAR_1KM_RRAI"]
+        future = [
+            p
+            for p in captured_params
+            if p.get("layers") == "Radar_1km_RainPrecipRate-Extrapolation"
+        ]
+
+        # The observed layer is never asked for a time past "now".
+        assert all(p["time"] <= "2025-02-13T16:54:00Z" for p in observed)
+        # The extrapolation layer is never asked for a time before its
+        # own data actually starts - the 17:00Z frame is clamped to it.
+        assert all(p["time"] >= "2025-02-13T17:06:00Z" for p in future)
+        assert any(p["time"] == "2025-02-13T17:06:00Z" for p in future)
 
     @patch("env_canada.ec_map._get_resource")
     def test_future_minutes_default_does_not_extend_loop(
