@@ -550,6 +550,46 @@ class TestECMapMocked:
             assert mock_create.call_count == 6
 
     @patch("env_canada.ec_map._get_resource")
+    def test_loop_and_future_minutes_stay_grid_aligned(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml_with_extrapolation,
+        mock_image_bytes,
+    ):
+        """Test that loop_minutes/future_minutes values that aren't a
+        multiple of the layer's time-grid step (e.g. 65 minutes on a
+        6-minute grid) don't shift the whole loop off-grid.
+
+        Regression test: `now - timedelta(minutes=65)` lands on a timestamp
+        GeoMet doesn't recognize, and since every later frame is stepped by
+        a fixed 6-minute interval from that misaligned anchor, EVERY frame
+        in the loop - not just one - came back as "no data" and the
+        rendered animation had no radar overlay in any frame at all.
+        """
+        Cache.clear()
+        requested_times = []
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml_with_extrapolation
+            if "time" in params:
+                requested_times.append(params["time"])
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(
+            coordinates=(50, -100), layer="rain", loop_minutes=65, future_minutes=65
+        )
+        loop = asyncio.run(map_obj.get_loop())
+        assert loop is not None
+
+        assert requested_times, "expected at least one GetMap request"
+        for time_str in requested_times:
+            minute = int(time_str[14:16])
+            assert minute % 6 == 0, f"{time_str} is off the 6-minute grid"
+
+    @patch("env_canada.ec_map._get_resource")
     def test_fps_controls_frame_duration(
         self, mock_get_resource, mock_capabilities_xml
     ):

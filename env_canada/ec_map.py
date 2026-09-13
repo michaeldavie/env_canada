@@ -257,7 +257,10 @@ class ECMap:
         self._future_boundary = future_start
         self._reference_time = reference[2] if reference else None
 
-        return min(future_end, end + timedelta(minutes=self.future_minutes))
+        # Same grid-alignment concern as loop_minutes above, but stepping
+        # forward from "end" (now) instead of back.
+        steps_forward = timedelta(minutes=self.future_minutes) // self._image_interval
+        return min(future_end, end + steps_forward * self._image_interval)
 
     def _resolve_layer(self, frame_time):
         """Return (wms_layer_name, is_future, query_time) for a frame's
@@ -446,7 +449,14 @@ class ECMap:
 
         start, now = timespan
         if self.loop_minutes:
-            start = max(start, now - timedelta(minutes=self.loop_minutes))
+            # loop_minutes isn't guaranteed to be a multiple of the layer's
+            # time-grid step (e.g. 65 minutes on a 6-minute grid) - "now"
+            # itself is always grid-aligned, so stepping back by whole
+            # intervals keeps every subsequent frame on-grid too. A plain
+            # `now - timedelta(minutes=loop_minutes)` would shift the whole
+            # loop off-grid, and GeoMet rejects every off-grid timestamp.
+            steps_back = timedelta(minutes=self.loop_minutes) // self._image_interval
+            start = max(start, now - steps_back * self._image_interval)
 
         # Extend the end of the loop using the extrapolation (nowcast) layer,
         # if future_minutes is set and one exists for self.layer. Anchored to
