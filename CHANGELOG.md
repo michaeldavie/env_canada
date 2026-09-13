@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.20.1
+
+### Changes
+
+- **ECMap**: Fix `loop_minutes`/`future_minutes` values that aren't a multiple of the layer's advertised time step (e.g. 65 minutes on a 6-minute grid) shifting every frame in the loop off-grid, causing GeoMet to reject the whole loop's worth of requests as "time outside valid hours" instead of just the one frame the previous fix anticipated. The loop's start/end are now snapped to whole multiples of the grid step, anchored on "now" (which is always grid-aligned)
+
 ## v0.20.0
 
 ### Changes
