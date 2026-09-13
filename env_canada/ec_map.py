@@ -1,26 +1,20 @@
 import asyncio
 import logging
-import math
 from datetime import timedelta
 from io import BytesIO
 
-import dateutil.parser
 import voluptuous as vol
-from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
-from lxml import etree as et
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
-from .constants import USER_AGENT
 from .ec_cache import Cache
+from .ec_geomet import ATTRIBUTION
+from .ec_geomet import compute_bounding_box as _compute_bounding_box
+from .ec_geomet import geomet_url, get_layer_dimension
+from .ec_geomet import get_resource as _get_resource
 from .ec_legend import generate_legend, load_font
 
 LOG = logging.getLogger(__name__)
-
-ATTRIBUTION = {
-    "english": "Data provided by Environment Canada",
-    "french": "Données fournies par Environnement Canada",
-}
 
 __all__ = ["ECMap"]
 
@@ -65,15 +59,6 @@ wms_style_prefixes = {
 }
 
 
-geomet_url = "https://geo.weather.gc.ca/geomet"
-capabilities_params = {
-    "lang": "en",
-    "service": "WMS",
-    "version": "1.3.0",
-    "request": "GetCapabilities",
-}
-wms_namespace = {"wms": "http://www.opengis.net/wms"}
-dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension[@name="{dim}"]'
 map_params = {
     "service": "WMS",
     "version": "1.3.0",
@@ -89,48 +74,6 @@ timestamp_label = {
     "snow": {"english": "Snow", "french": "Neige"},
     "precip_type": {"english": "Precipitation", "french": "Précipitation"},
 }
-
-
-def _compute_bounding_box(distance, latittude, longitude):
-    """
-    Modified from https://gist.github.com/alexcpn/f95ae83a7ee0293a5225
-    """
-    latittude = math.radians(latittude)
-    longitude = math.radians(longitude)
-
-    distance_from_point_km = distance
-    angular_distance = distance_from_point_km / 6371.01
-
-    lat_min = max(-math.pi / 2, latittude - angular_distance)
-    lat_max = min(math.pi / 2, latittude + angular_distance)
-
-    cos_latittude = math.cos(latittude)
-    ratio = math.sin(angular_distance) / cos_latittude if cos_latittude else math.inf
-
-    if abs(ratio) >= 1:
-        # Circle encloses a pole: longitude spans the full range.
-        lon_min = -math.pi
-        lon_max = math.pi
-    else:
-        delta_longitude = math.asin(ratio)
-        lon_min = longitude - delta_longitude
-        lon_max = longitude + delta_longitude
-    lon_min = round(math.degrees(lon_min), 5)
-    lat_max = round(math.degrees(lat_max), 5)
-    lon_max = round(math.degrees(lon_max), 5)
-    lat_min = round(math.degrees(lat_min), 5)
-
-    return lat_min, lon_min, lat_max, lon_max
-
-
-async def _get_resource(url, params, bytes=True):
-    async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(
-            url=url, params=params, headers={"User-Agent": USER_AGENT}
-        )
-        if bytes:
-            return await response.read()
-        return await response.text()
 
 
 class ECMap:
@@ -259,22 +202,10 @@ class ECMap:
         GetCapabilities. Returns (start, end, default) or None if the layer
         or dimension doesn't exist."""
 
-        capabilities_cache_key = f"capabilities-{layer_name}"
-
-        if not (capabilities_xml := Cache.get(capabilities_cache_key)):
-            params = {**capabilities_params, "layer": layer_name}
-            capabilities_xml = await _get_resource(geomet_url, params, bytes=True)
-            Cache.add(capabilities_cache_key, capabilities_xml, timedelta(minutes=5))
-
-        element = et.fromstring(capabilities_xml).find(
-            dimension_xpath.format(layer=layer_name, dim=dimension),
-            namespaces=wms_namespace,
-        )
-        if element is None or not element.text:
+        result = await get_layer_dimension(layer_name, dimension, fetch=_get_resource)
+        if result is None:
             return None
-
-        start, end = (dateutil.parser.isoparse(t) for t in element.text.split("/")[:2])
-        return start, end, element.get("default")
+        return result.start, result.end, result.default
 
     async def _get_dimensions(self):
         """Get the time range of currently observed images for the layer.

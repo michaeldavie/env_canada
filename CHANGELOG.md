@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changes
+
+- **ECPrecipForecast**: New class assembling the numeric precipitation series needed to draw a precipitation histogram. Produces a 6-minute precipitation rate series (observed radar plus radar extrapolation, roughly the next hour) and an hourly amount/probability/type series (HRDPS and its WEonG diagnostics, up to 48 hours), by querying Environment Canada's WMS server with `GetFeatureInfo` point queries. Hourly amounts are differenced from the model's run-cumulative accumulation field, with every request pinned to a single model run
+- Extract the shared GeoMet WMS plumbing — the HTTP call, the bounding-box maths, and the GetCapabilities dimension parsing — into `ec_geomet`, so `ECMap` and `ECPrecipForecast` share one implementation. Dimension parsing now also reports the advertised time step, which the WMS server requires requests to land on exactly
+
 ## v0.19.2
 
 ### Changes

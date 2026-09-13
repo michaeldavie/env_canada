@@ -175,6 +175,85 @@ Additional configuration options:
 
 > **Note**: ECMap automatically discovers available legend styles from Environment Canada's WMS capabilities, ensuring compatibility with any future style changes.
 
+## Precipitation Forecast Series
+
+`ECPrecipForecast` assembles the numeric precipitation series needed to draw a
+precipitation histogram of the kind weather apps show. It gathers and structures
+the data only; rendering is left to the caller.
+
+Two independent tracks are produced:
+
+- `nowcast` — precipitation rate at 6-minute resolution, from observed radar for
+  the recent past and from Environment Canada's radar extrapolation (nowcast)
+  layers for roughly the next hour.
+- `hourly` — hourly precipitation amount, probability and type for up to the next
+  48 hours, from the HRDPS model and its "Weather Elements on Grid" (WEonG)
+  diagnostic suite.
+
+```python
+import asyncio
+
+from env_canada import ECPrecipForecast
+
+precip = ECPrecipForecast(coordinates=(45.42, -75.70))
+asyncio.run(precip.update())
+
+# 6-minute rate series
+for entry in precip.nowcast:
+    print(entry)
+# {'timestamp': datetime.datetime(2025, 2, 13, 16, 54, tzinfo=tzutc()),
+#  'rate': 1.2391, 'unit': 'mm/h', 'label': '1.0 - 2.0 (mm/h)',
+#  'precip_type': 'rain', 'forecast': False}
+
+# hourly series
+for entry in precip.hourly:
+    print(entry)
+# {'timestamp': datetime.datetime(2025, 2, 13, 17, 0, tzinfo=tzutc()),
+#  'amount': 1.726, 'probability': 57, 'conditional_amount': 0.909,
+#  'expected_amount': 0.518, 'precip_type': 'Rain', 'label': '0.5 - 1 mm'}
+```
+
+Configuration options:
+
+- `precip_type`: `"auto"`, `"rain"` or `"snow"` (default: `"auto"`). `"auto"` reads
+  Environment Canada's radar surface precipitation type at the most recent
+  observation, falling back to the season when radar detects nothing
+- `past_minutes`: How far back the `nowcast` series reaches, 0-180 (default: 60)
+- `future_minutes`: How far ahead the `nowcast` series reaches, 0-120 (default: 72).
+  Capped at whatever the extrapolation layer actually has, normally around 72 minutes
+- `hourly_hours`: Length of the `hourly` series, 0-48 (default: 24). `0` disables
+  the hourly track entirely
+- `language`: `"english"` or `"french"` (default: `"english"`), used for the attribution
+
+`nowcast` entries carry:
+
+- `rate`: The value exactly as served — `mm/h` for rain, `cm/h` for snow, per `unit`
+- `label`: Environment Canada's own classification of that value, e.g.
+  `"1.0 - 2.0 (mm/h)"` or `"Undetected"`. The extrapolation layer reports a small
+  non-zero floor below its detection threshold, which this label identifies
+- `forecast`: `False` for observed radar, `True` for extrapolation
+
+`hourly` entries describe the hour *ending* at `timestamp`, matching how the model
+reports accumulation:
+
+- `amount`: Precipitation for that hour in mm. The model publishes accumulation
+  cumulatively from the start of its run, so this is a difference between
+  successive steps, with every request pinned to a single model run
+- `probability`: Probability of precipitation, 0-100%
+- `conditional_amount`: Amount expected in mm *if* precipitation occurs
+- `expected_amount`: `probability / 100 * conditional_amount`
+- `precip_type`: Dominant precipitation type, e.g. `"Rain"`, `"Snow"`, `"None"`
+
+`metadata` carries the attribution, the timestamp of the latest radar observation,
+and the model run each forecast track is pinned to.
+
+> **Note**: Environment Canada's WMS server answers one point query per layer per
+> timestep, so a cold `update()` at the defaults issues roughly 120 requests
+> (taking a few seconds). Responses are cached — 5 minutes for radar, 3 hours for
+> the model, which runs every 6 hours — so subsequent updates only fetch newly
+> published radar frames. Pick a polling interval accordingly; every 5-10 minutes
+> is ample.
+
 ## Air Quality Health Index (AQHI)
 
 `ECAirQuality` provides Environment Canada [air quality](https://weather.gc.ca/airquality/pages/index_e.html) data.
