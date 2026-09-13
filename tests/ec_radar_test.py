@@ -92,3 +92,11 @@ async def test_get_radar_image_with_mock_data(snapshot: SnapshotAssertion):
         assert mock.call_count == 3
 
     assert test_radar == snapshot
+
+
+def test_get_legend_returns_an_image():
+    """ECRadar._get_legend used to forward to ECMap._get_legend, which doesn't
+    exist - the method it wants is _generate_legend."""
+    radar = ECRadar(coordinates=(50, -100), precip_type="rain")
+    legend = radar._get_legend()
+    assert isinstance(legend, Image.Image)

@@ -114,7 +114,7 @@ def _hex_to_rgb(h: str) -> tuple[int, int, int]:
 
 def _text_size(font: ImageFont.FreeTypeFont, text: str) -> tuple[int, int]:
     bbox = font.getbbox(text)
-    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+    return int(bbox[2] - bbox[0]), int(bbox[3] - bbox[1])
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

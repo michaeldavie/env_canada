@@ -6,6 +6,11 @@
 
 - **ECPrecipForecast**: New class assembling the numeric precipitation series needed to draw a precipitation histogram. Produces a 6-minute precipitation rate series (observed radar plus radar extrapolation, roughly the next hour) and an hourly amount/probability/type series (HRDPS and its WEonG diagnostics, up to 48 hours), by querying Environment Canada's WMS server with `GetFeatureInfo` point queries. Hourly amounts are differenced from the model's run-cumulative accumulation field, with every request pinned to a single model run
 - Extract the shared GeoMet WMS plumbing — the HTTP call, the bounding-box maths, and the GetCapabilities dimension parsing — into `ec_geomet`, so `ECMap` and `ECPrecipForecast` share one implementation. Dimension parsing now also reports the advertised time step, which the WMS server requires requests to land on exactly
+- **Coordinate validation**: Fix `coordinates` being accepted when out of range or given the wrong way round. Voluptuous reads a tuple schema as "every element matches any one of these validators" rather than as positional, so the previous `(Range(-90, 90), Range(-180, 180))` schema accepted a latitude of 95 — it matched the longitude validator — and silently queried the wrong location. Affected `ECAirQuality`, `ECHydro`, `ECMap`, `ECRadar` and `ECWeather`; all now share a validator in `ec_validate`
+- **ECRadar**: Fix `_get_legend()` raising `AttributeError`. It forwarded to `ECMap._get_legend()`, which does not exist; the method it wants is `_generate_legend()`
+- **ECMap**: Use the frame interval the layer's time dimension advertises rather than assuming 6 minutes. No change for the radar layers, which are all `PT6M`
+- Fix `_text_size()` in `ec_legend` being annotated as returning `tuple[int, int]` while returning floats
+- Fix two `--run-slow` tests that could not pass: one asserted against a snapshot that had never been recorded, the other requested a radar frame from a hardcoded February 2025 timestamp, long outside the few hours of frames the server retains. Neither runs in CI, so both had gone unnoticed
 
 ## v0.19.2
 

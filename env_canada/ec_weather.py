@@ -20,6 +20,7 @@ from lxml.etree import _Element
 
 from . import ec_exc
 from .constants import USER_AGENT
+from .ec_validate import coordinates
 
 SITE_LIST_URL = (
     "https://dd.weather.gc.ca/today/citypage_weather/docs/site_list_towns_en.csv"
@@ -395,10 +396,7 @@ class ECWeather:
                 },
                 {
                     vol.Optional("station_id"): validate_station,
-                    vol.Optional("coordinates"): (
-                        vol.All(vol.Or(int, float), vol.Range(-90, 90)),
-                        vol.All(vol.Or(int, float), vol.Range(-180, 180)),
-                    ),
+                    vol.Optional("coordinates"): coordinates,
                     vol.Optional("language", default="english"): vol.In(
                         ["english", "french"]
                     ),

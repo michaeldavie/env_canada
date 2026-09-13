@@ -1,9 +1,9 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 import pytest
 from PIL import Image
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from env_canada import ECMap
 from env_canada.ec_cache import Cache
@@ -434,10 +434,13 @@ class TestECMapCaching:
         mock_cache.add.return_value = b"layer_data"
 
         map_obj = ECMap(coordinates=(50, -100), layer="rain")
-        test_time = datetime(2025, 2, 13, 16, 54, 0)
+
+        # Radar frames are only retained for a few hours, so ask the server
+        # which times it currently has rather than hardcoding one.
+        _, latest = asyncio.run(map_obj._get_dimensions())
 
         # Should cache layer images
-        asyncio.run(map_obj._get_layer_image(test_time))
+        asyncio.run(map_obj._get_layer_image(latest))
         mock_cache.get.assert_called()
         mock_cache.add.assert_called()
 
@@ -945,3 +948,36 @@ def test_validate_layers():
     # Invalid layer
     with pytest.raises(error.MultipleInvalid):
         ECMap(coordinates=(50, -100), layer="invalid_layer")
+
+
+@patch("env_canada.ec_map._get_resource")
+def test_frame_interval_follows_the_time_dimension(
+    mock_get_resource, mock_capabilities_xml
+):
+    """Frame spacing comes from the step the layer advertises, rather than
+    assuming the 6 minutes the radar layers happen to use."""
+    Cache.clear()
+    mock_get_resource.side_effect = AsyncMock(
+        return_value=mock_capabilities_xml.replace(b"PT6M", b"PT10M")
+    )
+
+    map_obj = ECMap(coordinates=(50, -100), layer="rain")
+    assert map_obj._image_interval == timedelta(minutes=6)  # default before lookup
+
+    asyncio.run(map_obj._get_dimensions())
+    assert map_obj._image_interval == timedelta(minutes=10)
+
+
+@patch("env_canada.ec_map._get_resource")
+def test_frame_interval_falls_back_without_a_step(
+    mock_get_resource, mock_capabilities_xml
+):
+    """A dimension of "start/end" with no step keeps the default spacing."""
+    Cache.clear()
+    mock_get_resource.side_effect = AsyncMock(
+        return_value=mock_capabilities_xml.replace(b"/PT6M", b"")
+    )
+
+    map_obj = ECMap(coordinates=(50, -100), layer="rain")
+    asyncio.run(map_obj._get_dimensions())
+    assert map_obj._image_interval == timedelta(minutes=6)

@@ -7,6 +7,7 @@ from dateutil.parser import isoparse
 from geopy import distance
 
 from .constants import USER_AGENT
+from .ec_validate import coordinates
 
 SITE_LIST_URL = (
     "https://dd.weather.gc.ca/today/hydrometric/doc/hydrometric_StationList.csv"
@@ -76,10 +77,7 @@ class ECHydro:
                 {
                     vol.Optional("province"): vol.All(str, vol.Length(2)),
                     vol.Optional("station"): vol.All(str, vol.Length(7)),
-                    vol.Optional("coordinates"): (
-                        vol.All(vol.Or(int, float), vol.Range(-90, 90)),
-                        vol.All(vol.Or(int, float), vol.Range(-180, 180)),
-                    ),
+                    vol.Optional("coordinates"): coordinates,
                 },
             )
         )

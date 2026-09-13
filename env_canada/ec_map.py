@@ -7,6 +7,7 @@ import voluptuous as vol
 from aiohttp.client_exceptions import ClientConnectorError
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
+from .ec_validate import coordinates
 from .ec_cache import Cache
 from .ec_geomet import ATTRIBUTION
 from .ec_geomet import compute_bounding_box as _compute_bounding_box
@@ -82,10 +83,7 @@ class ECMap:
 
         init_schema = vol.Schema(
             {
-                vol.Required("coordinates"): (
-                    vol.All(vol.Or(int, float), vol.Range(-90, 90)),
-                    vol.All(vol.Or(int, float), vol.Range(-180, 180)),
-                ),
+                vol.Required("coordinates"): coordinates,
                 vol.Required("radius", default=200): vol.All(int, vol.Range(min=10)),
                 vol.Required("width", default=800): vol.All(int, vol.Range(min=10)),
                 vol.Required("height", default=800): vol.All(int, vol.Range(min=10)),
@@ -152,6 +150,10 @@ class ECMap:
 
         self.timestamp = None
 
+        # Frame spacing, replaced by whatever the layer's time dimension
+        # actually advertises once GetCapabilities has been read.
+        self._image_interval = image_interval
+
     def _get_cache_prefix(self):
         """Generate a location-specific cache prefix based on bounding box."""
         return f"{self.bbox[0]:.3f},{self.bbox[1]:.3f},{self.bbox[2]:.3f},{self.bbox[3]:.3f}"
@@ -205,6 +207,8 @@ class ECMap:
         result = await get_layer_dimension(layer_name, dimension, fetch=_get_resource)
         if result is None:
             return None
+        if dimension == "time" and result.step:
+            self._image_interval = result.step
         return result.start, result.end, result.default
 
     async def _get_dimensions(self):
@@ -454,7 +458,7 @@ class ECMap:
         curr = start
         while curr <= end:
             tasks.append(self._create_composite_image(frame_time=curr))
-            curr = curr + image_interval
+            curr = curr + self._image_interval
         composite_frames = await asyncio.gather(*tasks)
 
         # Repeat the last frame 3 times to make it pause at the end

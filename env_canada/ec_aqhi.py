@@ -8,6 +8,7 @@ from geopy import distance
 from lxml import etree as et
 
 from .constants import USER_AGENT
+from .ec_validate import coordinates
 
 AQHI_SITE_LIST_URL = (
     "https://dd.weather.gc.ca/today/air_quality/doc/AQHI_XML_File_List.xml"
@@ -124,10 +125,7 @@ class ECAirQuality:
                         ["atl", "ont", "pnr", "pyr", "que"]
                     ),
                     vol.Optional("region_id"): vol.All(str, vol.Length(5)),
-                    vol.Optional("coordinates"): (
-                        vol.All(vol.Or(int, float), vol.Range(-90, 90)),
-                        vol.All(vol.Or(int, float), vol.Range(-180, 180)),
-                    ),
+                    vol.Optional("coordinates"): coordinates,
                     vol.Optional("language", default="EN"): vol.In(["EN", "FR"]),
                 },
             )

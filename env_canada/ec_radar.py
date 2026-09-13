@@ -112,6 +112,6 @@ class ECRadar:
         """Fetch the background map image."""
         return await self._map._get_basemap()
 
-    async def _get_legend(self):
+    def _get_legend(self):
         """Fetch legend image."""
-        return await self._map._get_legend()
+        return self._map._generate_legend()

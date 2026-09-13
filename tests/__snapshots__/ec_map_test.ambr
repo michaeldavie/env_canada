@@ -1,0 +1,12 @@
+# serializer version: 1
+# name: TestECMapImageGeneration.test_image_output_regression
+  dict({
+    'format': 'PNG',
+    'has_transparency': True,
+    'mode': 'RGBA',
+    'size': tuple(
+      800,
+      800,
+    ),
+  })
+# ---

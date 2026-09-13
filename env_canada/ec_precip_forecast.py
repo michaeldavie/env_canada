@@ -33,6 +33,7 @@ from .ec_geomet import (
     get_layer_dimension,
 )
 from .ec_geomet import get_resource as _get_resource
+from .ec_validate import coordinates
 
 LOG = logging.getLogger(__name__)
 
@@ -105,31 +106,13 @@ snow_type_keywords = ("snow", "ice", "hail", "pellet")
 rain_type_keywords = ("rain", "drizzle")
 
 
-def _coordinates(value):
-    """Validate a (latitude, longitude) pair.
-
-    Voluptuous treats a tuple schema as "each element matches any of these
-    validators" rather than as positional, so the ranges have to be checked
-    by hand for a latitude/longitude mix-up to be caught.
-    """
-    try:
-        latitude, longitude = value
-    except (TypeError, ValueError) as err:
-        raise vol.Invalid("coordinates must be a (latitude, longitude) pair") from err
-    if not isinstance(latitude, (int, float)) or not -90 <= latitude <= 90:
-        raise vol.Invalid("latitude must be a number between -90 and 90")
-    if not isinstance(longitude, (int, float)) or not -180 <= longitude <= 180:
-        raise vol.Invalid("longitude must be a number between -180 and 180")
-    return (latitude, longitude)
-
-
 class ECPrecipForecast:
     def __init__(self, **kwargs):
         """Initialize the precipitation forecast object."""
 
         init_schema = vol.Schema(
             {
-                vol.Required("coordinates"): _coordinates,
+                vol.Required("coordinates"): coordinates,
                 vol.Required("precip_type", default="auto"): vol.In(
                     ["auto", "rain", "snow"]
                 ),
