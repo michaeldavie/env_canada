@@ -9,7 +9,7 @@ import voluptuous as vol
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
 from lxml import etree as et
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, UnidentifiedImageError
 
 from .constants import USER_AGENT
 from .ec_cache import Cache
@@ -371,10 +371,22 @@ class ECMap:
 
         try:
             layer_bytes = await _get_resource(geomet_url, params)
-            return Cache.add(layer_cache_key, layer_bytes, timedelta(minutes=200))
         except ClientConnectorError:
             LOG.warning("Layer could not be retrieved")
             return None
+
+        # GetCapabilities advertises a continuous time range, but doesn't
+        # guarantee every step within it actually has data - a gap here
+        # gets a ServiceExceptionReport (XML, HTTP 200) instead of an
+        # image. Treat it as "no data for this frame" rather than caching
+        # and returning bytes that will fail to decode as an image later.
+        try:
+            Image.open(BytesIO(layer_bytes))
+        except UnidentifiedImageError:
+            LOG.warning("No radar data for %s at %s", layer_name, time)
+            return None
+
+        return Cache.add(layer_cache_key, layer_bytes, timedelta(minutes=200))
 
     async def _create_composite_image(self, frame_time):
         """Create a composite image from the layer."""

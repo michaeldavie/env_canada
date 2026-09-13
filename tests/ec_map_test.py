@@ -111,6 +111,18 @@ def mock_capabilities_xml_with_extrapolation_gap():
 
 
 @pytest.fixture
+def mock_exception_xml():
+    """Mock OGC ServiceExceptionReport, mirroring what GeoMet returns (HTTP
+    200, not an error status) for a time GetCapabilities advertises but
+    doesn't actually have data for."""
+    return b"""<?xml version='1.0' encoding="utf-8"?>
+    <ogc:ServiceExceptionReport version="1.3.0"
+    xmlns:ogc="http://www.opengis.net/ogc">
+    <ogc:ServiceException code="NoMatch" locator="time">time outside valid hours</ogc:ServiceException>
+    </ogc:ServiceExceptionReport>"""
+
+
+@pytest.fixture
 def mock_image_bytes():
     """Mock PNG image bytes"""
     from PIL import Image
@@ -457,6 +469,47 @@ class TestECMapMocked:
         assert isinstance(frame, bytes)
         image = Image.open(BytesIO(frame))
         assert image.format == "PNG"
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_missing_frame_within_advertised_range_is_skipped(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml,
+        mock_exception_xml,
+        mock_image_bytes,
+    ):
+        """Test that a gap within GetCapabilities' own advertised time range
+        - a real GeoMet behaviour, not just at the observed/extrapolation
+        seam - doesn't crash get_loop(). Regression test: this used to
+        propagate PIL.UnidentifiedImageError out of get_loop() and take the
+        whole radar camera unavailable over a single missing frame."""
+        Cache.clear()
+
+        # Mocked capabilities span 13:54Z-16:54Z at 6-minute steps (31
+        # frames); make the middle one a ServiceExceptionReport.
+        missing_time = "2025-02-13T15:24:00Z"
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            if params.get("time") == missing_time:
+                return mock_exception_xml
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        loop = asyncio.run(map_obj.get_loop())
+
+        image = Image.open(BytesIO(loop))
+        assert image.format == "GIF" and image.is_animated
+
+        # The bad response isn't cached as if it were a real frame.
+        cache_key = (
+            f"{map_obj._get_cache_prefix()}-layer-RADAR_1KM_RRAI-{map_obj.colors}"
+            f"-{map_obj.interpolation}-{map_obj.webp}-{missing_time}"
+        )
+        assert Cache.get(cache_key) is None
 
     @patch("env_canada.ec_map._get_resource")
     def test_loop_minutes_truncates_frames(
