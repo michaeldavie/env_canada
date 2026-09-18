@@ -217,14 +217,19 @@ class ECMap:
     async def _get_layer_dimension(self, layer_name, dimension="time"):
         """Fetch a WMS layer's dimension range (and default value) from
         GetCapabilities. Returns (start, end, default) or None if the layer
-        or dimension doesn't exist."""
+        or dimension doesn't exist.
+
+        The start is the dimension's `effective_start`, not the value as
+        advertised: a cached capabilities response can describe a window
+        that has since slid forward, and its `start` is then a time the
+        server will refuse."""
 
         result = await get_layer_dimension(layer_name, dimension, fetch=_get_resource)
         if result is None:
             return None
         if dimension == "time" and result.step:
             self._image_interval = result.step
-        return result.start, result.end, result.default
+        return result.effective_start, result.end, result.default
 
     async def _get_dimensions(self):
         """Get the time range of currently observed images for the layer.
@@ -330,11 +335,14 @@ class ECMap:
             )
             return None
 
-        # GetCapabilities advertises a continuous time range, but doesn't
-        # guarantee every step within it actually has data - a gap here
-        # gets a ServiceExceptionReport (XML, HTTP 200) instead of an
-        # image. Treat it as "no data for this frame" rather than caching
-        # and returning bytes that will fail to decode as an image later.
+        # A time the server won't serve comes back as a
+        # ServiceExceptionReport (XML, HTTP 200) rather than an image or an
+        # error status, so it has to be detected from the body. The known
+        # causes are all requests for a time outside what the layer holds -
+        # a window that slid since its capabilities were read, a time
+        # off the dimension's own step grid, or the seam between the
+        # observed and extrapolation layers - and each is guarded against
+        # elsewhere; this is the backstop for whatever gets through.
         #
         # load() rather than a bare open(): open() only reads the header,
         # so a truncated image passes it and raises OSError later, inside

@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 import pytest
 from aiohttp import ClientResponseError
@@ -672,6 +672,57 @@ class TestECMapMocked:
                 f"-{map_obj.interpolation}-{map_obj.webp}-{missing_time}"
             )
             assert Cache.get(cache_key) is not None
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_stale_capabilities_do_not_request_a_window_that_has_slid(
+        self, mock_get_resource, mock_capabilities_xml, mock_image_bytes
+    ):
+        """Test that a capabilities response held across a publication
+        doesn't make the loop ask for a time the server has since dropped.
+
+        GeoMet slides a fixed-width window forward, so the `start` in a
+        cached response goes out of range as soon as a new step is
+        published - which is what produces the `code="NoMatch"` exception
+        in #160. The loop's oldest frame moves forward with the window
+        instead."""
+        Cache.clear()
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        # The window ends 16:54Z and a step is published a couple of minutes
+        # after the instant it's stamped with, so 16:56Z is a realistic time
+        # to have read the capabilities. The loop is then built at 17:01Z,
+        # after the grid instant 17:00Z has gone by but while the response
+        # is still cached - a Home Assistant poll landing mid-lifetime.
+        read_at = datetime(2025, 2, 13, 16, 56, tzinfo=UTC)
+        with freeze_time(read_at) as frozen:
+            map_obj = ECMap(coordinates=(50, -100), layer="rain")
+            asyncio.run(map_obj._get_dimensions())
+            frozen.tick(timedelta(minutes=5))
+
+            requested = []
+
+            def capture(url, params, bytes=True):
+                if "GetCapabilities" in str(params):
+                    return mock_capabilities_xml
+                if params.get("layers") != "CBMT":
+                    requested.append(params["time"])
+                return mock_image_bytes
+
+            mock_get_resource.side_effect = capture
+            asyncio.run(map_obj.get_loop())
+
+        # The advertised start is 13:54Z; one step has been published since
+        # the capabilities were read, so it is no longer served.
+        assert "2025-02-13T13:54:00Z" not in requested
+        assert min(requested) == "2025-02-13T14:00:00Z"
+        # The newest frame is still asked for.
+        assert max(requested) == "2025-02-13T16:54:00Z"
 
     @patch("env_canada.ec_map._get_resource")
     def test_loop_minutes_truncates_frames(
