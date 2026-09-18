@@ -1,5 +1,18 @@
 import pytest
 
+from env_canada.ec_cache import Cache
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """`Cache` is a process-wide dict, so whatever one test leaves in it is
+    visible to the next - a test that primed it with a stand-in response
+    could make an unrelated one fail depending on the order they ran in.
+    Start and finish every test with it empty."""
+    Cache.clear()
+    yield
+    Cache.clear()
+
 
 def pytest_addoption(parser):
     parser.addoption(

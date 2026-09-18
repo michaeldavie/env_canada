@@ -401,21 +401,63 @@ class TestECMapErrorHandling:
         # Skip this test for now as it requires complex mocking
         pytest.skip("Missing capabilities handling test needs refinement")
 
-    def test_invalid_capabilities_xml_handling(self):
-        """Test handling of malformed capabilities XML"""
-        # Test that malformed XML is handled gracefully in the actual method
-        # by mocking the Cache to return bad XML
-        with patch("env_canada.ec_map.Cache") as mock_cache:
-            mock_cache.get.return_value = b"<invalid>xml</malformed>"
+    @pytest.mark.parametrize(
+        ("label", "body"),
+        [
+            ("mismatched tags", b"<invalid>xml</malformed>"),
+            ("empty body", b""),
+            ("not xml at all", b"502 Bad Gateway"),
+        ],
+    )
+    @patch("env_canada.ec_map._get_resource")
+    def test_unreadable_capabilities_does_not_raise(
+        self, mock_get_resource, label, body, mock_image_bytes
+    ):
+        """Test that a GetCapabilities response that isn't usable XML - a
+        proxy error page, a truncated body - degrades to "no image" rather
+        than raising XMLSyntaxError out of update().
 
+        This used to propagate out of whatever call asked for it, so a
+        single bad response took down the whole integration. The response
+        is also not cached, so the next poll asks again."""
+        Cache.clear()
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return body
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+
+        assert asyncio.run(map_obj._get_dimensions()) is None
+        assert asyncio.run(map_obj.get_loop()) is None
+        assert asyncio.run(map_obj.get_latest_frame()) is None
+
+        # update() is what Home Assistant calls; it must not raise.
+        asyncio.run(map_obj.update())
+        assert map_obj.image is None
+
+        # Nothing unusable was kept, so a recovered server is picked up
+        # on the next poll rather than after the cache expires.
+        assert Cache.get("capabilities-RADAR_1KM_RRAI") is None
+
+    def test_capabilities_without_the_layer_returns_none(self):
+        """A well-formed response that simply doesn't carry the layer is a
+        different case: it parses, so it is cached rather than re-fetched."""
+        Cache.clear()
+        well_formed = b"""<?xml version="1.0" encoding="UTF-8"?>
+        <WMS_Capabilities xmlns="http://www.opengis.net/wms"></WMS_Capabilities>"""
+
+        def mock_response(url, params, bytes=True):
+            return well_formed
+
+        with patch("env_canada.ec_map._get_resource", side_effect=mock_response):
             map_obj = ECMap(coordinates=(50, -100), layer="rain")
-            # Should not crash with malformed XML, should return None
-            try:
-                result = asyncio.run(map_obj._get_dimensions())
-                assert result is None
-            except Exception:
-                # If it raises an exception, that's expected behavior for malformed XML
-                pass
+            assert asyncio.run(map_obj._get_dimensions()) is None
+
+        assert Cache.get("capabilities-RADAR_1KM_RRAI") is not None
 
 
 class TestECMapCaching:

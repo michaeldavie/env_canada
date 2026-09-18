@@ -6,6 +6,7 @@ call, the bounding-box maths and the GetCapabilities dimension parsing all
 live here.
 """
 
+import logging
 import math
 import re
 from dataclasses import dataclass, field
@@ -17,6 +18,8 @@ from lxml import etree as et
 
 from .constants import USER_AGENT
 from .ec_cache import Cache
+
+LOG = logging.getLogger(__name__)
 
 ATTRIBUTION = {
     "english": "Data provided by Environment Canada",
@@ -169,13 +172,27 @@ async def get_resource(url, params, bytes=True):
         return await response.text()
 
 
-def _parse_dimension(capabilities_xml, layer_name, dimension):
-    """Pull one dimension out of a GetCapabilities document.
+def _parse_capabilities(capabilities_xml, layer_name):
+    """Parse a GetCapabilities document, or None if it can't be read.
+
+    A response that isn't XML at all - a proxy error page, a truncated
+    body - would otherwise raise out of whichever update() asked for it,
+    taking down everything that call was building.
+    """
+    try:
+        return et.fromstring(capabilities_xml)
+    except et.XMLSyntaxError as err:
+        LOG.warning("Unreadable GetCapabilities response for %s: %s", layer_name, err)
+        return None
+
+
+def _parse_dimension(root, layer_name, dimension):
+    """Pull one dimension out of a parsed GetCapabilities document.
 
     Returns (start, end, default, step), or None if the layer or dimension
     isn't there.
     """
-    element = et.fromstring(capabilities_xml).find(
+    element = root.find(
         dimension_xpath.format(layer=layer_name, dim=dimension),
         namespaces=wms_namespace,
     )
@@ -193,10 +210,10 @@ def _parse_dimension(capabilities_xml, layer_name, dimension):
     return start, end, element.get("default"), step
 
 
-def _capabilities_cache_time(capabilities_xml, layer_name) -> timedelta:
+def _capabilities_cache_time(root, layer_name) -> timedelta:
     """How long to hold a GetCapabilities response, from the cadence the
     layer's time dimension advertises."""
-    parsed = _parse_dimension(capabilities_xml, layer_name, "time")
+    parsed = _parse_dimension(root, layer_name, "time")
     step = parsed[3] if parsed else None
     if not step:
         return DEFAULT_CAPABILITIES_CACHE_TIME
@@ -223,13 +240,21 @@ async def get_layer_dimension(
         # When the response was read, so a caller can tell how far the
         # window may have slid since - see LayerDimension.effective_start.
         fetched_at = datetime.now(UTC)
+
+    root = _parse_capabilities(capabilities_xml, layer_name)
+    if root is None:
+        # Not cached: an unreadable response is worth asking again for on
+        # the next poll rather than holding on to.
+        return None
+
+    if not cached:
         Cache.add(
             capabilities_cache_key,
             (fetched_at, capabilities_xml),
-            _capabilities_cache_time(capabilities_xml, layer_name),
+            _capabilities_cache_time(root, layer_name),
         )
 
-    parsed = _parse_dimension(capabilities_xml, layer_name, dimension)
+    parsed = _parse_dimension(root, layer_name, dimension)
     if parsed is None:
         return None
 
