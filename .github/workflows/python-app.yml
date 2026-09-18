@@ -47,3 +47,21 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Test
         run: uv run --frozen pytest --cov --cov-report=term-missing
+
+  # Branch protection on main requires a status check named "build", the
+  # name of the single job this workflow used to have. This job carries that
+  # name and succeeds only when every job above did, so the matrix can change
+  # without touching the protection rule.
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: always()
+    steps:
+      - name: Check that every job succeeded
+        run: |
+          echo "lint: ${{ needs.lint.result }}"
+          echo "test: ${{ needs.test.result }}"
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ]; then
+            exit 1
+          fi
