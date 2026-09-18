@@ -2,11 +2,16 @@ import asyncio
 from datetime import datetime, timedelta
 from io import BytesIO
 import pytest
+from aiohttp import ClientResponseError
+from aiohttp.client_reqrep import RequestInfo
+from freezegun import freeze_time
 from PIL import Image
 from unittest.mock import AsyncMock, patch
+from yarl import URL
 
 from env_canada import ECMap
 from env_canada.ec_cache import Cache
+from env_canada.ec_geomet import geomet_url
 from voluptuous import error
 from syrupy.assertion import SnapshotAssertion
 
@@ -131,6 +136,23 @@ def mock_image_bytes():
     buf = BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
+
+
+@pytest.fixture
+def mock_truncated_image_bytes(mock_image_bytes):
+    """A PNG cut off partway through its pixel data - a connection dropped
+    mid-response. The header is intact, so it passes Image.open(); only
+    decoding the pixels reveals it."""
+    return mock_image_bytes[: len(mock_image_bytes) // 2]
+
+
+def _client_response_error(status):
+    """Build the ClientResponseError that ClientSession(raise_for_status=True)
+    raises for an HTTP error status."""
+    url = URL(geomet_url)
+    return ClientResponseError(
+        RequestInfo(url, "GET", (), url), (), status=status, message="Server Error"
+    )
 
 
 class TestECMapInitialization:
@@ -513,6 +535,143 @@ class TestECMapMocked:
             f"-{map_obj.interpolation}-{map_obj.webp}-{missing_time}"
         )
         assert Cache.get(cache_key) is None
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            _client_response_error(500),
+            _client_response_error(503),
+            TimeoutError(),
+        ],
+        ids=["http_500", "http_503", "timeout"],
+    )
+    @patch("env_canada.ec_map._get_resource")
+    def test_transient_fetch_error_on_one_frame_is_skipped(
+        self, mock_get_resource, error, mock_capabilities_xml, mock_image_bytes
+    ):
+        """Test that a frame failing with an HTTP error status or a timeout
+        is skipped like any other missing frame. Regression test: only
+        ClientConnectorError was caught, but raise_for_status=True raises
+        ClientResponseError and a timeout raises TimeoutError, so a single
+        flaky frame aborted the whole loop."""
+        Cache.clear()
+
+        bad_time = "2025-02-13T15:24:00Z"
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            if params.get("time") == bad_time:
+                raise error
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        loop = asyncio.run(map_obj.get_loop())
+
+        image = Image.open(BytesIO(loop))
+        assert image.format == "GIF" and image.is_animated
+
+        cache_key = (
+            f"{map_obj._get_cache_prefix()}-layer-RADAR_1KM_RRAI-{map_obj.colors}"
+            f"-{map_obj.interpolation}-{map_obj.webp}-{bad_time}"
+        )
+        assert Cache.get(cache_key) is None
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_truncated_image_is_skipped(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml,
+        mock_image_bytes,
+        mock_truncated_image_bytes,
+    ):
+        """Test that a frame whose image data is cut off partway through is
+        skipped. Regression test: validation used Image.open(), which only
+        reads the header, so a truncated image was cached as a real frame
+        and then raised OSError inside the executor, aborting the loop."""
+        Cache.clear()
+
+        bad_time = "2025-02-13T15:24:00Z"
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            if params.get("time") == bad_time:
+                return mock_truncated_image_bytes
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        loop = asyncio.run(map_obj.get_loop())
+
+        image = Image.open(BytesIO(loop))
+        assert image.format == "GIF" and image.is_animated
+
+        cache_key = (
+            f"{map_obj._get_cache_prefix()}-layer-RADAR_1KM_RRAI-{map_obj.colors}"
+            f"-{map_obj.interpolation}-{map_obj.webp}-{bad_time}"
+        )
+        assert Cache.get(cache_key) is None
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_skipped_frame_is_retried_once_the_server_recovers(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml,
+        mock_exception_xml,
+        mock_image_bytes,
+    ):
+        """Test that a skipped frame is re-requested on a later poll rather
+        than leaving a basemap-only hole in the loop until the frame ages
+        out. Regression test: the composite rendered without its radar layer
+        was cached for the full 200 minutes, so a frame that failed once
+        stayed blank for effectively its whole life in the loop, even though
+        the server had recovered seconds later."""
+        Cache.clear()
+
+        missing_time = "2025-02-13T15:24:00Z"
+        good_time = "2025-02-13T15:30:00Z"
+        state = {"degraded": True, "requested": []}
+
+        def mock_response(url, params, bytes=True):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            if params.get("layers") != "CBMT":  # ignore the basemap
+                state["requested"].append(params.get("time"))
+            if params.get("time") == missing_time and state["degraded"]:
+                return mock_exception_xml
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+
+        with freeze_time("2025-02-13 17:00:00") as frozen:
+            asyncio.run(map_obj.get_loop())
+            assert missing_time in state["requested"]
+
+            # The server recovers, and Home Assistant polls again.
+            state["degraded"] = False
+            state["requested"].clear()
+            frozen.tick(timedelta(minutes=5))
+            loop = asyncio.run(map_obj.get_loop())
+
+            # The frame that failed is retried...
+            assert missing_time in state["requested"]
+            # ...while frames that succeeded are still served from cache.
+            assert good_time not in state["requested"]
+
+            assert Image.open(BytesIO(loop)).format == "GIF"
+
+            # The retried frame is now cached as a real frame.
+            cache_key = (
+                f"{map_obj._get_cache_prefix()}-layer-RADAR_1KM_RRAI-{map_obj.colors}"
+                f"-{map_obj.interpolation}-{map_obj.webp}-{missing_time}"
+            )
+            assert Cache.get(cache_key) is not None
 
     @patch("env_canada.ec_map._get_resource")
     def test_loop_minutes_truncates_frames(

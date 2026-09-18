@@ -4,8 +4,8 @@ from datetime import timedelta
 from io import BytesIO
 
 import voluptuous as vol
-from aiohttp.client_exceptions import ClientConnectorError
-from PIL import Image, ImageDraw, UnidentifiedImageError
+from aiohttp.client_exceptions import ClientError
+from PIL import Image, ImageDraw
 
 from .ec_validate import coordinates
 from .ec_cache import Cache
@@ -18,6 +18,21 @@ from .ec_legend import generate_legend, load_font
 LOG = logging.getLogger(__name__)
 
 __all__ = ["ECMap"]
+
+# Anything that means "this request didn't come back" and may well work on
+# the next poll: connection failures, but also the HTTP error statuses
+# ClientSession(raise_for_status=True) turns into ClientResponseError, and
+# timeouts, which aiohttp raises as a bare TimeoutError. A single frame
+# hitting one of these should be skipped, not abort the whole loop.
+FETCH_ERRORS = (ClientError, TimeoutError)
+
+# How long a rendered frame stays cached. A frame whose radar layer came
+# back fine never changes, so it's held for the whole time it can remain in
+# a loop. One rendered without its layer - a skipped frame - is held only
+# briefly, so the next poll retries it instead of leaving a basemap-only
+# hole in the animation for hours after the server has recovered.
+FRAME_CACHE_TIME = timedelta(minutes=200)
+MISSING_FRAME_CACHE_TIME = timedelta(minutes=2)
 
 # Natural Resources Canada
 
@@ -188,7 +203,7 @@ class ECMap:
         try:
             base_bytes = await _get_resource(basemap_url, basemap_params)
             return Cache.add(basemap_cache_key, base_bytes, timedelta(days=7))
-        except ClientConnectorError as e:
+        except FETCH_ERRORS as e:
             LOG.warning("Map from %s could not be retrieved: %s", basemap_url, e)
             return None
 
@@ -309,8 +324,10 @@ class ECMap:
 
         try:
             layer_bytes = await _get_resource(geomet_url, params)
-        except ClientConnectorError:
-            LOG.warning("Layer could not be retrieved")
+        except FETCH_ERRORS as e:
+            LOG.warning(
+                "Layer %s at %s could not be retrieved: %s", layer_name, time, e
+            )
             return None
 
         # GetCapabilities advertises a continuous time range, but doesn't
@@ -318,13 +335,18 @@ class ECMap:
         # gets a ServiceExceptionReport (XML, HTTP 200) instead of an
         # image. Treat it as "no data for this frame" rather than caching
         # and returning bytes that will fail to decode as an image later.
+        #
+        # load() rather than a bare open(): open() only reads the header,
+        # so a truncated image passes it and raises OSError later, inside
+        # the executor where it aborts the whole loop. UnidentifiedImageError
+        # is itself an OSError, so one except covers both.
         try:
-            Image.open(BytesIO(layer_bytes))
-        except UnidentifiedImageError:
-            LOG.warning("No radar data for %s at %s", layer_name, time)
+            Image.open(BytesIO(layer_bytes)).load()
+        except OSError:
+            LOG.warning("No usable radar data for %s at %s", layer_name, time)
             return None
 
-        return Cache.add(layer_cache_key, layer_bytes, timedelta(minutes=200))
+        return Cache.add(layer_cache_key, layer_bytes, FRAME_CACHE_TIME)
 
     async def _create_composite_image(self, frame_time):
         """Create a composite image from the layer."""
@@ -396,7 +418,7 @@ class ECMap:
             return Cache.add(
                 cache_key,
                 img_byte_arr.getvalue(),
-                timedelta(minutes=200),
+                FRAME_CACHE_TIME if layer_bytes else MISSING_FRAME_CACHE_TIME,
             )
 
         base_bytes = await self._get_basemap()
