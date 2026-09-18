@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changes
+
+- **ECMap**: Fix the radar loop asking for a timestamp the server has already dropped. GeoMet slides a fixed-width window forward, retiring the oldest step as it publishes a new one, so a GetCapabilities response held in the cache across a publication names a `start` that is no longer served - which is what produces the `code="NoMatch"` exception behind the broken radar images in [#160](https://github.com/michaeldavie/env_canada/issues/160). The loop's oldest frame now moves forward with the window, counting the grid instants that have passed since the response was read ([#160](https://github.com/michaeldavie/env_canada/issues/160))
+- GetCapabilities responses are now cached for the cadence the layer's own time dimension advertises, bounded to between 1 and 15 minutes, rather than a fixed 5 minutes. A layer is worth re-reading about once per publication: 5 minutes was arbitrary against the radar layers' `PT6M`, and wasteful against HRDPS's `PT1H`
+- Correct the description of the v0.20.0 radar fix, which attributed it to GeoMet having no data for timestamps inside its own advertised range. Probing every advertised step of both radar layers found no such gaps; the timestamps it declines are ones outside what the layer holds, which is what the fixes in v0.19.2, v0.20.1 and this release each address a cause of
+
 ## v0.20.2
 
 ### Changes
@@ -26,7 +32,7 @@
 - **Coordinate validation**: Fix `coordinates` being accepted when out of range or given the wrong way round. Voluptuous reads a tuple schema as "every element matches any one of these validators" rather than as positional, so the previous `(Range(-90, 90), Range(-180, 180))` schema accepted a latitude of 95 — it matched the longitude validator — and silently queried the wrong location. Affected `ECAirQuality`, `ECHydro`, `ECMap`, `ECRadar` and `ECWeather`; all now share a validator in `ec_validate`
 - **ECRadar**: Fix `_get_legend()` raising `AttributeError`. It forwarded to `ECMap._get_legend()`, which does not exist; the method it wants is `_generate_legend()`
 - **ECMap**: Use the frame interval the layer's time dimension advertises rather than assuming 6 minutes. No change for the radar layers, which are all `PT6M`
-- **ECMap**: Fix a crash (`PIL.UnidentifiedImageError`) when GeoMet has no data for a timestamp its own GetCapabilities advertises. Those requests come back as an `ogc:ServiceExceptionReport` XML body with an HTTP 200 status, which was cached and returned as if it were frame data, taking the whole radar image down over a single missing frame - and, because the bad response stayed cached, keeping it down long after the server recovered. Frame data is now validated before being cached, and an unusable frame is skipped (this entry was omitted when v0.20.0 was released; the fix is in that version) ([#160](https://github.com/michaeldavie/env_canada/issues/160))
+- **ECMap**: Fix a crash (`PIL.UnidentifiedImageError`) when GeoMet declines to serve a requested radar timestamp. It answers with an `ogc:ServiceExceptionReport` XML body under an HTTP 200 status rather than an error status, so the XML was cached and returned as if it were frame data, taking the whole radar image down over a single frame - and, because the bad response stayed cached, keeping it down long after the server recovered. Frame data is now validated before being cached, and an unusable frame is skipped (this entry was omitted when v0.20.0 was released; the fix is in that version) ([#160](https://github.com/michaeldavie/env_canada/issues/160))
 - Fix `_text_size()` in `ec_legend` being annotated as returning `tuple[int, int]` while returning floats
 - Fix two `--run-slow` tests that could not pass: one asserted against a snapshot that had never been recorded, the other requested a radar frame from a hardcoded February 2025 timestamp, long outside the few hours of frames the server retains. Neither runs in CI, so both had gone unnoticed
 
