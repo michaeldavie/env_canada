@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.20.2
+
+### Changes
+
+- **ECMap**: Fix a single frame failing with an HTTP error status or a timeout aborting the whole loop. `_get_layer_image()` caught only `ClientConnectorError`, but `ClientSession(raise_for_status=True)` raises `ClientResponseError` for a 5xx and aiohttp raises `TimeoutError` on a timeout, so one flaky frame out of the ~31 in a default loop took the entire radar image down rather than being skipped like any other missing frame ([#160](https://github.com/michaeldavie/env_canada/issues/160))
+- **ECMap**: Fix a skipped frame staying blank for hours after the server recovered. A frame rendered without its radar layer was cached for the same 200 minutes as a good one, and since a frame ages out of the server's ~3-hour window at about the same time, a frame that failed once was effectively blank for its whole life in the loop. Those frames are now cached for 2 minutes, so the next poll retries them; successfully rendered frames are unaffected ([#160](https://github.com/michaeldavie/env_canada/issues/160))
+- **ECMap**: Fix a truncated image - a connection dropped mid-response - being cached as a valid frame and then raising `OSError` while assembling the loop. Frame validation used `Image.open()`, which only reads the header; it now decodes the pixel data as well
+- **ECMap**: Log the layer and timestamp when a frame can't be retrieved, rather than just "Layer could not be retrieved"
+
 ## v0.20.1
 
 ### Changes
@@ -17,6 +26,7 @@
 - **Coordinate validation**: Fix `coordinates` being accepted when out of range or given the wrong way round. Voluptuous reads a tuple schema as "every element matches any one of these validators" rather than as positional, so the previous `(Range(-90, 90), Range(-180, 180))` schema accepted a latitude of 95 — it matched the longitude validator — and silently queried the wrong location. Affected `ECAirQuality`, `ECHydro`, `ECMap`, `ECRadar` and `ECWeather`; all now share a validator in `ec_validate`
 - **ECRadar**: Fix `_get_legend()` raising `AttributeError`. It forwarded to `ECMap._get_legend()`, which does not exist; the method it wants is `_generate_legend()`
 - **ECMap**: Use the frame interval the layer's time dimension advertises rather than assuming 6 minutes. No change for the radar layers, which are all `PT6M`
+- **ECMap**: Fix a crash (`PIL.UnidentifiedImageError`) when GeoMet has no data for a timestamp its own GetCapabilities advertises. Those requests come back as an `ogc:ServiceExceptionReport` XML body with an HTTP 200 status, which was cached and returned as if it were frame data, taking the whole radar image down over a single missing frame - and, because the bad response stayed cached, keeping it down long after the server recovered. Frame data is now validated before being cached, and an unusable frame is skipped (this entry was omitted when v0.20.0 was released; the fix is in that version) ([#160](https://github.com/michaeldavie/env_canada/issues/160))
 - Fix `_text_size()` in `ec_legend` being annotated as returning `tuple[int, int]` while returning floats
 - Fix two `--run-slow` tests that could not pass: one asserted against a snapshot that had never been recorded, the other requested a radar frame from a hardcoded February 2025 timestamp, long outside the few hours of frames the server retains. Neither runs in CI, so both had gone unnoticed
 
