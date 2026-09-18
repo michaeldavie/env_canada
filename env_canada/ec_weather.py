@@ -3,7 +3,7 @@ import csv
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urljoin
 
 import voluptuous as vol
@@ -615,7 +615,7 @@ class ECWeather:
             title = alert.attrib.get("description")
             type_ = alert.attrib.get("type")
             if title is not None and type_ is not None and type_ in ALERT_TYPE_TO_NAME:
-                self.alerts[ALERT_TYPE_TO_NAME[type_]]["value"].append(  # type: ignore[attr-defined]
+                self.alerts[ALERT_TYPE_TO_NAME[type_]]["value"].append(
                     {
                         "title": title.strip().title(),
                         "date": _get_xml_text(alert, "./dateTime[last()]/textSummary"),

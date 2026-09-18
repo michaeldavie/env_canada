@@ -1,19 +1,20 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from aiohttp import ClientResponseError
 from aiohttp.client_reqrep import RequestInfo
 from freezegun import freeze_time
 from PIL import Image
-from unittest.mock import AsyncMock, patch
+from syrupy.assertion import SnapshotAssertion
+from voluptuous import error
 from yarl import URL
 
 from env_canada import ECMap
 from env_canada.ec_cache import Cache
 from env_canada.ec_geomet import geomet_url
-from voluptuous import error
-from syrupy.assertion import SnapshotAssertion
 
 
 # Test fixtures
@@ -390,16 +391,6 @@ class TestECMapImageGeneration:
 
 class TestECMapErrorHandling:
     """Test ECMap error handling"""
-
-    def test_network_error_handling(self):
-        """Test graceful handling of network errors"""
-        # Skip this test for now as it requires complex mocking
-        pytest.skip("Network error handling test needs refinement")
-
-    def test_missing_capabilities_handling(self):
-        """Test handling when capabilities request fails"""
-        # Skip this test for now as it requires complex mocking
-        pytest.skip("Missing capabilities handling test needs refinement")
 
     @pytest.mark.parametrize(
         ("label", "body"),
@@ -1226,20 +1217,6 @@ class TestECMapMocked:
 
         assert captured_params[0]["layers"] == "RADAR_1KM_RRAI"
         assert "dim_reference_time" not in captured_params[0]
-
-
-# Legacy tests for backward compatibility
-def test_validate_layers():
-    """Legacy test - kept for backward compatibility"""
-    map_obj = ECMap(coordinates=(50, -100), layer="rain")
-    assert map_obj.layer == "rain"
-
-    map_obj = ECMap(coordinates=(50, -100), layer="snow")
-    assert map_obj.layer == "snow"
-
-    # Invalid layer
-    with pytest.raises(error.MultipleInvalid):
-        ECMap(coordinates=(50, -100), layer="invalid_layer")
 
 
 @patch("env_canada.ec_map._get_resource")

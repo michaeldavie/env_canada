@@ -2,7 +2,7 @@ import copy
 import logging
 import math
 from dataclasses import dataclass
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 
 from aiohttp import ClientSession, ClientTimeout
 
@@ -79,7 +79,7 @@ class ECAlerts:
 
     async def update(self):
         """Fetch current alerts from Environment Canada GeoMet WFS."""
-        from .ec_weather import ALERTS_INIT, ALERT_TYPE_TO_NAME  # lazy import
+        from .ec_weather import ALERT_TYPE_TO_NAME, ALERTS_INIT  # lazy import
 
         cache_key = f"alerts-{self.language}-{self.lat:.4f}-{self.lon:.4f}"
         cached = Cache.get(cache_key)

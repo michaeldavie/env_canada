@@ -56,9 +56,11 @@ test = [
     "pytest-asyncio >=0.23",
     "syrupy >=4.8.1",
     "freezegun >= 1.5.1",
+    "pytest-cov >=7.1",
 ]
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.setuptools]
@@ -69,5 +71,25 @@ packages = ["env_canada"]
 env_canada = ["*.ttf"]
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "B", "T201", "PD", "RUF", "ERA", "LOG", "G", "UP"]
+select = ["E4", "E7", "E9", "F", "B", "T201", "PD", "RUF", "ERA", "LOG", "G", "UP", "I"]
 ignore = ["ERA001"]
+
+[tool.mypy]
+files = ["env_canada"]
+python_version = "3.11"
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+# geopy ships neither stubs nor a py.typed marker.
+module = ["geopy.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["env_canada"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
