@@ -2,8 +2,11 @@
 
 ## Unreleased
 
+## v0.20.3
+
 ### Changes
 
+- Fix a GetCapabilities response that isn't usable XML - a proxy error page, a truncated body - raising `lxml.etree.XMLSyntaxError` out of `update()` and taking down everything that call was building. It now degrades to "no image" and is left out of the cache, so a recovered server is picked up on the next poll rather than after the cache expires. Affects `ECMap`, `ECRadar` and `ECPrecipForecast`
 - **ECMap**: Fix the radar loop asking for a timestamp the server has already dropped. GeoMet slides a fixed-width window forward, retiring the oldest step as it publishes a new one, so a GetCapabilities response held in the cache across a publication names a `start` that is no longer served - which is what produces the `code="NoMatch"` exception behind the broken radar images in [#160](https://github.com/michaeldavie/env_canada/issues/160). The loop's oldest frame now moves forward with the window, counting the grid instants that have passed since the response was read ([#160](https://github.com/michaeldavie/env_canada/issues/160))
 - GetCapabilities responses are now cached for the cadence the layer's own time dimension advertises, bounded to between 1 and 15 minutes, rather than a fixed 5 minutes. A layer is worth re-reading about once per publication: 5 minutes was arbitrary against the radar layers' `PT6M`, and wasteful against HRDPS's `PT1H`
 - Correct the description of the v0.20.0 radar fix, which attributed it to GeoMet having no data for timestamps inside its own advertised range. Probing every advertised step of both radar layers found no such gaps; the timestamps it declines are ones outside what the layer holds, which is what the fixes in v0.19.2, v0.20.1 and this release each address a cause of
