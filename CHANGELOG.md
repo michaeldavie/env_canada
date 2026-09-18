@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Changes
+
+- CI now tests on Python 3.11 through 3.14, rather than only whichever interpreter the runner happens to ship, so the declared floor and the version Home Assistant runs are both covered. The workflow also runs with a read-only token, cancels superseded runs, and no longer runs twice for a pull request opened from a branch in this repository. A `build` job that depends on every other job keeps the name the branch protection rule requires
+- Ruff and mypy now run from the project's locked environment everywhere - pre-commit, CI and a plain `uv run` - so all three use the same version and the same configuration. Previously pre-commit ran its own mypy with `--ignore-missing-imports` and without the lxml and pandas stubs, and passed, while `uv run mypy env_canada` failed on geopy. mypy is now configured in `pyproject.toml` with a geopy override
+- Report branch coverage in CI via pytest-cov, and enable ruff's import sorting
+- Remove three tests that could never run - two placeholders that skipped unconditionally, and a radar snapshot test disabled when `ECRadar` was rebuilt on `ECMap` - along with the 34 fixture files only the latter used, and a duplicate layer-validation test
+- Add `AGENTS.md`, a checked-in brief for AI coding agents and contributors: module map, commands, the Home Assistant API contract, testing rules and the release steps
+- README: remove the Snyk badge, which no longer resolves, and correct the note claiming legend styles are discovered from the WMS server; legends have been rendered locally since v0.15.0
+
 ## v0.20.3
 
 ### Changes

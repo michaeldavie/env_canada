@@ -7,13 +7,12 @@ import voluptuous as vol
 from aiohttp.client_exceptions import ClientError
 from PIL import Image, ImageDraw
 
-from .ec_validate import coordinates
 from .ec_cache import Cache
-from .ec_geomet import ATTRIBUTION
+from .ec_geomet import ATTRIBUTION, geomet_url, get_layer_dimension
 from .ec_geomet import compute_bounding_box as _compute_bounding_box
-from .ec_geomet import geomet_url, get_layer_dimension
 from .ec_geomet import get_resource as _get_resource
 from .ec_legend import generate_legend, load_font
+from .ec_validate import coordinates
 
 LOG = logging.getLogger(__name__)
 
