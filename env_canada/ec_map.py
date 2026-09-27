@@ -215,20 +215,32 @@ class ECMap:
         return count
 
     async def _get_basemap(self):
-        """Fetch the background map image."""
+        """Fetch the background map image, or None if it can't be had."""
         basemap_cache_key = f"{self._get_cache_prefix()}-basemap"
         if base_bytes := Cache.get(basemap_cache_key):
             return base_bytes
 
-        basemap_params.update(self.map_params)
+        # A fresh dict: the module-level one is shared by every ECMap, and
+        # updating it in place let two maps fetching at once send each
+        # other's bounding box.
+        params = {**basemap_params, **self.map_params}
         try:
             base_bytes = await _get_resource(
-                basemap_url, basemap_params, timeout=BASEMAP_TIMEOUT
+                basemap_url, params, timeout=BASEMAP_TIMEOUT
             )
-            return Cache.add(basemap_cache_key, base_bytes, timedelta(days=7))
         except FETCH_ERRORS as e:
             LOG.warning("Map from %s could not be retrieved: %s", basemap_url, e)
             return None
+
+        # A WMS error comes back as XML under HTTP 200. Cached as if it were
+        # the map, it would fail every frame for the week it is kept.
+        try:
+            Image.open(BytesIO(base_bytes)).load()
+        except OSError:
+            LOG.warning("Map from %s is not a usable image", basemap_url)
+            return None
+
+        return Cache.add(basemap_cache_key, base_bytes, timedelta(days=7))
 
     def _generate_legend(self) -> Image.Image | None:
         """Generate a horizontal legend image for the current layer."""
@@ -379,8 +391,9 @@ class ECMap:
 
         return Cache.add(layer_cache_key, layer_bytes, FRAME_CACHE_TIME)
 
-    async def _create_composite_image(self, frame_time):
-        """Create a composite image from the layer."""
+    async def _create_composite_image(self, frame_time, base_bytes):
+        """Draw one frame: the layer at `frame_time` over `base_bytes`, the
+        basemap, which callers fetch once for all the frames they draw."""
 
         layer_name, _, _ = self._resolve_layer(frame_time)
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
@@ -449,10 +462,12 @@ class ECMap:
             return Cache.add(
                 cache_key,
                 img_byte_arr.getvalue(),
-                FRAME_CACHE_TIME if layer_bytes else MISSING_FRAME_CACHE_TIME,
+                # A frame missing either part is redrawn on the next poll.
+                FRAME_CACHE_TIME
+                if layer_bytes and base_bytes
+                else MISSING_FRAME_CACHE_TIME,
             )
 
-        base_bytes = await self._get_basemap()
         layer_bytes = await self._get_layer_image(frame_time)
         legend_image = self._generate_legend() if self.show_legend else None
 
@@ -464,7 +479,8 @@ class ECMap:
         if not dimensions:
             return None
 
-        return await self._create_composite_image(frame_time=dimensions[1])
+        base_bytes = await self._get_basemap()
+        return await self._create_composite_image(dimensions[1], base_bytes)
 
     async def update(self):
         self.image = await self.get_loop()
@@ -492,7 +508,9 @@ class ECMap:
             )
             return animation.getvalue()
 
-        await self._get_basemap()
+        # Fetched once and shared by every frame: if it fails, one request
+        # has failed, rather than one per frame.
+        base_bytes = await self._get_basemap()
 
         # Use the layer to determine the time dimensions
         timespan = await self._get_dimensions()
@@ -520,7 +538,7 @@ class ECMap:
         tasks = []
         curr = start
         while curr <= end:
-            tasks.append(self._create_composite_image(frame_time=curr))
+            tasks.append(self._create_composite_image(curr, base_bytes))
             curr = curr + self._image_interval
         composite_frames = await asyncio.gather(*tasks)
 

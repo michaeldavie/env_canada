@@ -691,6 +691,113 @@ class TestECMapMocked:
         assert Cache.get(cache_key) is None
 
     @patch("env_canada.ec_map._get_resource")
+    def test_maps_fetching_at_once_each_request_their_own_basemap(
+        self, mock_get_resource, mock_image_bytes
+    ):
+        """The basemap request was built by updating a module-level dict in
+        place, shared by every ECMap. Two maps fetching at once - two
+        locations in Home Assistant starting up together - could each send
+        the other's bounding box, and the wrong map was then cached under
+        the right location for a week."""
+        requested_bboxes = []
+
+        async def mock_response(url, params, bytes=True, timeout=None):
+            await asyncio.sleep(0)  # a real request yields before sending
+            requested_bboxes.append(params["bbox"])
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        ottawa = ECMap(coordinates=(45.42, -75.70))
+        vancouver = ECMap(coordinates=(49.28, -123.12))
+
+        async def fetch_both():
+            await asyncio.gather(ottawa._get_basemap(), vancouver._get_basemap())
+
+        asyncio.run(fetch_both())
+
+        assert sorted(requested_bboxes) == sorted(
+            [ottawa.map_params["bbox"], vancouver.map_params["bbox"]]
+        )
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_failed_basemap_is_fetched_once_per_poll_and_retried_on_the_next(
+        self, mock_get_resource, mock_capabilities_xml, mock_image_bytes
+    ):
+        """When the basemap couldn't be fetched, every frame of the loop
+        asked for it again, all at once - 31 simultaneous requests to a
+        server that had just failed one. The frames drawn without it were
+        then cached for the full 200 minutes, so the loop stayed on a blank
+        background long after the basemap came back."""
+        blue = Image.new("RGBA", (100, 100), (0, 0, 255, 255))
+        buf = BytesIO()
+        blue.save(buf, format="PNG")
+        basemap_bytes = buf.getvalue()
+        state = {"basemap_up": False, "basemap_requests": 0}
+
+        def mock_response(url, params, bytes=True, timeout=None):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            if params.get("layers") == "CBMT":
+                state["basemap_requests"] += 1
+                if not state["basemap_up"]:
+                    raise _client_response_error(503)
+                return basemap_bytes
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+        # Sized to match the mocked layer image, since a missing basemap is
+        # replaced by a blank canvas of the map's own size.
+        map_obj = ECMap(
+            coordinates=(50, -100), width=100, height=100, legend=False, timestamp=False
+        )
+
+        with freeze_time("2025-02-13 16:56:00") as frozen:
+            first = asyncio.run(map_obj.get_loop())
+            assert Image.open(BytesIO(first)).format == "GIF"
+            assert state["basemap_requests"] == 1
+
+            # The basemap server recovers before the next poll.
+            state["basemap_up"] = True
+            state["basemap_requests"] = 0
+            frozen.tick(timedelta(minutes=5))
+            second = asyncio.run(map_obj.get_loop())
+
+        assert state["basemap_requests"] == 1
+        # The frames were drawn again, now over the basemap.
+        assert second != first
+
+    @patch("env_canada.ec_map._get_resource")
+    def test_basemap_that_is_not_an_image_is_not_cached(
+        self,
+        mock_get_resource,
+        mock_capabilities_xml,
+        mock_exception_xml,
+        mock_image_bytes,
+    ):
+        """A WMS error comes back as XML under HTTP 200. The basemap was
+        cached without being checked, so one error response was kept for a
+        week and failed every frame of every loop drawn in that time with
+        PIL.UnidentifiedImageError."""
+
+        def mock_response(url, params, bytes=True, timeout=None):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml
+            if params.get("layers") == "CBMT":
+                return mock_exception_xml
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+        # Sized to match the mocked layer image, since a rejected basemap is
+        # replaced by a blank canvas of the map's own size.
+        map_obj = ECMap(coordinates=(50, -100), width=100, height=100)
+
+        loop = asyncio.run(map_obj.get_loop())
+
+        assert Image.open(BytesIO(loop)).format == "GIF"
+        assert Cache.get(f"{map_obj._get_cache_prefix()}-basemap") is None
+
+    @patch("env_canada.ec_map._get_resource")
     def test_skipped_frame_is_retried_once_the_server_recovers(
         self,
         mock_get_resource,
