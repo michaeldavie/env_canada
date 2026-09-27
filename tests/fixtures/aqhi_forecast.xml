@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<forecastAirQuality productHeader="AQ_FCST" status="issued">
+ <region nameEn="Ottawa" nameFr="Ottawa">FEVNT</region>
+<dateStamp name="aqForecastIssued" zoneEn="EDT" zoneFr="HAE">
+<year>2026</year>
+<month nameEn="September" nameFr="septembre">9</month>
+<day nameEn="Sunday" nameFr="dimanche">27</day>
+<hour clock="12h" ampm="PM">5</hour>
+<minute>0</minute>
+<second/>
+ <UTCStamp>20260927210000</UTCStamp>
+ <textSummary lang="EN">5:00 PM EDT Sunday 27 September 2026</textSummary>
+ <textSummary lang="FR">17h00 HAE dimanche 27 septembre 2026</textSummary>
+</dateStamp>
+<nextIssue>
+ <UTCStamp>202609281000</UTCStamp>
+</nextIssue>
+<warningGroup>
+</warningGroup>
+ <forecastGroup>
+  <forecast periodID="2">
+   <period forecastName="Tonight" lang="EN">Sunday night</period>
+   <period forecastName="Ce soir et cette nuit" lang="FR">dimanche soir et nuit</period>
+   <airQualityHealthIndex>2</airQualityHealthIndex>
+</forecast>
+  <forecast periodID="3">
+   <period forecastName="Tomorrow" lang="EN">Monday</period>
+   <period forecastName="Demain" lang="FR">lundi</period>
+   <airQualityHealthIndex>2</airQualityHealthIndex>
+</forecast>
+  <forecast periodID="4">
+   <period forecastName="Tomorrow Night" lang="EN">Monday night</period>
+   <period forecastName="Demain soir et nuit" lang="FR">lundi soir et nuit</period>
+   <airQualityHealthIndex>2</airQualityHealthIndex>
+</forecast>
+  <forecast periodID="5">
+   <period forecastName="Day 3" lang="EN">Tuesday</period>
+   <period forecastName="Jour 3" lang="FR">mardi</period>
+   <airQualityHealthIndex>2</airQualityHealthIndex>
+</forecast>
+ </forecastGroup>
+<hourlyForecastGroup>
+   <hourlyForecast UTCTime="20260927210000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260927220000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260927230000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260928000000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260928010000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928020000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928030000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928040000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928050000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928060000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928070000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928080000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928090000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928100000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928110000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928120000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928130000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928140000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928150000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928160000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260928170000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260928180000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260928190000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260928200000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260928210000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260928220000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260928230000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260929000000">2</hourlyForecast>
+   <hourlyForecast UTCTime="20260929010000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260929020000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260929030000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260929040000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260929050000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260929060000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260929070000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260929080000">1</hourlyForecast>
+   <hourlyForecast UTCTime="20260929090000">1</hourlyForecast>
+</hourlyForecastGroup>
+</forecastAirQuality>

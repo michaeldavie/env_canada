@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import voluptuous as vol
-from aiohttp import ClientSession
+from aiohttp import ClientError, ClientSession
 from geopy import distance
 from lxml import etree as et
 
@@ -153,20 +153,27 @@ class ECAirQuality:
         self.forecasts = dict(daily={}, hourly={})
 
     async def get_aqhi_data(self, url):
-        async with ClientSession(raise_for_status=True) as session:
-            try:
+        """Fetch and parse one AQHI document, or None if it can't be had."""
+        try:
+            async with ClientSession(raise_for_status=True) as session:
                 response = await session.get(
                     url.format(self.zone_id, self.region_id),
                     headers={"User-Agent": USER_AGENT},
                     timeout=CLIENT_TIMEOUT,
                 )
-            except Exception:
-                LOG.debug("Retrieving AQHI failed", exc_info=True)
-                return None
+                body = await response.read()
+        except (ClientError, TimeoutError):
+            LOG.debug("Retrieving AQHI failed", exc_info=True)
+            return None
 
-            result = await response.read()
-            aqhi_xml = result
-            return et.fromstring(aqhi_xml)
+        # An unreadable body - truncated, or an error page - is handled like
+        # a failed request. lxml's XMLSyntaxError is not the xml.etree
+        # ParseError that callers such as Home Assistant catch.
+        try:
+            return et.fromstring(body)
+        except et.XMLSyntaxError as err:
+            LOG.warning("Unreadable AQHI response from %s: %s", url, err)
+            return None
 
     async def update(self):
         # Find closest site if not identified
@@ -185,26 +192,20 @@ class ECAirQuality:
         aqhi_current = await self.get_aqhi_data(url=AQHI_OBSERVATION_URL)
 
         if aqhi_current is not None:
-            # Update region name
-            element = aqhi_current.find("region")
-            self.region_name = element.attrib[f"name{self.language.title()}"]
-            self.metadata.location = self.region_name
+            region = aqhi_current.find("region")
+            if region is not None:
+                self.region_name = region.get(f"name{self.language.title()}")
+                self.metadata.location = self.region_name
 
-            # Update AQHI current condition
-            element = aqhi_current.find("airQualityHealthIndex")
-            if element is not None:
-                self.current = float(element.text)
-            else:
-                self.current = None
+            # An element that is missing or empty means "no value".
+            index = aqhi_current.findtext("airQualityHealthIndex")
+            self.current = float(index) if index else None
 
-            element = aqhi_current.find("./dateStamp/UTCStamp")
-            if element is not None:
-                self.current_timestamp = timestamp_to_datetime(element.text)
-            else:
-                self.current_timestamp = None
+            stamp = aqhi_current.findtext("./dateStamp/UTCStamp")
+            self.current_timestamp = timestamp_to_datetime(stamp) if stamp else None
             self.metadata.timestamp = self.current_timestamp
             LOG.debug(
-                "update(): aqhi_current %d timestamp %s",
+                "update(): aqhi_current %s timestamp %s",
                 self.current,
                 self.current_timestamp,
             )
@@ -212,18 +213,26 @@ class ECAirQuality:
         # Update AQHI forecasts
         aqhi_forecast = await self.get_aqhi_data(url=AQHI_FORECAST_URL)
 
+        # Each forecast replaces the last rather than being added to it.
         if aqhi_forecast is not None:
-            # Update AQHI daily forecasts
+            daily = {}
             for f in aqhi_forecast.findall("./forecastGroup/forecast"):
-                for p in f.findall("./period"):
-                    if self.language == p.attrib["lang"]:
-                        period = p.attrib["forecastName"]
-                self.forecasts["daily"][period] = int(
-                    f.findtext("./airQualityHealthIndex") or 0
+                period = next(
+                    (
+                        p.get("forecastName")
+                        for p in f.findall("./period")
+                        if p.get("lang") == self.language
+                    ),
+                    None,
                 )
+                if period is None:
+                    continue
+                daily[period] = int(f.findtext("./airQualityHealthIndex") or 0)
 
-            # Update AQHI hourly forecasts
-            for f in aqhi_forecast.findall("./hourlyForecastGroup/hourlyForecast"):
-                self.forecasts["hourly"][timestamp_to_datetime(f.attrib["UTCTime"])] = (
-                    int(f.text or 0)
-                )
+            hourly = {
+                timestamp_to_datetime(f.attrib["UTCTime"]): int(f.text or 0)
+                for f in aqhi_forecast.findall("./hourlyForecastGroup/hourlyForecast")
+            }
+
+            self.forecasts["daily"] = daily
+            self.forecasts["hourly"] = hourly

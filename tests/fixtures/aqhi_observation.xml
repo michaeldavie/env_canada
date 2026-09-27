@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='utf-8'?>
+
+<conditionAirQuality productHeader="AQ_OBS">
+	<region nameEn="Ottawa" nameFr="Ottawa">FEVNT</region>
+
+	<dateStamp name="aqObserved" zoneEn="EDT" zoneFr="HAE">
+		<year>2026</year>
+		<month nameEn="September" nameFr="septembre">9</month>
+		<day nameEn="Sunday" nameFr="dimanche">27</day>
+		<hour clock="12h" ampm="PM">4</hour>
+		<minute>00</minute>
+		<second/>
+		<UTCStamp>20260927200000</UTCStamp>
+		<textSummary lang="EN">4:00 PM EDT Sunday 27 September 2026</textSummary>
+		<textSummary lang="FR">16h00 HAE dimanche 27 septembre 2026</textSummary>
+	</dateStamp>
+
+	<airQualityHealthIndex>2.1</airQualityHealthIndex>
+
+	<specialNotes/>
+</conditionAirQuality>
