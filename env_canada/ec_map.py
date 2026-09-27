@@ -157,7 +157,6 @@ class ECMap:
         # How far past "now" to extend get_loop() using the radar
         # extrapolation (nowcast) layer, if one exists for self.layer.
         self.future_minutes = kwargs["future_minutes"]
-        self._future_layer = wms_layers_extrapolation.get(self.layer)
         self._future_boundary = None
         self._reference_time = None
         self._observed_end = None
@@ -167,6 +166,21 @@ class ECMap:
         # Frame spacing, replaced by whatever the layer's time dimension
         # actually advertises once GetCapabilities has been read.
         self._image_interval = image_interval
+
+    @property
+    def layer(self) -> str:
+        """The layer drawn: "rain", "snow" or "precip_type"."""
+        return self._layer
+
+    @layer.setter
+    def layer(self, value: str) -> None:
+        # Home Assistant switches layers by assigning to this attribute, so
+        # everything derived from the layer is worked out here rather than
+        # once in __init__.
+        if value not in wms_layers:
+            raise ValueError(f"layer must be one of: {', '.join(wms_layers)}")
+        self._layer = value
+        self._future_layer = wms_layers_extrapolation.get(value)
 
     def _get_cache_prefix(self):
         """Generate a location-specific cache prefix based on bounding box."""
