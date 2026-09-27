@@ -423,7 +423,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.9.0" },
+    { name = "aiohttp", specifier = ">=3.10.10" },
     { name = "geopy", specifier = ">=2.3.0" },
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "pandas", specifier = ">=2.2.3" },
@@ -447,9 +447,9 @@ lint = [
 test = [
     { name = "freezegun", specifier = ">=1.5.1" },
     { name = "pytest", specifier = ">=8.3" },
-    { name = "pytest-asyncio", specifier = ">=0.23" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "pytest-cov", specifier = ">=7.1" },
-    { name = "syrupy", specifier = ">=4.8.1" },
+    { name = "syrupy", specifier = ">=6.0" },
 ]
 
 [[package]]

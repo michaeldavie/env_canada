@@ -4,6 +4,7 @@
 
 ### Changes
 
+- Raise the minimum aiohttp to 3.10.10. `ECWeather` imports `ClientConnectorDNSError`, which first appeared in that release, so with any aiohttp from the previously declared 3.9.0 up to 3.10.9 the package failed to import. CI now also runs the tests with every direct dependency resolved to its declared minimum, which found two more wrong minimums in the test tooling: pytest-asyncio is raised to 0.24 and syrupy to 6.0
 - **ECRadar**: Fix `timestamp` always being `None`. It was copied from the wrapped `ECMap` once, at construction, before anything had been fetched. `timestamp` and `image` now read through to the map
 - **ECAirQuality**: Forecasts are replaced on each update instead of added to. The hourly dict grew for as long as the object lived, and when there is no current observation Home Assistant shows its first value - which was the first hour of the first forecast ever fetched, however old
 - **ECAirQuality**: Fix `update()` raising on responses it should tolerate. A forecast with no period in the requested language raised `UnboundLocalError`, or was filed under the previous forecast's name. An empty index raised `TypeError`, a missing region `AttributeError`, and a missing index broke a `%d` debug message. An unreadable body raised lxml's `XMLSyntaxError`, which is not the `xml.etree` `ParseError` Home Assistant catches; it is now handled like a failed request, keeping the last good values. Tests now run against responses captured from the service
