@@ -48,6 +48,25 @@ jobs:
       - name: Test
         run: uv run --frozen pytest --cov --cov-report=term-missing
 
+  test-minimum:
+    # The lockfile pins recent versions, so the matrix above never sees the
+    # minimums pyproject.toml declares. This resolves every direct
+    # dependency to its minimum instead: code that starts relying on
+    # something newer fails here, rather than for a user who has the older
+    # version installed. 3.11 is the only version all the minimums support.
+    name: Test (minimum dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          python-version: "3.11"
+      - name: Test
+        run: uv run --resolution lowest-direct pytest
+
   # Branch protection on main requires a status check named "build", the
   # name of the single job this workflow used to have. This job carries that
   # name and succeeds only when every job above did, so the matrix can change
@@ -55,13 +74,14 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, test-minimum]
     if: always()
     steps:
       - name: Check that every job succeeded
         run: |
           echo "lint: ${{ needs.lint.result }}"
           echo "test: ${{ needs.test.result }}"
-          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ]; then
+          echo "test-minimum: ${{ needs.test-minimum.result }}"
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ] || [ "${{ needs.test-minimum.result }}" != "success" ]; then
             exit 1
           fi
