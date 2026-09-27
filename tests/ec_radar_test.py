@@ -1,11 +1,20 @@
 import asyncio
 from datetime import date, datetime
 from io import BytesIO
+from unittest.mock import patch
 
 import pytest
 from PIL import Image
 
 from env_canada import ECRadar
+
+CAPABILITIES = b"""<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities xmlns="http://www.opengis.net/wms">
+    <Layer>
+        <Name>RADAR_1KM_RRAI</Name>
+        <Dimension name="time" units="ISO8601">2025-02-13T16:42:00Z/2025-02-13T16:54:00Z/PT6M</Dimension>
+    </Layer>
+</WMS_Capabilities>"""
 
 
 @pytest.mark.slow
@@ -66,3 +75,26 @@ def test_get_legend_returns_an_image():
     radar = ECRadar(coordinates=(50, -100), precip_type="rain")
     legend = radar._get_legend()
     assert isinstance(legend, Image.Image)
+
+
+@patch("env_canada.ec_map._get_resource")
+def test_timestamp_and_image_follow_the_underlying_map(mock_get_resource):
+    """ECRadar copied the timestamp from the ECMap it wraps once, when it
+    was constructed - before the map had fetched anything - so it was
+    always None. The image was only kept current by update()."""
+    buf = BytesIO()
+    Image.new("RGBA", (100, 100), (255, 0, 0, 128)).save(buf, format="PNG")
+    png = buf.getvalue()
+
+    def mock_response(url, params, bytes=True, timeout=None):
+        return CAPABILITIES if params.get("request") == "GetCapabilities" else png
+
+    mock_get_resource.side_effect = mock_response
+    radar = ECRadar(coordinates=(50, -100), precip_type="rain", width=100, height=100)
+
+    asyncio.run(radar.get_latest_frame())
+    assert radar.timestamp == "2025-02-13T16:54:00+00:00"
+
+    asyncio.run(radar.update())
+    assert radar.image is not None
+    assert radar.image == radar._map.image
