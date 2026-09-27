@@ -26,17 +26,27 @@ class ECRadar:
         # Create the underlying ECMap instance
         self._map = ECMap(**kwargs)
 
-        # Expose common properties for backward compatibility
+        # Expose common properties for backward compatibility. The image and
+        # timestamp change as the map updates, so they are properties below.
         self.language = self._map.language
         self.metadata = self._map.metadata
-        self.image = self._map.image
         self.width = self._map.width
         self.height = self._map.height
         self.bbox = self._map.bbox
         self.map_params = self._map.map_params
         self.show_legend = self._map.show_legend
         self.show_timestamp = self._map.show_timestamp
-        self.timestamp = getattr(self._map, "timestamp", None)
+
+    @property
+    def image(self):
+        """The loop from the most recent update(), or None."""
+        return self._map.image
+
+    @property
+    def timestamp(self):
+        """Time of the latest radar observation fetched, as an ISO 8601
+        string, or None if nothing has been fetched yet."""
+        return self._map.timestamp
 
     @property
     def precip_type(self):
@@ -97,7 +107,6 @@ class ECRadar:
     async def update(self):
         """Update the radar image."""
         await self._map.update()
-        self.image = self._map.image
 
     async def get_loop(self, fps=5):
         """Build an animated GIF (or WebP, if enabled) of recent radar images."""
