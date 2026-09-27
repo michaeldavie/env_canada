@@ -4,9 +4,9 @@ import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientSession
 
-from .constants import USER_AGENT
+from .constants import CLIENT_TIMEOUT, USER_AGENT
 from .ec_cache import Cache
 
 
@@ -42,8 +42,6 @@ ALERTS_WFS_PARAMS = {
     "TYPENAMES": "Current-Alerts",
     "outputFormat": "application/json",
 }
-
-CLIENT_TIMEOUT = ClientTimeout(10)
 
 CACHE_TTL = timedelta(minutes=5)
 

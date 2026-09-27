@@ -454,7 +454,7 @@ class TestECMapErrorHandling:
         is also not cached, so the next poll asks again."""
         Cache.clear()
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return body
             return mock_image_bytes
@@ -482,7 +482,7 @@ class TestECMapErrorHandling:
         well_formed = b"""<?xml version="1.0" encoding="UTF-8"?>
         <WMS_Capabilities xmlns="http://www.opengis.net/wms"></WMS_Capabilities>"""
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             return well_formed
 
         with patch("env_canada.ec_map._get_resource", side_effect=mock_response):
@@ -551,7 +551,7 @@ class TestECMapMocked:
         """Test image generation with mocked responses"""
 
         # Mock different responses based on URL patterns
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             elif "GetMap" in str(params) or "GetLegendGraphic" in str(params):
@@ -588,7 +588,7 @@ class TestECMapMocked:
         # frames); make the middle one a ServiceExceptionReport.
         missing_time = "2025-02-13T15:24:00Z"
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             if params.get("time") == missing_time:
@@ -632,7 +632,7 @@ class TestECMapMocked:
 
         bad_time = "2025-02-13T15:24:00Z"
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             if params.get("time") == bad_time:
@@ -669,7 +669,7 @@ class TestECMapMocked:
 
         bad_time = "2025-02-13T15:24:00Z"
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             if params.get("time") == bad_time:
@@ -710,7 +710,7 @@ class TestECMapMocked:
         good_time = "2025-02-13T15:30:00Z"
         state = {"degraded": True, "requested": []}
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             if params.get("layers") != "CBMT":  # ignore the basemap
@@ -761,7 +761,7 @@ class TestECMapMocked:
         instead."""
         Cache.clear()
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             return mock_image_bytes
@@ -781,7 +781,7 @@ class TestECMapMocked:
 
             requested = []
 
-            def capture(url, params, bytes=True):
+            def capture(url, params, bytes=True, timeout=None):
                 if "GetCapabilities" in str(params):
                     return mock_capabilities_xml
                 if params.get("layers") != "CBMT":
@@ -805,7 +805,7 @@ class TestECMapMocked:
         """Test that loop_minutes limits the loop to recent frames only"""
         Cache.clear()
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             return mock_image_bytes
@@ -853,7 +853,7 @@ class TestECMapMocked:
         Cache.clear()
         requested_times = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml_with_extrapolation
             if "time" in params:
@@ -880,7 +880,7 @@ class TestECMapMocked:
         """Test that the fps instance attribute is used by update()/get_loop()"""
         Cache.clear()
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             # Vary pixel colour per frame so GIF frames aren't coalesced
@@ -906,7 +906,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             captured_params.append(params)
@@ -928,7 +928,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             captured_params.append(params)
@@ -950,7 +950,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             captured_params.append(params)
@@ -972,7 +972,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             captured_params.append(params)
@@ -992,7 +992,7 @@ class TestECMapMocked:
         """Test that webp=True returns get_latest_frame() as WebP, end-to-end"""
         Cache.clear()
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             return mock_image_bytes
@@ -1009,7 +1009,7 @@ class TestECMapMocked:
         """Test that webp=True produces an animated WebP instead of a GIF"""
         Cache.clear()
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             # Vary pixel colour per frame so frames aren't coalesced
@@ -1033,7 +1033,7 @@ class TestECMapMocked:
         """Test that webp=False (default) keeps producing an animated GIF"""
         Cache.clear()
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             # Vary pixel colour per frame so frames aren't coalesced
@@ -1064,7 +1064,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml_with_extrapolation
             if params.get("layers") != "CBMT":  # skip the basemap request
@@ -1156,7 +1156,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml_with_extrapolation_gap
             if params.get("layers") != "CBMT":  # skip the basemap request
@@ -1197,7 +1197,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml_with_extrapolation
             if params.get("layers") != "CBMT":  # skip the basemap request
@@ -1222,7 +1222,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml
             if params.get("layers") != "CBMT":  # skip the basemap request
@@ -1253,7 +1253,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml_with_extrapolation
             if params.get("layers") != "CBMT":  # skip the basemap request
@@ -1283,7 +1283,7 @@ class TestECMapMocked:
 
         captured_params = []
 
-        def mock_response(url, params, bytes=True):
+        def mock_response(url, params, bytes=True, timeout=None):
             if "GetCapabilities" in str(params):
                 return mock_capabilities_xml_with_extrapolation
             if params.get("layers") != "CBMT":  # skip the basemap request

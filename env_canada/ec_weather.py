@@ -11,7 +11,6 @@ from aiohttp import (
     ClientConnectorDNSError,
     ClientResponseError,
     ClientSession,
-    ClientTimeout,
 )
 from dateutil import parser, tz
 from geopy import distance
@@ -19,7 +18,7 @@ from lxml import etree as et
 from lxml.etree import _Element
 
 from . import ec_exc
-from .constants import USER_AGENT
+from .constants import CLIENT_TIMEOUT, USER_AGENT
 from .ec_validate import coordinates
 
 SITE_LIST_URL = (
@@ -27,8 +26,6 @@ SITE_LIST_URL = (
 )
 
 WEATHER_BASE_URL = "https://dd.weather.gc.ca/today/citypage_weather/{province}/{hour}/"
-
-CLIENT_TIMEOUT = ClientTimeout(10)
 
 LOG = logging.getLogger(__name__)
 

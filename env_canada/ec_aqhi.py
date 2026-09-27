@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import voluptuous as vol
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientSession
 from geopy import distance
 from lxml import etree as et
 
-from .constants import USER_AGENT
+from .constants import CLIENT_TIMEOUT, USER_AGENT
 from .ec_validate import coordinates
 
 AQHI_SITE_LIST_URL = (
@@ -15,8 +15,6 @@ AQHI_SITE_LIST_URL = (
 )
 AQHI_OBSERVATION_URL = "https://dd.weather.gc.ca/today/air_quality/aqhi/{}/observation/realtime/xml/AQ_OBS_{}_CURRENT.xml"
 AQHI_FORECAST_URL = "https://dd.weather.gc.ca/today/air_quality/aqhi/{}/forecast/realtime/xml/AQ_FCST_{}_CURRENT.xml"
-
-CLIENT_TIMEOUT = ClientTimeout(10)
 
 LOG = logging.getLogger(__name__)
 

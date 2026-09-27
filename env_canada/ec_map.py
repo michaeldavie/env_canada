@@ -4,6 +4,7 @@ from datetime import timedelta
 from io import BytesIO
 
 import voluptuous as vol
+from aiohttp import ClientTimeout
 from aiohttp.client_exceptions import ClientError
 from PIL import Image, ImageDraw
 
@@ -36,6 +37,13 @@ MISSING_FRAME_CACHE_TIME = timedelta(minutes=2)
 # Natural Resources Canada
 
 basemap_url = "https://maps.geogratis.gc.ca/wms/CBMT"
+
+# The basemap server is fast most of the time and very slow some of it:
+# identical requests have taken from 2 s to nearly 2 minutes. It keeps the
+# limit it always had, aiohttp's default, rather than the library-wide 10 s,
+# which would lose it on a slow day. A basemap is cached for a week once
+# fetched, so the wait is rare.
+BASEMAP_TIMEOUT = ClientTimeout(total=300, sock_connect=30)
 basemap_params = {
     "service": "wms",
     "version": "1.3.0",
@@ -214,7 +222,9 @@ class ECMap:
 
         basemap_params.update(self.map_params)
         try:
-            base_bytes = await _get_resource(basemap_url, basemap_params)
+            base_bytes = await _get_resource(
+                basemap_url, basemap_params, timeout=BASEMAP_TIMEOUT
+            )
             return Cache.add(basemap_cache_key, base_bytes, timedelta(days=7))
         except FETCH_ERRORS as e:
             LOG.warning("Map from %s could not be retrieved: %s", basemap_url, e)
