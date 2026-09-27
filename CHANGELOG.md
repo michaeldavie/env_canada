@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.20.4
+
 ### Changes
 
 - Raise the minimum aiohttp to 3.10.10. `ECWeather` imports `ClientConnectorDNSError`, which first appeared in that release, so with any aiohttp from the previously declared 3.9.0 up to 3.10.9 the package failed to import. CI now also runs the tests with every direct dependency resolved to its declared minimum, which found two more wrong minimums in the test tooling: pytest-asyncio is raised to 0.24 and syrupy to 6.0
