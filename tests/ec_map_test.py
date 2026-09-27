@@ -117,6 +117,38 @@ def mock_capabilities_xml_with_extrapolation_gap():
 
 
 @pytest.fixture
+def mock_capabilities_xml_all_layers():
+    """Mock capabilities XML carrying every layer ECMap can draw from: the
+    three observed layers and both radar extrapolation (nowcast) layers."""
+
+    def layer(name, time_dim, reference=False):
+        dims = f'<Dimension name="time" units="ISO8601">{time_dim}</Dimension>'
+        if reference:
+            dims += (
+                '<Dimension name="reference_time" units="ISO8601" '
+                'default="2025-02-13T16:54:00Z" multipleValues="1">'
+                "2025-02-13T13:54:00Z/2025-02-13T16:54:00Z/PT6M</Dimension>"
+            )
+        return f"<Layer><Name>{name}</Name>{dims}</Layer>"
+
+    observed = "2025-02-13T13:54:00Z/2025-02-13T16:54:00Z/PT6M"
+    future = "2025-02-13T16:54:00Z/2025-02-13T18:00:00Z/PT6M"
+    layers = "".join(
+        [
+            layer("RADAR_1KM_RRAI", observed),
+            layer("RADAR_1KM_RSNO", observed),
+            layer("Radar_1km_SfcPrecipType", observed),
+            layer("Radar_1km_RainPrecipRate-Extrapolation", future, reference=True),
+            layer("Radar_1km_SnowPrecipRate-Extrapolation", future, reference=True),
+        ]
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<WMS_Capabilities xmlns="http://www.opengis.net/wms">{layers}</WMS_Capabilities>'
+    ).encode()
+
+
+@pytest.fixture
 def mock_exception_xml():
     """Mock OGC ServiceExceptionReport, mirroring what GeoMet returns (HTTP
     200, not an error status) for a time GetCapabilities advertises but
@@ -296,6 +328,15 @@ class TestECMapInitialization:
 
         map_obj = ECMap(coordinates=(-80, 179), layer="rain")
         assert map_obj.bbox is not None
+
+    def test_assigning_an_unknown_layer_is_rejected(self):
+        """The layer can be changed after construction, as Home Assistant
+        does. An unknown name used to be accepted there and only failed
+        later, with a KeyError from inside update()."""
+        map_obj = ECMap(coordinates=(50, -100), layer="rain")
+        with pytest.raises(ValueError):
+            map_obj.layer = "hail"
+        assert map_obj.layer == "rain"
 
     def test_bbox_computation(self):
         """Test bounding box calculation"""
@@ -1055,6 +1096,49 @@ class TestECMapMocked:
         assert all(
             p.get("dim_reference_time") == "2025-02-13T16:54:00Z" for p in future
         )
+
+    @pytest.mark.parametrize(
+        ("new_layer", "expected_layers"),
+        [
+            (
+                "snow",
+                {"RADAR_1KM_RSNO", "Radar_1km_SnowPrecipRate-Extrapolation"},
+            ),
+            ("precip_type", {"Radar_1km_SfcPrecipType"}),
+        ],
+    )
+    @patch("env_canada.ec_map._get_resource")
+    def test_changing_layer_moves_future_frames_to_the_new_layer(
+        self,
+        mock_get_resource,
+        new_layer,
+        expected_layers,
+        mock_capabilities_xml_all_layers,
+        mock_image_bytes,
+    ):
+        """Home Assistant's set_radar_type service switches layers by
+        assigning to ECMap.layer. The extrapolation layer behind the future
+        frames was worked out once, in __init__, so after a switch from rain
+        the loop kept drawing its future frames from the rain nowcast: in
+        the snow style after a switch to snow, and appended to a
+        precipitation-type loop after a switch to precip_type."""
+        captured_layers = set()
+
+        def mock_response(url, params, bytes=True, timeout=None):
+            if "GetCapabilities" in str(params):
+                return mock_capabilities_xml_all_layers
+            if params.get("layers") != "CBMT":  # skip the basemap request
+                captured_layers.add(params["layers"])
+            return mock_image_bytes
+
+        mock_get_resource.side_effect = mock_response
+
+        map_obj = ECMap(coordinates=(50, -100), layer="rain", future_minutes=30)
+        map_obj.layer = new_layer
+        map_obj.clear_cache()  # what Home Assistant does after switching
+        asyncio.run(map_obj.get_loop())
+
+        assert captured_layers == expected_layers
 
     @patch("env_canada.ec_map._get_resource")
     def test_future_minutes_handles_gap_before_extrapolation_data_starts(

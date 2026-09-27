@@ -4,6 +4,7 @@
 
 ### Changes
 
+- **ECMap**: Fix changing `layer` after construction - which Home Assistant's `set_radar_type` service does - leaving the loop's future frames on the old layer's radar extrapolation. After a switch from rain, `future_minutes` frames kept coming from the rain nowcast, drawn in the snow style after a switch to snow and appended to the loop after a switch to `precip_type`, which has no nowcast. An unknown layer name is now rejected with `ValueError` when assigned, rather than raising `KeyError` from inside `update()`
 - CI now tests on Python 3.11 through 3.14, rather than only whichever interpreter the runner happens to ship, so the declared floor and the version Home Assistant runs are both covered. The workflow also runs with a read-only token, cancels superseded runs, and no longer runs twice for a pull request opened from a branch in this repository. A `build` job that depends on every other job keeps the name the branch protection rule requires
 - Ruff and mypy now run from the project's locked environment everywhere - pre-commit, CI and a plain `uv run` - so all three use the same version and the same configuration. Previously pre-commit ran its own mypy with `--ignore-missing-imports` and without the lxml and pandas stubs, and passed, while `uv run mypy env_canada` failed on geopy. mypy is now configured in `pyproject.toml` with a geopy override
 - Report branch coverage in CI via pytest-cov, and enable ruff's import sorting
