@@ -16,7 +16,7 @@ import dateutil.parser
 from aiohttp import ClientSession
 from lxml import etree as et
 
-from .constants import USER_AGENT
+from .constants import CLIENT_TIMEOUT, USER_AGENT
 from .ec_cache import Cache
 
 LOG = logging.getLogger(__name__)
@@ -162,10 +162,15 @@ def compute_bounding_box(distance, latittude, longitude):
     return lat_min, lon_min, lat_max, lon_max
 
 
-async def get_resource(url, params, bytes=True):
+async def get_resource(url, params, bytes=True, timeout=None):
+    """Fetch `url`, returning the body as bytes, or as text if `bytes` is
+    false. `timeout` defaults to the library-wide CLIENT_TIMEOUT."""
     async with ClientSession(raise_for_status=True) as session:
         response = await session.get(
-            url=url, params=params, headers={"User-Agent": USER_AGENT}
+            url=url,
+            params=params,
+            headers={"User-Agent": USER_AGENT},
+            timeout=timeout if timeout is not None else CLIENT_TIMEOUT,
         )
         if bytes:
             return await response.read()

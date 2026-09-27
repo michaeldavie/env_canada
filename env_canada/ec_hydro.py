@@ -6,7 +6,7 @@ from aiohttp import ClientSession
 from dateutil.parser import isoparse
 from geopy import distance
 
-from .constants import USER_AGENT
+from .constants import CLIENT_TIMEOUT, USER_AGENT
 from .ec_validate import coordinates
 
 SITE_LIST_URL = (
@@ -25,7 +25,7 @@ async def get_hydro_sites():
 
     async with ClientSession(raise_for_status=True) as session:
         response = await session.get(
-            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=10
+            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=CLIENT_TIMEOUT
         )
         result = await response.read()
     sites_csv_string = result.decode("utf-8-sig")
@@ -118,7 +118,7 @@ class ECHydro:
             response = await session.get(
                 READINGS_URL.format(prov=self.province, station=self.station),
                 headers={"User-Agent": USER_AGENT},
-                timeout=10,
+                timeout=CLIENT_TIMEOUT,
             )
             result = await response.read()
         hydro_csv_string = result.decode("utf-8-sig")

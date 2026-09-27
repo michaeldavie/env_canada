@@ -1,18 +1,23 @@
 """Tests for the shared GeoMet WMS plumbing."""
 
 import asyncio
+import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
+from aiohttp import ClientTimeout, web
+from aiohttp.test_utils import TestServer
 from freezegun import freeze_time
 
+from env_canada import ec_geomet
 from env_canada.ec_cache import Cache
 from env_canada.ec_geomet import (
     DEFAULT_CAPABILITIES_CACHE_TIME,
     MAX_CAPABILITIES_CACHE_TIME,
     LayerDimension,
     get_layer_dimension,
+    get_resource,
 )
 
 
@@ -168,3 +173,35 @@ class TestCapabilitiesCaching:
         assert len(calls) == 1
         assert first.fetched_at == read_at
         assert second.fetched_at == read_at
+
+
+class TestGetResource:
+    @pytest.mark.asyncio
+    async def test_a_server_that_never_answers_times_out(self, monkeypatch):
+        """GeoMet requests carried no timeout of their own, so a server that
+        accepted the connection and then never answered held update() for
+        aiohttp's five-minute default. They now share the library's request
+        timeout, shortened here so the test runs quickly. A real local
+        server is used, since the timeout is aiohttp's to enforce."""
+        release = asyncio.Event()
+
+        async def never_answers(request):
+            await release.wait()
+            return web.Response()
+
+        app = web.Application()
+        app.router.add_get("/", never_answers)
+        server = TestServer(app)
+        await server.start_server()
+        monkeypatch.setattr(ec_geomet, "CLIENT_TIMEOUT", ClientTimeout(total=0.2))
+
+        start = time.monotonic()
+        try:
+            with pytest.raises(TimeoutError):
+                # The outer bound only stops a missing timeout hanging the
+                # suite; the elapsed-time check tells the two apart.
+                await asyncio.wait_for(get_resource(str(server.make_url("/")), {}), 5)
+            assert time.monotonic() - start < 2
+        finally:
+            release.set()
+            await server.close()

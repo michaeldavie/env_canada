@@ -13,7 +13,7 @@ from dateutil import parser, tz
 from dateutil.relativedelta import relativedelta
 from lxml import etree as et
 
-from .constants import USER_AGENT
+from .constants import CLIENT_TIMEOUT, USER_AGENT
 
 STATIONS_URL = "https://climate.weather.gc.ca/historical_data/search_historic_data_stations_{}.html"
 
@@ -174,7 +174,7 @@ async def get_historical_stations(
             STATIONS_URL.format(language[0]),
             params=params,
             headers={"User-Agent": USER_AGENT},
-            timeout=10,
+            timeout=CLIENT_TIMEOUT,
         )
         result = await response.read()
 
@@ -266,7 +266,7 @@ class ECHistorical:
                 WEATHER_URL.format(self.language[0]),
                 params=params,
                 headers={"User-Agent": USER_AGENT},
-                timeout=10,
+                timeout=CLIENT_TIMEOUT,
             )
             if self.format == "csv":
                 result = await response.text()
