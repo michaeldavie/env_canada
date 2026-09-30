@@ -4,6 +4,7 @@
 
 ### Changes
 
+- pre-commit no longer applies its whitespace hooks (line endings, end-of-file, trailing whitespace) to `tests/fixtures/`, which hold responses captured from the services. They rewrote CRLF line endings and appended a newline to an empty body, so a fixture stopped being what the service sent
 - **ECAirQuality**: Test the region list and lookup by coordinates, against a trimmed copy of the real list, in both languages. The failed-request path now has a test too
 - **ECHydro**: Fix three faults found by testing against responses captured from the service. A measurement a station stopped reporting stayed in `measurements` under the new reading's timestamp, because the dict was only ever added to; it is now rebuilt on each update. A station with blank coordinates in the list raised `ValueError` and broke lookup by coordinates, where the parser meant to skip it. And `province` and `station` only checked a minimum length, so `province="Ontario"` was accepted; they must now be exactly two and seven characters, as all 2,171 stations' are, and anything else raises `vol.Invalid` at construction
 
