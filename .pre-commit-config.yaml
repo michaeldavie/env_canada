@@ -2,7 +2,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # Fixtures are responses captured from the services, byte for byte:
+      # CRLF line endings, a byte-order mark, a body with no newline at the
+      # end. The whitespace hooks below would "fix" them into something the
+      # service never sent.
       - id: mixed-line-ending
+        exclude: ^tests/fixtures/
       - id: name-tests-test
       - id: check-added-large-files
         args: ["--maxkb=1024"]
@@ -17,7 +22,9 @@ repos:
         args: [--allow-multiple-documents] # required for multi-document .yml files
       - id: detect-private-key
       - id: end-of-file-fixer # ensure that file is either empty, or ends with one newline
+        exclude: ^tests/fixtures/
       - id: trailing-whitespace
+        exclude: ^tests/fixtures/
   - repo: https://github.com/executablebooks/mdformat
     rev: 1.0.0
     hooks:
