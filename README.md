@@ -339,9 +339,11 @@ import pandas as pd
 df = pd.read_csv(ec_en_csv.station_data)
 ```
 
+In the dictionary form, daily records are keyed by date (`"2021-01-01"`) and hourly ones by date and time (`"2021-05-01 13:00"`). A station ID the service doesn't know raises `env_canada.ec_exc.UnknownStationId` from `update()`.
+
 `ECHistoricalRange` provides historical weather data within a specific range and handles the update by itself.
 
-The ECHistoricalRange object is instantiated with at least a station ID and a daterange.
+The ECHistoricalRange object is instantiated with at least a station ID. The daterange is the last year or so up to today unless given, and may be given in either order.
 One could add language, and granularity (hourly, daily (default)).
 
 The data can then be used as pandas DataFrame, XML (requires pandas >=1.3.0) and csv
@@ -371,7 +373,7 @@ ec = ECHistoricalRange(
     daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)),
 )
 
-ec.get_data()
+ec.get_data()  # from async code, use `await ec.update()` instead
 
 # yield an XML formated str.
 # For more options, use ec.to_xml(*arg, **kwargs) with pandas options
@@ -396,7 +398,7 @@ One should note that july 1st is excluded as the time provided contains specific
 the time provided.
 
 To have all the july 1st data in that case, one can provide a datarange without time: `datetime(2022, 7, 7)` instead
-of `datetime(2022, 7, 1, 12, 12)`
+of `datetime(2022, 7, 1, 12, 12)`. A `date` given as the end of the range covers that whole day.
 
 # License
 
