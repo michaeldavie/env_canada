@@ -5,21 +5,29 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from aiohttp import ClientConnectionError
 
 from env_canada import ECAirQuality, ec_aqhi
 
-# Captured from dd.weather.gc.ca for Ottawa (zone "ont", region "FEVNT").
+# Captured from dd.weather.gc.ca for Ottawa (zone "ont", region "FEVNT"). The
+# region list is trimmed to nine of its 134 regions, keeping the real markup:
+# Montréal has no observation, Calgary has a nested station list, and the
+# Pacific and Yukon zone is left with no regions at all.
 FIXTURES = Path(__file__).parent / "fixtures"
 OBSERVATION = (FIXTURES / "aqhi_observation.xml").read_bytes()
 FORECAST = (FIXTURES / "aqhi_forecast.xml").read_bytes()
+SITES = (FIXTURES / "aqhi_site_list.xml").read_bytes()
 
 
-def serve(observation=OBSERVATION, forecast=FORECAST):
+def serve(observation=OBSERVATION, forecast=FORECAST, sites=SITES):
     """Answer ClientSession.get by URL, as the service would, rather than
     by the order the requests happen to be made in."""
 
     async def get(url, **kwargs):
-        body = observation if "/AQ_OBS_" in url else forecast
+        if url == ec_aqhi.AQHI_SITE_LIST_URL:
+            body = sites
+        else:
+            body = observation if "/AQ_OBS_" in url else forecast
         response = AsyncMock()
         response.read.return_value = body
         return response
@@ -35,6 +43,70 @@ def ottawa(language="EN"):
 def test_get_aqhi_regions():
     regions = asyncio.run(ec_aqhi.get_aqhi_regions("EN"))
     assert len(regions) > 0
+
+
+def test_regions_are_listed_with_their_zone():
+    with serve():
+        regions = asyncio.run(ec_aqhi.get_aqhi_regions("EN"))
+
+    assert len(regions) == 9
+    ottawa_region = next(r for r in regions if r["cgndb"] == "FEVNT")
+    assert ottawa_region["region_name"] == "Ottawa"
+    assert ottawa_region["latitude"] == pytest.approx(45.434444)
+    assert ottawa_region["longitude"] == pytest.approx(-75.676944)
+    assert (ottawa_region["abbreviation"], ottawa_region["zone_name"]) == (
+        "ont",
+        "Ontario",
+    )
+    assert ottawa_region["pathToCurrentForecast"].endswith("AQ_FCST_FEVNT_CURRENT.xml")
+
+
+def test_regions_are_named_in_the_requested_language():
+    with serve():
+        regions = asyncio.run(ec_aqhi.get_aqhi_regions("FR"))
+
+    region = next(r for r in regions if r["cgndb"] == "EHHUN")
+    assert region["region_name"] == "Montréal"
+    assert region["zone_name"] == "Québec"
+    zones = {r["zone_name"] for r in regions}
+    assert "Prairies et territoires du nord" in zones
+
+
+def test_a_region_without_an_observation_is_still_listed():
+    """Montréal publishes a forecast but no observation, so its record has
+    no pathToCurrentObservation; the listing carries whichever children a
+    region has rather than assuming both."""
+    with serve():
+        regions = asyncio.run(ec_aqhi.get_aqhi_regions("EN"))
+
+    montreal = next(r for r in regions if r["cgndb"] == "EHHUN")
+    assert "pathToCurrentObservation" not in montreal
+    assert "pathToCurrentForecast" in montreal
+
+
+@pytest.mark.parametrize(
+    ("coordinates", "cgndb"),
+    [
+        ((49.9, -97.2), "GBEIN"),  # Winnipeg
+        ((45.4, -75.7), "FEVNT"),  # Ottawa
+        ((46.2, -63.1), "BAARG"),  # Charlottetown
+    ],
+    ids=["Winnipeg", "Ottawa", "Charlottetown"],
+)
+def test_closest_region_is_nearest_by_distance(coordinates, cgndb):
+    with serve():
+        region = asyncio.run(ec_aqhi.find_closest_region("EN", *coordinates))
+
+    assert region["cgndb"] == cgndb
+
+
+def test_update_from_coordinates_finds_the_region_then_reads_it():
+    aqhi = ECAirQuality(coordinates=(45.4, -75.7))
+    with serve():
+        asyncio.run(aqhi.update())
+
+    assert (aqhi.zone_id, aqhi.region_id) == ("ont", "FEVNT")
+    assert aqhi.current == 2.1
 
 
 @pytest.mark.parametrize(
@@ -148,6 +220,25 @@ def test_observation_missing_a_value_does_not_raise(
         asyncio.run(aqhi.update())
 
     assert aqhi.current == expected_current
+
+
+@pytest.mark.parametrize(
+    "error",
+    [ClientConnectionError("connection reset"), TimeoutError()],
+    ids=["connection error", "timeout"],
+)
+def test_failed_request_keeps_the_last_good_values(error):
+    """A request that fails or times out - the service is sometimes slow or
+    unreachable - is logged and the values from the last good response stay,
+    rather than update() raising into the caller's polling loop."""
+    aqhi = ottawa()
+    with serve():
+        asyncio.run(aqhi.update())
+    with patch("aiohttp.ClientSession.get", side_effect=error):
+        asyncio.run(aqhi.update())
+
+    assert aqhi.current == 2.1
+    assert len(aqhi.forecasts["hourly"]) == 37
 
 
 def test_unreadable_response_is_treated_as_a_failed_request():

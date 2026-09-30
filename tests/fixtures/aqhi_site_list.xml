@@ -1,0 +1,63 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<dataFile fileCreationDate="Tue Apr  8 19:37:46 2025">
+	<EC_administrativeZone abreviation="atl" name_en_CA="Atlantic" name_fr_CA="Atlantique">
+		<regionList>
+			<region nameEn="Bathurst" nameFr="Bathurst" cgndb="DAFQX" latitude="47.6261" longitude="-65.6283">
+				<pathToCurrentObservation>http://dd.meteo.gc.ca/today/air_quality/atl/observation/realtime/xml/AQ_OBS_DAFQX_CURRENT.xml</pathToCurrentObservation>
+				<pathToCurrentForecast>http://dd.meteo.gc.ca/today/air_quality/atl/forecast/realtime/xml/AQ_FCST_DAFQX_CURRENT.xml</pathToCurrentForecast>
+			</region>
+			<region nameEn="Charlottetown" nameFr="Charlottetown" cgndb="BAARG" latitude="46.2402777777778" longitude="-63.1347222222222">
+				<pathToCurrentObservation>http://dd.meteo.gc.ca/today/air_quality/atl/observation/realtime/xml/AQ_OBS_BAARG_CURRENT.xml</pathToCurrentObservation>
+				<pathToCurrentForecast>http://dd.meteo.gc.ca/today/air_quality/atl/forecast/realtime/xml/AQ_FCST_BAARG_CURRENT.xml</pathToCurrentForecast>
+			</region>
+		</regionList>
+	</EC_administrativeZone>
+	<EC_administrativeZone abreviation="que" name_en_CA="Québec" name_fr_CA="Québec">
+		<regionList>
+			<region nameEn="Montréal" nameFr="Montréal" cgndb="EHHUN" latitude="45.5166666666667" longitude="-73.65">
+				<pathToCurrentForecast>http://dd.meteo.gc.ca/today/air_quality/que/forecast/realtime/xml/AQ_FCST_EHHUN_CURRENT.xml</pathToCurrentForecast>
+			</region>
+		</regionList>
+	</EC_administrativeZone>
+	<EC_administrativeZone abreviation="ont" name_en_CA="Ontario" name_fr_CA="Ontario">
+		<regionList>
+			<region nameEn="Barrie" nameFr="Barrie" cgndb="FAFFD" latitude="44.37124" longitude="-79.6769699">
+				<pathToCurrentObservation>http://dd.meteo.gc.ca/today/air_quality/ont/observation/realtime/xml/AQ_OBS_FAFFD_CURRENT.xml</pathToCurrentObservation>
+				<pathToCurrentForecast>http://dd.meteo.gc.ca/today/air_quality/ont/forecast/realtime/xml/AQ_FCST_FAFFD_CURRENT.xml</pathToCurrentForecast>
+			</region>
+			<region nameEn="Kingston" nameFr="Kingston" cgndb="FEVJR" latitude="44.3066666" longitude="-76.4163888">
+				<pathToCurrentObservation>http://dd.meteo.gc.ca/today/air_quality/ont/observation/realtime/xml/AQ_OBS_FEVJR_CURRENT.xml</pathToCurrentObservation>
+				<pathToCurrentForecast>http://dd.meteo.gc.ca/today/air_quality/ont/forecast/realtime/xml/AQ_FCST_FEVJR_CURRENT.xml</pathToCurrentForecast>
+			</region>
+			<region nameEn="Ottawa" nameFr="Ottawa" cgndb="FEVNT" latitude="45.4344444444445" longitude="-75.6769444444444">
+				<pathToCurrentObservation>http://dd.meteo.gc.ca/today/air_quality/ont/observation/realtime/xml/AQ_OBS_FEVNT_CURRENT.xml</pathToCurrentObservation>
+				<pathToCurrentForecast>http://dd.meteo.gc.ca/today/air_quality/ont/forecast/realtime/xml/AQ_FCST_FEVNT_CURRENT.xml</pathToCurrentForecast>
+			</region>
+		</regionList>
+	</EC_administrativeZone>
+	<EC_administrativeZone abreviation="pnr" name_en_CA="Prairies and North" name_fr_CA="Prairies et territoires du nord">
+		<regionList>
+			<region nameEn="Brandon" nameFr="Brandon" cgndb="GADMZ" latitude="49.8469444444444" longitude="-99.9522222222222">
+				<pathToCurrentObservation>http://dd.meteo.gc.ca/today/air_quality/pnr/observation/realtime/xml/AQ_OBS_GADMZ_CURRENT.xml</pathToCurrentObservation>
+				<pathToCurrentForecast>http://dd.meteo.gc.ca/today/air_quality/pnr/forecast/realtime/xml/AQ_FCST_GADMZ_CURRENT.xml</pathToCurrentForecast>
+			</region>
+			<region nameEn="Calgary" nameFr="Calgary" cgndb="IAKID" latitude="51.0458333333333" longitude="-114.0575">
+				<pathToCurrentObservation>http://dd.meteo.gc.ca/today/air_quality/pnr/observation/realtime/xml/AQ_OBS_IAKID_CURRENT.xml</pathToCurrentObservation>
+				<pathToCurrentForecast>http://dd.meteo.gc.ca/today/air_quality/pnr/forecast/realtime/xml/AQ_FCST_IAKID_CURRENT.xml</pathToCurrentForecast>
+				<associatedStations>
+					<station napsid="90222" nameEn="Calgary Northwest" nameFr="Calgary - nord-ouest"/>
+					<station napsid="90228" nameEn="Calgary Central" nameFr="Calgary - centre"/>
+					<station napsid="90229" nameEn="Calgary Southeast" nameFr="Calgary - sud-est"/>
+				</associatedStations>
+			</region>
+			<region nameEn="Winnipeg" nameFr="Winnipeg" cgndb="GBEIN" latitude="49.8844444444444" longitude="-97.1463888888889">
+				<pathToCurrentObservation>http://dd.meteo.gc.ca/today/air_quality/pnr/observation/realtime/xml/AQ_OBS_GBEIN_CURRENT.xml</pathToCurrentObservation>
+				<pathToCurrentForecast>http://dd.meteo.gc.ca/today/air_quality/pnr/forecast/realtime/xml/AQ_FCST_GBEIN_CURRENT.xml</pathToCurrentForecast>
+			</region>
+		</regionList>
+	</EC_administrativeZone>
+	<EC_administrativeZone abreviation="pyr" name_en_CA="Pacific and Yukon" name_fr_CA="Pacifique et Yukon">
+		<regionList>
+		</regionList>
+	</EC_administrativeZone>
+</dataFile>
