@@ -4,6 +4,7 @@
 
 ### Changes
 
+- A weekly workflow (`live.yml`) runs the tests that call the real services, retrying failures once, so a change to one of them is noticed by CI rather than by a user. The main test workflow now also runs weekly, because Dependabot's merges don't trigger a push run and nothing else tested `main` after them
 - pre-commit no longer applies its whitespace hooks (line endings, end-of-file, trailing whitespace) to `tests/fixtures/`, which hold responses captured from the services. They rewrote CRLF line endings and appended a newline to an empty body, so a fixture stopped being what the service sent
 - **ECAirQuality**: Test the region list and lookup by coordinates, against a trimmed copy of the real list, in both languages. The failed-request path now has a test too
 - **ECHistorical**: Fix hourly XML (`timeframe=1`, `format="xml"`), which never returned anything usable. Hourly records were read as daily ones: keyed by date alone, so a month's 744 hours collapsed to its 31 days, and looked up by the daily element names, so every value was `None`. Records are now keyed by date and time (`"2021-05-01 13:00"`) and carry the hourly elements - temperature, dew point, humidity, precipitation, wind, visibility, pressure, humidex, wind chill and weather - labelled in the requested language by the service. A blank value the service writes as a single space, as it does for the wind direction, is now `None` rather than raising `ValueError`

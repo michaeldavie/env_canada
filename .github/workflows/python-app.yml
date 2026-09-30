@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Dependabot's merges are made with the workflow token, which doesn't
+    # trigger a push run, so nothing else tests main as it stands after them.
+    - cron: "23 9 * * 1"
 
 permissions:
   contents: read
