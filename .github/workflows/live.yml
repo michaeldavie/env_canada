@@ -1,0 +1,39 @@
+name: Live Service Check
+
+# The unit tests run against captured responses, so they keep passing when
+# Environment Canada changes a service. This runs the tests that call the real
+# ones, weekly, so a change shows up here rather than in a user's bug report.
+# A failing scheduled run emails whoever last changed this schedule.
+on:
+  schedule:
+    - cron: "41 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    name: Live tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          # The version Home Assistant runs
+          python-version: "3.14"
+      - name: Test against the live services
+        id: first
+        continue-on-error: true
+        run: uv run --frozen pytest --run-slow -m slow
+      # The services are sometimes slow or briefly unreachable (the Natural
+      # Resources Canada basemap has taken nearly two minutes to answer a
+      # request that usually takes two seconds). Only a failure that repeats
+      # is worth an email, so rerun what failed once.
+      - name: Retry the failures once
+        if: steps.first.outcome == 'failure'
+        run: uv run --frozen pytest --run-slow -m slow --last-failed

@@ -15,7 +15,7 @@ One class per module:
 - **ECPrecipForecast** (`ec_precip_forecast.py`): 6-minute and hourly precipitation series from WMS GetFeatureInfo point queries
 - **ECAirQuality** (`ec_aqhi.py`): AQHI observations and forecasts (XML)
 - **ECHydro** (`ec_hydro.py`): water level and discharge (CSV)
-- **ECHistorical / ECHistoricalRange** (`ec_historical.py`): historical climate data scraped from climate.weather.gc.ca; the range class depends on pandas
+- **ECHistorical / ECHistoricalRange** (`ec_historical.py`): historical climate data scraped from climate.weather.gc.ca; the range class depends on pandas. `ECHistoricalRange.update()` is the awaitable; `get_data()` wraps it in `asyncio.run` and so can't be called from a running loop. An unknown station raises `UnknownStationId`
 
 Shared modules: `ec_geomet.py` (GeoMet WMS HTTP call, bounding-box maths, GetCapabilities dimension parsing), `ec_legend.py` (legend rendering; bundles `DejaVuSans.ttf`), `ec_validate.py` (coordinate validator), `ec_cache.py` (process-wide TTL cache), `ec_exc.py` (exceptions), `constants.py` (`USER_AGENT`, which carries the version).
 
@@ -49,6 +49,12 @@ GeoMet behaviours the tests encode and that must not regress:
 - Network-dependent tests are marked `@pytest.mark.slow`
 - `Cache` is process-wide; `conftest.py` clears it around every test, so individual tests do not need to
 - Snapshots (syrupy) live in `tests/__snapshots__/`
+- Fixtures are byte-for-byte captures, trimmed by slicing whole records or rows and never reformatted; pre-commit's whitespace hooks skip `tests/fixtures/` for that reason. `tests/ec_historical_test.py` serves them from a local stand-in with the service's real content types, which is the pattern for a module that parses HTTP responses
+
+## CI
+
+- `python-app.yml` (push to main, pull requests, and weekly): lint, the test matrix on 3.11-3.14, and the tests at the minimum dependency versions. Its `build` job is the required check; never rename it
+- `live.yml` (weekly, or run it by hand): the `slow` tests against the real services on 3.14, retrying failures once. The NRCan basemap makes a run take between 1 and 6 minutes
 
 ## Committing
 
