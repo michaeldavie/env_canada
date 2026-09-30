@@ -1,8 +1,8 @@
 import asyncio
-import copy
 import csv
 import logging
-from datetime import datetime
+import re
+from datetime import date, datetime, time
 from io import StringIO
 
 import lxml.html
@@ -13,15 +13,12 @@ from dateutil import parser, tz
 from dateutil.relativedelta import relativedelta
 from lxml import etree as et
 
+from . import ec_exc
 from .constants import CLIENT_TIMEOUT, USER_AGENT
 
 STATIONS_URL = "https://climate.weather.gc.ca/historical_data/search_historic_data_stations_{}.html"
 
 WEATHER_URL = "https://climate.weather.gc.ca/climate_data/bulk_data_{}.html"
-
-_TODAY = datetime.today().date()
-_ONE_YEAR_AGO = _TODAY - relativedelta(years=1, months=1, day=1)
-_YEAR = datetime.today().year
 
 LOG = logging.getLogger(__name__)
 
@@ -107,9 +104,25 @@ stationdata_meta = {
     },
 }
 
+# The elements of an hourly <stationdata> record and how to read each. Unlike
+# the daily ones they are labelled, in the language asked for, by the service.
+hourlydata_meta = {
+    "temp": "float",
+    "dptemp": "float",
+    "relhum": "int",
+    "precipamt": "float",
+    "winddir": "int",
+    "windspd": "int",
+    "visibility": "float",
+    "stnpress": "float",
+    "humidex": "int",
+    "windchill": "int",
+    "weather": "str",
+}
+
 metadata_meta = {
     "name": {"xpath": "./stationinformation/name"},
-    "province": {"xpath": "./stationinformation/province"},
+    "province": {"xpath": "./stationinformation/province_or_territory"},
     "stationoperator": {"xpath": "./stationinformation/stationoperator"},
     "latitude": {"xpath": "./stationinformation/latitude"},
     "longitude": {"xpath": "./stationinformation/longitude"},
@@ -122,6 +135,57 @@ metadata_meta = {
 
 def parse_timestamp(t):
     return parser.parse(t).replace(tzinfo=tz.UTC)
+
+
+def _parse_value(text, kind):
+    """Read a value from a <stationdata> element, or None for a blank one. The
+    service writes a missing value as empty text, and sometimes as a single
+    space; in French it writes the decimal point as a comma."""
+    text = (text or "").strip()
+    if not text:
+        return None
+    if kind == "str":
+        return text
+    text = text.replace(",", ".")
+    return int(float(text)) if kind == "int" else float(text)
+
+
+def _read_element(element, kind, label):
+    """One value of a record: the number or text, its unit when it has one,
+    and its label."""
+    value = None if element is None else _parse_value(element.text, kind)
+    record = {"value": value}
+    if value is not None and element.attrib.get("units"):
+        record["unit"] = element.attrib["units"]
+    record["label"] = label
+    return record
+
+
+def _default_daterange():
+    """The last year or so, up to today. Worked out when it is wanted: a
+    window fixed when the module was imported goes stale in a process that
+    stays up."""
+    today = date.today()
+    return today - relativedelta(years=1, months=1, day=1), today
+
+
+def _as_datetimes(daterange):
+    """The range as datetimes, earliest first. A date is midnight as a start
+    and the end of the day as a stop, so that a range of dates covers every
+    hour of both."""
+    start, stop = daterange
+    if not isinstance(start, datetime):
+        start = datetime.combine(start, time.min)
+    if not isinstance(stop, datetime):
+        stop = datetime.combine(stop, time.max)
+    return (stop, start) if start > stop else (start, stop)
+
+
+def _xml_name(name):
+    """A column name as an XML tag name. pandas writes the names as tags, and
+    the service's - "Date/Time", "Max Temp (°C)" - aren't valid ones."""
+    name = re.sub(r"\W+", "_", str(name)).strip("_") or "_"
+    return "_" + name if name[0].isdigit() else name
 
 
 def coerce_station_id(v):
@@ -137,7 +201,7 @@ async def get_historical_stations(
     coordinates,
     radius=25,
     start_year=1840,
-    end_year=_YEAR,
+    end_year=None,
     limit=25,
     language="english",
     timeframe=2,
@@ -145,6 +209,8 @@ async def get_historical_stations(
 ):
     """Get list of all historical stations from Environment Canada"""
     lat, lng = coordinates
+    if end_year is None:
+        end_year = datetime.today().year
     params = {
         "searchType": "stnProx",
         "timeframe": timeframe,
@@ -247,7 +313,8 @@ class ECHistorical:
         self.station_data = {}
 
     async def update(self):
-        """Get the historical data from Environment Canada."""
+        """Get the historical data from Environment Canada. Raises
+        `ec_exc.UnknownStationId` if the service has no such station."""
 
         params = {
             "climate_id": self.station_id,
@@ -269,96 +336,91 @@ class ECHistorical:
                 timeout=CLIENT_TIMEOUT,
             )
             if self.format == "csv":
-                result = await response.text()
+                self._update_from_csv(await response.text())
+            else:
+                self._update_from_xml(await response.read())
 
-                f = StringIO(result)
+    def _unknown_station(self):
+        return ec_exc.UnknownStationId(
+            f"No historical data for station {self.station_id}"
+        )
 
-                self.station_data = copy.deepcopy(f)
+    def _update_from_csv(self, result):
+        reader = csv.reader(StringIO(result))
 
-                reader = csv.reader(f, delimiter=",")
+        # headers
+        next(reader, None)
 
-                # headers
-                next(reader)
+        # first row of data. A station the service doesn't have gets a file
+        # of just the headers.
+        firstrow = next(reader, None)
+        if firstrow is None:
+            raise self._unknown_station()
 
-                # first row of data
-                firstrow = next(reader)
+        self.station_data = StringIO(result)
+        self.metadata = {
+            "longitude": firstrow[0],
+            "latitude": firstrow[1],
+            "name": firstrow[2],
+            "climate_identifier": firstrow[3],
+        }
 
-                self.metadata = {
-                    "longitude": firstrow[0],
-                    "latitude": firstrow[1],
-                    "name": firstrow[2],
-                    "climate_identifier": firstrow[3],
+    def _update_from_xml(self, result):
+        # A station the service doesn't have gets a document of just a
+        # byte-order mark.
+        if not result.decode("utf-8-sig").strip():
+            raise self._unknown_station()
+
+        # The bytes, not text: lxml refuses text that opens with an encoding
+        # declaration, and the byte-order mark the service writes before its
+        # declaration was all that kept it from noticing.
+        weather_tree = et.fromstring(result)
+
+        metadata = {}
+        for m, meta in metadata_meta.items():
+            element = weather_tree.find(meta["xpath"])
+            metadata[m] = None if element is None else element.text
+
+        station_data = {}
+        for stationdata_element in weather_tree.findall("./stationdata"):
+            attrib = stationdata_element.attrib
+            if self.timeframe == 1:
+                stamp = datetime(
+                    int(attrib["year"]),
+                    int(attrib["month"]),
+                    int(attrib["day"]),
+                    int(attrib["hour"]),
+                    int(attrib.get("minute", 0)),
+                )
+                key = stamp.strftime("%Y-%m-%d %H:%M")
+                station_data[key] = {
+                    tag: _read_element(
+                        stationdata_element.find(f"./{tag}"),
+                        kind,
+                        self._hourly_label(stationdata_element, tag),
+                    )
+                    for tag, kind in hourlydata_meta.items()
+                }
+            else:
+                dt = parse_timestamp(
+                    f"{attrib.get('year')}-{attrib.get('month')}-{attrib.get('day')}"
+                ).date()
+                station_data[str(dt)] = {
+                    s: _read_element(
+                        stationdata_element.find(meta["xpath"]),
+                        meta["type"],
+                        meta[self.language],
+                    )
+                    for s, meta in stationdata_meta.items()
                 }
 
-            else:
-                result = await response.read()
+        self.metadata = metadata
+        self.station_data = station_data
 
-                weather_xml = result.decode("utf-8")
-                weather_tree = et.fromstring(weather_xml)
-
-                # Update metadata
-                for m, meta in metadata_meta.items():
-                    element = weather_tree.find(meta["xpath"])
-                    if element is not None:
-                        self.metadata[m] = weather_tree.find(meta["xpath"]).text
-                    else:
-                        self.metadata[m] = None
-
-                # Update station data
-                def get_stationdata(meta, stationdata_element, language):
-                    stationdata = {}
-
-                    element = stationdata_element.find(meta["xpath"])
-
-                    if element is None or element.text is None:
-                        stationdata["value"] = None
-                    else:
-                        if meta.get("attribute"):
-                            stationdata["value"] = element.attrib.get(meta["attribute"])
-                        else:
-                            if meta["type"] == "int":
-                                stationdata["value"] = int(element.text)
-                            elif meta["type"] == "float":
-                                stationdata["value"] = float(
-                                    element.text.replace(",", ".")
-                                )
-                            else:
-                                stationdata["value"] = element.text
-
-                            if element.attrib.get("units"):
-                                stationdata["unit"] = element.attrib.get("units")
-                    stationdata["label"] = meta[language]
-                    return stationdata
-
-                stationdata_elements = weather_tree.findall("./stationdata")
-
-                for stationdata_element in stationdata_elements:
-                    day = stationdata_element.attrib.get("day")
-                    month = stationdata_element.attrib.get("month")
-                    year = stationdata_element.attrib.get("year")
-                    dt = parse_timestamp(f"{year}-{month}-{day}").date()
-
-                    cur_station_data = {}
-
-                    for s, meta in stationdata_meta.items():
-                        cur_station_data[s] = get_stationdata(
-                            meta, stationdata_element, self.language
-                        )
-
-                    self.station_data[str(dt)] = cur_station_data
-
-
-def flip_daterange(f):
-    def wrapper(*args, **kwargs):
-        if kwargs.get("daterange") in globals():
-            if kwargs.get("daterange")[0] > kwargs.get("daterange")[1]:
-                kwargs["daterange"] = (
-                    kwargs.get("daterange")[1],
-                    kwargs.get("daterange")[0],
-                )
-        return f(*args, **kwargs)
-
-    return wrapper
+    @staticmethod
+    def _hourly_label(stationdata_element, tag):
+        element = stationdata_element.find(f"./{tag}")
+        return tag if element is None else element.attrib.get("description", tag)
 
 
 class ECHistoricalRange:
@@ -380,21 +442,17 @@ class ECHistoricalRange:
             ec = ECHistoricalRange(station_id=stations.iloc[0,2], timeframe="hourly",
                                     daterange=(datetime(2022, 7, 1, 12, 12), datetime(2022, 8, 1, 12, 12)))
 
-            ec.get_data()
+            ec.get_data()  # or, from async code, `await ec.update()`
 
             ec.xml #yield an XML formatted str. For more options, use ec.to_xml(*arg, **kwargs) with pandas options
     =
             ec.csv #yield an CSV formatted str. For more options, use ec.to_csv(*arg, **kwargs) with pandas options
     """
 
-    @flip_daterange
     def __init__(
         self,
         station_id,
-        daterange=(
-            _ONE_YEAR_AGO,
-            _TODAY,
-        ),
+        daterange=None,
         language="english",
         timeframe="daily",
     ):
@@ -402,40 +460,43 @@ class ECHistoricalRange:
         Return a DataFrame containing the data from the date range
         :param station_id: the ID of the station found with get_historical_stations
         :type station_id: str or int
-        :param daterange: the dates between which the data are retrieve
-        :type daterange: tuple of datetime
+        :param daterange: the dates between which the data are retrieve, in either
+            order; the last year or so up to today if omitted. A date, rather than a
+            datetime, as the end covers that whole day
+        :type daterange: tuple of datetime or date
         :param language: language in which the data are retrieved
         :type language: str
-        :param timeframe: selection of granularity : 'hourly', 'daily' [or 'monthly'](to be implemented)
+        :param timeframe: selection of granularity : 'hourly' or 'daily'
         :type timeframe: str
         """
+        if language not in ("english", "french"):
+            raise vol.Invalid("language must be 'english' or 'french'")
+        _tf = {"hourly": 1, "daily": 2}
+        if timeframe not in _tf:
+            raise vol.Invalid("timeframe must be 'hourly' or 'daily'")
 
         self.df = pd.DataFrame()
 
         self.station_id = str(station_id)
-        self.startdate, self.stopdate = daterange
-        self.months = self.monthlist(daterange=daterange)
+        self.startdate, self.stopdate = _as_datetimes(daterange or _default_daterange())
+        self.months = self.monthlist(daterange=(self.startdate, self.stopdate))
         self.language = language
-        _tf = {"hourly": 1, "daily": 2, "monthly": 3}
-        timeframe_int = _tf[timeframe]
-        if timeframe_int == 2:
-            # prune the months list so it only has unique years. if daily is selected.
-            years = set()
-            for year, _ in self.months:
-                years.add(year)
-            self.months = [(year, 1) for year in years]
-        self.timeframe = timeframe_int
+        self.timeframe = _tf[timeframe]
+        if self.timeframe == 2:
+            # A daily request is answered with the whole year, so ask once for
+            # each year in the range
+            self.months = [(year, 1) for year in sorted({y for y, _ in self.months})]
 
-    def get_data(self):
+    async def update(self):
         """
-        Get data from creating instance of ECHistorical
+        Fetch the data, one request after another so as not to hammer the service
         :return: All data in the range
         :rtype: pd.DataFrame
         """
-        if not self.df.empty:
-            self.df = pd.DataFrame()
-        ec = [
-            ECHistorical(
+        decimal = "," if self.language == "french" else "."
+        frames = []
+        for year, month in self.months:
+            data = ECHistorical(
                 station_id=self.station_id,
                 year=year,
                 month=month,
@@ -443,34 +504,42 @@ class ECHistoricalRange:
                 format="csv",
                 timeframe=self.timeframe,
             )
-            for year, month in self.months
-        ]
+            await data.update()
+            frames.append(pd.read_csv(data.station_data, decimal=decimal))
 
-        for data in ec:
-            asyncio.run(data.update())
-            self.df = pd.concat((self.df, pd.read_csv(data.station_data)))
-
-        self.df = self.df.set_index(
-            self.df.filter(regex="Date/*", axis=1).columns.to_numpy()[0]
-        )
-        self.df.index = pd.to_datetime(self.df.index)
+        df = pd.concat(frames)
+        df = df.set_index(df.filter(regex="Date/*", axis=1).columns.to_numpy()[0])
+        df.index = pd.to_datetime(df.index)
+        df = df.sort_index()
 
         # removing the dates before and after the range as the data received might exceed the range
-        self.df = self.df[self.startdate <= self.df.index]
-        self.df = self.df[self.stopdate >= self.df.index]
+        self.df = df[(self.startdate <= df.index) & (df.index <= self.stopdate)]
 
         return self.df
 
+    def get_data(self):
+        """
+        Get data from creating instance of ECHistorical. Can't be called from a
+        running event loop: use `await update()` there.
+        :return: All data in the range
+        :rtype: pd.DataFrame
+        """
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self.update())
+        raise RuntimeError(
+            "get_data() can't run inside a running event loop; await update() instead"
+        )
+
     @property
     def xml(self):
-        encoding = "utf-8-sig"
-        return self.to_xml(encoding=encoding)
+        return self.to_xml()
 
     def to_xml(self, *args, **kwargs):
-        if not self.df.empty:
-            return self.df.to_xml(*args, **kwargs)
-        else:
-            return self.get_data().to_xml(*args, **kwargs)
+        df = self.df if not self.df.empty else self.get_data()
+        df = df.rename(columns=_xml_name).rename_axis(index=_xml_name(df.index.name))
+        return df.to_xml(*args, **kwargs)
 
     @property
     def csv(self):
@@ -488,9 +557,8 @@ class ECHistoricalRange:
         else:
             return self.get_data().to_csv(*args, **kwargs)
 
-    @flip_daterange
     def monthlist(self, daterange):
-        startdate, stopdate = daterange
+        startdate, stopdate = _as_datetimes(daterange)
 
         def total_months(dt):
             return dt.month + 12 * dt.year

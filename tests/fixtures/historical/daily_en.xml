@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?><climatedata xmlns:xsd="http://www.w3.org/TR/xmlschema-1/" xsd:schemaLocation="http://climate.weather.gc.ca/climate_data/bulkxml/bulkschema.xsd"><lang>ENG</lang><stationinformation><name>PRINCE GEORGE AIRPORT AUTO</name><province_or_territory>BRITISH COLUMBIA</province_or_territory><stationoperator>Environment and Climate Change Canada - Meteorological Service of Canada</stationoperator><latitude>53.89</latitude><longitude>-122.67</longitude><elevation>680.00</elevation><climate_identifier>1096453</climate_identifier><wmo_identifier>71302</wmo_identifier><tc_identifier>VXS</tc_identifier></stationinformation><legend>
+                   <flag>
+                       <symbol>A</symbol>
+                       <description>Accumulated</description>
+                   </flag>
+                   <flag>
+                       <symbol>C</symbol>
+                       <description>Precipitation occurred, amount uncertain</description>
+                   </flag>
+                   <flag>
+                       <symbol>E</symbol>
+                       <description>Estimated</description>
+                   </flag>
+                   <flag>
+                       <symbol>F</symbol>
+                       <description>Accumulated and estimated</description>
+                   </flag>
+                   <flag>
+                       <symbol>L</symbol>
+                       <description>Precipitation may or may not have occurred</description>
+                   </flag>
+                   <flag>
+                       <symbol>M</symbol>
+                       <description>Missing</description>
+                   </flag>
+                   <flag>
+                       <symbol>N</symbol>
+                       <description>Temperature missing but known to be &gt; 0</description>
+                   </flag>
+                   <flag>
+                       <symbol>S</symbol>
+                       <description>More than one occurrence</description>
+                   </flag>
+                   <flag>
+                       <symbol>T</symbol>
+                       <description>Trace</description>
+                   </flag>
+                   <flag>
+                       <symbol>Y</symbol>
+                       <description>Temperature missing but known to be &lt; 0</description>
+                   </flag>
+                   <flag>
+                       <symbol>[empty]</symbol>
+                       <description>Indicates an unobserved value</description>
+                   </flag>
+                   <flag>
+                       <symbol>^</symbol>
+                       <description>The value displayed is based on incomplete data</description>
+                   </flag>
+                   <flag>
+                       <symbol>&#8224;</symbol>
+                       <description>Data that is not subject to review by the National Climate Archives</description>
+                   </flag>
+                </legend>
+<stationdata day="1" month="1" year="2021"><maxtemp description="Maximum Temperature" units="°C">5.6</maxtemp><mintemp description="Minimum Temperature" units="°C">-4.7</mintemp><meantemp description="Mean Temperature" units="°C">0.5</meantemp><heatdegdays description="Heating Degree Days" units="°C">17.5</heatdegdays><cooldegdays description="Cooling Degree Days" units="°C">0.0</cooldegdays><totalrain description="Total Rain" units="mm"></totalrain><totalsnow description="Total Snow" units="cm"></totalsnow><totalprecipitation description="Total Precipitation" units="mm">1.6</totalprecipitation><snowonground description="Snow on Ground" units="cm">10</snowonground><dirofmaxgust description="Direction of Maximum Gust" units="10s Deg">19</dirofmaxgust><speedofmaxgust description="Speed of Maximum Gust" units="km/h">55</speedofmaxgust></stationdata><stationdata day="2" month="1" year="2021"><maxtemp description="Maximum Temperature" units="°C">6.5</maxtemp><mintemp description="Minimum Temperature" units="°C">0.7</mintemp><meantemp description="Mean Temperature" units="°C">3.6</meantemp><heatdegdays description="Heating Degree Days" units="°C">14.4</heatdegdays><cooldegdays description="Cooling Degree Days" units="°C">0.0</cooldegdays><totalrain description="Total Rain" units="mm"></totalrain><totalsnow description="Total Snow" units="cm"></totalsnow><totalprecipitation description="Total Precipitation" units="mm">0.3</totalprecipitation><snowonground description="Snow on Ground" units="cm">3</snowonground><dirofmaxgust description="Direction of Maximum Gust" units="10s Deg">19</dirofmaxgust><speedofmaxgust description="Speed of Maximum Gust" units="km/h">54</speedofmaxgust></stationdata><stationdata day="3" month="1" year="2021"><maxtemp description="Maximum Temperature" units="°C">1.9</maxtemp><mintemp description="Minimum Temperature" units="°C">-4.4</mintemp><meantemp description="Mean Temperature" units="°C">-1.2</meantemp><heatdegdays description="Heating Degree Days" units="°C">19.2</heatdegdays><cooldegdays description="Cooling Degree Days" units="°C">0.0</cooldegdays><totalrain description="Total Rain" units="mm"></totalrain><totalsnow description="Total Snow" units="cm"></totalsnow><totalprecipitation description="Total Precipitation" units="mm">0.0</totalprecipitation><snowonground description="Snow on Ground" units="cm">1</snowonground><dirofmaxgust description="Direction of Maximum Gust" units="10s Deg">16</dirofmaxgust><speedofmaxgust description="Speed of Maximum Gust" units="km/h">44</speedofmaxgust></stationdata><stationdata day="29" month="4" year="2021"><maxtemp description="Maximum Temperature" flag="M" units="°C"></maxtemp><mintemp description="Minimum Temperature" flag="M" units="°C"></mintemp><meantemp description="Mean Temperature" flag="M" units="°C"></meantemp><heatdegdays description="Heating Degree Days" flag="M" units="°C"></heatdegdays><cooldegdays description="Cooling Degree Days" flag="M" units="°C"></cooldegdays><totalrain description="Total Rain" units="mm"></totalrain><totalsnow description="Total Snow" units="cm"></totalsnow><totalprecipitation description="Total Precipitation" flag="M" units="mm"></totalprecipitation><snowonground description="Snow on Ground" units="cm">2</snowonground><dirofmaxgust description="Direction of Maximum Gust" flag="M" units="10s Deg"></dirofmaxgust><speedofmaxgust description="Speed of Maximum Gust" flag="M" units="km/h"></speedofmaxgust></stationdata><stationdata day="30" month="4" year="2021"><maxtemp description="Maximum Temperature" flag="M" units="°C"></maxtemp><mintemp description="Minimum Temperature" flag="M" units="°C"></mintemp><meantemp description="Mean Temperature" flag="M" units="°C"></meantemp><heatdegdays description="Heating Degree Days" flag="M" units="°C"></heatdegdays><cooldegdays description="Cooling Degree Days" flag="M" units="°C"></cooldegdays><totalrain description="Total Rain" units="mm"></totalrain><totalsnow description="Total Snow" units="cm"></totalsnow><totalprecipitation description="Total Precipitation" flag="M" units="mm"></totalprecipitation><snowonground description="Snow on Ground" units="cm"></snowonground><dirofmaxgust description="Direction of Maximum Gust" flag="M" units="10s Deg"></dirofmaxgust><speedofmaxgust description="Speed of Maximum Gust" flag="M" units="km/h"></speedofmaxgust></stationdata></climatedata>

@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?><climatedata xmlns:xsd="http://www.w3.org/TR/xmlschema-1/" xsd:schemaLocation="http://climate.weather.gc.ca/climate_data/bulkxml/bulkschema.xsd"><lang>FRE</lang><stationinformation><name>PRINCE GEORGE AIRPORT AUTO</name><province_or_territory>COLOMBIE-BRITANNIQUE</province_or_territory><stationoperator>Environnement et Changement climatique Canada - Service météorologique du Canada</stationoperator><latitude>53,89</latitude><longitude>-122,67</longitude><elevation>680,00</elevation><climate_identifier>1096453</climate_identifier><wmo_identifier>71302</wmo_identifier><tc_identifier>VXS</tc_identifier></stationinformation><legend>
+                  <flag>
+                       <symbol>A</symbol>
+                       <description>Valeur accumul&#233;e</description>
+                   </flag>
+                   <flag>
+                       <symbol>C</symbol>
+                       <description>Pr&#233;cipitation, quantit&#233; incertaine</description>
+                   </flag>
+                   <flag>
+                       <symbol>E</symbol>
+                       <description>Valeur estim&#233;e</description>
+                   </flag>
+                   <flag>
+                       <symbol>F</symbol>
+                       <description>Valeur accumul&#233;e et estim&#233;e</description>
+                   </flag>
+                   <flag>
+                       <symbol>L</symbol>
+                       <description>Des pr&#233;cipitations peuvent avoir eu lieu</description>
+                   </flag>
+                   <flag>
+                       <symbol>M</symbol>
+                       <description>Donn&#233;es manquantes</description>
+                   </flag>
+                   <flag>
+                       <symbol>N</symbol>
+                       <description>Temp&#233;rature manquante, mais &gt; 0</description>
+                   </flag>
+                   <flag>
+                       <symbol>S</symbol>
+                       <description>Plus d'une occurrence</description>
+                   </flag>
+                   <flag>
+                       <symbol>T</symbol>
+                       <description>Trace</description>
+                   </flag>
+                   <flag>
+                       <symbol>Y</symbol>
+                       <description>Temp&#233;rature manquante, mais &lt; 0</description>
+                   </flag>
+                   <flag>
+                       <symbol>[vide]</symbol>
+                       <description>Indique une valeur non observ&#233;e</description>
+                   </flag>
+                   <flag>
+                       <symbol>^</symbol>
+                       <description>La valeur affich&#233;e est bas&#233;e sur des donn&#233;es incompl&#232;tes</description>
+                   </flag>
+                   <flag>
+                       <symbol>&#8224;</symbol>
+                       <description>Donn&#233;es non assujetties &#224; une r&#233;vision par les Archives climatiques nationales</description>
+                   </flag>
+            </legend>
+<stationdata day="1" month="1" year="2021"><maxtemp description="Température maximale" units="°C">5,6</maxtemp><mintemp description="Température minimale" units="°C">-4,7</mintemp><meantemp description="Température moyenne" units="°C">0,5</meantemp><heatdegdays description="Degré-jour de chauffage" units="°C">17,5</heatdegdays><cooldegdays description="Degré-jour de réfrigération" units="°C">0,0</cooldegdays><totalrain description="Pluie totale" units="mm"></totalrain><totalsnow description="Neige totale" units="cm"></totalsnow><totalprecipitation description="Précipitations totales" units="mm">1,6</totalprecipitation><snowonground description="Neige au sol" units="cm">10</snowonground><dirofmaxgust description="Direction de la rafale maximale" units="10's Deg">19</dirofmaxgust><speedofmaxgust description="Vitesse de la rafale maximale" units="km/h">55</speedofmaxgust></stationdata><stationdata day="2" month="1" year="2021"><maxtemp description="Température maximale" units="°C">6,5</maxtemp><mintemp description="Température minimale" units="°C">0,7</mintemp><meantemp description="Température moyenne" units="°C">3,6</meantemp><heatdegdays description="Degré-jour de chauffage" units="°C">14,4</heatdegdays><cooldegdays description="Degré-jour de réfrigération" units="°C">0,0</cooldegdays><totalrain description="Pluie totale" units="mm"></totalrain><totalsnow description="Neige totale" units="cm"></totalsnow><totalprecipitation description="Précipitations totales" units="mm">0,3</totalprecipitation><snowonground description="Neige au sol" units="cm">3</snowonground><dirofmaxgust description="Direction de la rafale maximale" units="10's Deg">19</dirofmaxgust><speedofmaxgust description="Vitesse de la rafale maximale" units="km/h">54</speedofmaxgust></stationdata><stationdata day="3" month="1" year="2021"><maxtemp description="Température maximale" units="°C">1,9</maxtemp><mintemp description="Température minimale" units="°C">-4,4</mintemp><meantemp description="Température moyenne" units="°C">-1,2</meantemp><heatdegdays description="Degré-jour de chauffage" units="°C">19,2</heatdegdays><cooldegdays description="Degré-jour de réfrigération" units="°C">0,0</cooldegdays><totalrain description="Pluie totale" units="mm"></totalrain><totalsnow description="Neige totale" units="cm"></totalsnow><totalprecipitation description="Précipitations totales" units="mm">0,0</totalprecipitation><snowonground description="Neige au sol" units="cm">1</snowonground><dirofmaxgust description="Direction de la rafale maximale" units="10's Deg">16</dirofmaxgust><speedofmaxgust description="Vitesse de la rafale maximale" units="km/h">44</speedofmaxgust></stationdata></climatedata>
