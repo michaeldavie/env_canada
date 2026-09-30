@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changes
+
+- **ECHydro**: Fix three faults found by testing against responses captured from the service. A measurement a station stopped reporting stayed in `measurements` under the new reading's timestamp, because the dict was only ever added to; it is now rebuilt on each update. A station with blank coordinates in the list raised `ValueError` and broke lookup by coordinates, where the parser meant to skip it. And `province` and `station` only checked a minimum length, so `province="Ontario"` was accepted; they must now be exactly two and seven characters, as all 2,171 stations' are, and anything else raises `vol.Invalid` at construction
+
 ## v0.20.4
 
 ### Changes

@@ -35,8 +35,8 @@ async def get_hydro_sites():
     sites_reader = csv.DictReader(sites_csv_stream, fieldnames=header)
 
     for site in sites_reader:
-        # Ignore bad site data
-        if site["Latitude"] is not None:
+        # Ignore bad site data: a short row leaves a field None, a blank one ""
+        if site["Latitude"] and site["Longitude"]:
             site["Latitude"] = float(site["Latitude"])
             site["Longitude"] = float(site["Longitude"])
             sites.append(site)
@@ -75,8 +75,8 @@ class ECHydro:
                     },
                 ),
                 {
-                    vol.Optional("province"): vol.All(str, vol.Length(2)),
-                    vol.Optional("station"): vol.All(str, vol.Length(7)),
+                    vol.Optional("province"): vol.All(str, vol.Length(min=2, max=2)),
+                    vol.Optional("station"): vol.All(str, vol.Length(min=7, max=7)),
                     vol.Optional("coordinates"): coordinates,
                 },
             )
@@ -133,18 +133,23 @@ class ECHydro:
         if len(readings) > 0:
             latest = readings[-1]
 
+            # Built afresh, so a measurement the station has stopped
+            # reporting doesn't linger under the new timestamp
+            measurements = {}
+
             if latest["Water Level"] != "":
-                self.measurements["water_level"] = {
+                measurements["water_level"] = {
                     "label": "Water Level",
                     "value": float(latest["Water Level"]),
                     "unit": "m",
                 }
 
             if latest["Discharge"] != "":
-                self.measurements["discharge"] = {
+                measurements["discharge"] = {
                     "label": "Discharge",
                     "value": float(latest["Discharge"]),
                     "unit": "m³/s",
                 }
 
-            self.timestamp = isoparse(readings[-1]["Date"])
+            self.measurements = measurements
+            self.timestamp = isoparse(latest["Date"])
