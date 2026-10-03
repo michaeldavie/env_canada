@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changes
+
+- Fix requests failing intermittently with `TimeoutError` where they succeeded before v0.20.4. A new connection to Environment Canada's servers occasionally hangs in the TCP connect for about twenty seconds, and is then accepted and answered in milliseconds. It was seen from GitHub's runners, where it failed the weekly live check - 19.4 s in one curl run, 19.8 s in an aiohttp one - and not from a home connection in Canada, where none of some 260 requests did, which is why v0.20.4 took a 10-second limit to be safe. That limit turned the stall from a delay into a failure: `ECWeather` raised `ECWeatherUpdateFailed` for the poll, and radar frames were skipped. The connect is now bounded on its own, at 5 seconds, and retried on a fresh connection up to three times (`ec_http.get_with_retry`, used by every request). Only a connection that couldn't be made is retried: not a server that accepted the request and then stalled, and not an error response
+
 ## v0.20.5
 
 ### Changes

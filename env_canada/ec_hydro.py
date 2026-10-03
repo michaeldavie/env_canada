@@ -7,6 +7,7 @@ from dateutil.parser import isoparse
 from geopy import distance
 
 from .constants import CLIENT_TIMEOUT, USER_AGENT
+from .ec_http import get_with_retry
 from .ec_validate import coordinates
 
 SITE_LIST_URL = (
@@ -24,8 +25,11 @@ async def get_hydro_sites():
     sites = []
 
     async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(
-            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=CLIENT_TIMEOUT
+        response = await get_with_retry(
+            session,
+            SITE_LIST_URL,
+            headers={"User-Agent": USER_AGENT},
+            timeout=CLIENT_TIMEOUT,
         )
         result = await response.read()
     sites_csv_string = result.decode("utf-8-sig")
@@ -115,7 +119,8 @@ class ECHydro:
         # Get hydrometric data
 
         async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(
+            response = await get_with_retry(
+                session,
                 READINGS_URL.format(prov=self.province, station=self.station),
                 headers={"User-Agent": USER_AGENT},
                 timeout=CLIENT_TIMEOUT,

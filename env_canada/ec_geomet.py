@@ -18,6 +18,7 @@ from lxml import etree as et
 
 from .constants import CLIENT_TIMEOUT, USER_AGENT
 from .ec_cache import Cache
+from .ec_http import get_with_retry
 
 LOG = logging.getLogger(__name__)
 
@@ -166,7 +167,8 @@ async def get_resource(url, params, bytes=True, timeout=None):
     """Fetch `url`, returning the body as bytes, or as text if `bytes` is
     false. `timeout` defaults to the library-wide CLIENT_TIMEOUT."""
     async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(
+        response = await get_with_retry(
+            session,
             url=url,
             params=params,
             headers={"User-Agent": USER_AGENT},

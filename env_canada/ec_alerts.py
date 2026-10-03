@@ -8,6 +8,7 @@ from aiohttp import ClientSession
 
 from .constants import CLIENT_TIMEOUT, USER_AGENT
 from .ec_cache import Cache
+from .ec_http import get_with_retry
 
 
 def _point_in_polygon(lon, lat, ring):
@@ -95,7 +96,8 @@ class ECAlerts:
         params = {**ALERTS_WFS_PARAMS, "BBOX": bbox}
 
         async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(
+            response = await get_with_retry(
+                session,
                 GEOMET_WFS_URL,
                 params=params,
                 headers={"User-Agent": USER_AGENT},

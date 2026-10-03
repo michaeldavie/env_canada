@@ -17,7 +17,7 @@ One class per module:
 - **ECHydro** (`ec_hydro.py`): water level and discharge (CSV)
 - **ECHistorical / ECHistoricalRange** (`ec_historical.py`): historical climate data scraped from climate.weather.gc.ca; the range class depends on pandas. `ECHistoricalRange.update()` is the awaitable; `get_data()` wraps it in `asyncio.run` and so can't be called from a running loop. An unknown station raises `UnknownStationId`
 
-Shared modules: `ec_geomet.py` (GeoMet WMS HTTP call, bounding-box maths, GetCapabilities dimension parsing), `ec_legend.py` (legend rendering; bundles `DejaVuSans.ttf`), `ec_validate.py` (coordinate validator), `ec_cache.py` (process-wide TTL cache), `ec_exc.py` (exceptions), `constants.py` (`USER_AGENT`, which carries the version).
+Shared modules: `ec_geomet.py` (GeoMet WMS HTTP call, bounding-box maths, GetCapabilities dimension parsing), `ec_legend.py` (legend rendering; bundles `DejaVuSans.ttf`), `ec_validate.py` (coordinate validator), `ec_cache.py` (process-wide TTL cache), `ec_exc.py` (exceptions), `ec_http.py` (`get_with_retry`), `constants.py` (`USER_AGENT`, which carries the version).
 
 ## Commands
 
@@ -33,7 +33,7 @@ The project uses [uv](https://docs.astral.sh/uv/). Every tool runs from the lock
 
 ## Architecture notes
 
-All data classes follow one pattern: construct with coordinates or a station/region id, `await update()`, then read attributes. Coordinates resolve to the nearest station with geopy. HTTP uses aiohttp with a per-request `ClientSession` and `USER_AGENT`. Responses are XML (lxml), CSV or JSON.
+All data classes follow one pattern: construct with coordinates or a station/region id, `await update()`, then read attributes. Coordinates resolve to the nearest station with geopy. HTTP uses aiohttp with a per-request `ClientSession` and `USER_AGENT`. Make every request with `ec_http.get_with_retry`, not `session.get`: Environment Canada's servers sometimes leave a new connection hanging for ~20 s, so `CLIENT_TIMEOUT` bounds the connect on its own and the helper retries it. Responses are XML (lxml), CSV or JSON.
 
 GeoMet behaviours the tests encode and that must not regress:
 

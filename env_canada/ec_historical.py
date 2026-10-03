@@ -15,6 +15,7 @@ from lxml import etree as et
 
 from . import ec_exc
 from .constants import CLIENT_TIMEOUT, USER_AGENT
+from .ec_http import get_with_retry
 
 STATIONS_URL = "https://climate.weather.gc.ca/historical_data/search_historic_data_stations_{}.html"
 
@@ -236,7 +237,8 @@ async def get_historical_stations(
     }
 
     async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(
+        response = await get_with_retry(
+            session,
             STATIONS_URL.format(language[0]),
             params=params,
             headers={"User-Agent": USER_AGENT},
@@ -329,7 +331,8 @@ class ECHistorical:
         # Get historical weather data
 
         async with ClientSession(raise_for_status=True) as session:
-            response = await session.get(
+            response = await get_with_retry(
+                session,
                 WEATHER_URL.format(self.language[0]),
                 params=params,
                 headers={"User-Agent": USER_AGENT},

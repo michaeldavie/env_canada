@@ -8,6 +8,7 @@ from geopy import distance
 from lxml import etree as et
 
 from .constants import CLIENT_TIMEOUT, USER_AGENT
+from .ec_http import get_with_retry
 from .ec_validate import coordinates
 
 AQHI_SITE_LIST_URL = (
@@ -52,7 +53,8 @@ async def get_aqhi_regions(language):
 
     regions = []
     async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(
+        response = await get_with_retry(
+            session,
             AQHI_SITE_LIST_URL,
             headers={"User-Agent": USER_AGENT},
             timeout=CLIENT_TIMEOUT,
@@ -156,7 +158,8 @@ class ECAirQuality:
         """Fetch and parse one AQHI document, or None if it can't be had."""
         try:
             async with ClientSession(raise_for_status=True) as session:
-                response = await session.get(
+                response = await get_with_retry(
+                    session,
                     url.format(self.zone_id, self.region_id),
                     headers={"User-Agent": USER_AGENT},
                     timeout=CLIENT_TIMEOUT,

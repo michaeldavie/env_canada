@@ -19,6 +19,7 @@ from lxml.etree import _Element
 
 from . import ec_exc
 from .constants import CLIENT_TIMEOUT, USER_AGENT
+from .ec_http import get_with_retry
 from .ec_validate import coordinates
 
 SITE_LIST_URL = (
@@ -260,8 +261,11 @@ async def get_ec_sites():
     sites = []
 
     async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(
-            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=CLIENT_TIMEOUT
+        response = await get_with_retry(
+            session,
+            SITE_LIST_URL,
+            headers={"User-Agent": USER_AGENT},
+            timeout=CLIENT_TIMEOUT,
         )
         sites_csv_string = await response.text()
 
@@ -289,8 +293,11 @@ async def get_ec_sites_list():
     sites_list = []
 
     async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(
-            SITE_LIST_URL, headers={"User-Agent": USER_AGENT}, timeout=CLIENT_TIMEOUT
+        response = await get_with_retry(
+            session,
+            SITE_LIST_URL,
+            headers={"User-Agent": USER_AGENT},
+            timeout=CLIENT_TIMEOUT,
         )
         sites_csv_string = await response.text()
 
@@ -347,7 +354,8 @@ async def discover_weather_file_url(session, province_code, station_number, lang
 
         try:
             LOG.debug("Checking directory: %s", directory_url)
-            response = await session.get(
+            response = await get_with_retry(
+                session,
                 directory_url,
                 headers={"User-Agent": USER_AGENT},
                 timeout=CLIENT_TIMEOUT,
@@ -513,7 +521,8 @@ class ECWeather:
                 )
                 LOG.debug("Using weather URL: %s", weather_url)
 
-                response = await session.get(
+                response = await get_with_retry(
+                    session,
                     weather_url,
                     headers={"User-Agent": USER_AGENT},
                     timeout=CLIENT_TIMEOUT,
