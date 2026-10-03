@@ -11,12 +11,13 @@ CONNECT_ATTEMPTS = 3
 async def get_with_retry(session: ClientSession, url: str, **kwargs) -> ClientResponse:
     """`session.get`, tried again when the connection can't be made in time.
 
-    Environment Canada's servers occasionally leave a new connection hanging
-    for about twenty seconds before accepting it, and answer promptly once
-    they do. The library's timeout gives up on a connection long before that,
-    and a connection tried again almost always succeeds at once. Only the
-    connecting is retried: a server that accepted the request and then
-    stalled, or answered with an error, is reported as it is.
+    A new connection to Environment Canada's servers sometimes sits in the
+    connect for seconds, or over a minute, before it is accepted, and is
+    answered promptly once it is. The library's timeout gives up on such a
+    connection early, and a fresh one often succeeds at once. That only
+    mitigates it: the stalls come in runs, so all the attempts can stall
+    together. Only the connecting is retried: a server that accepted the
+    request and then stalled, or answered with an error, is reported as it is.
     """
     for attempt in range(1, CONNECT_ATTEMPTS):
         try:

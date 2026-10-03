@@ -33,7 +33,7 @@ The project uses [uv](https://docs.astral.sh/uv/). Every tool runs from the lock
 
 ## Architecture notes
 
-All data classes follow one pattern: construct with coordinates or a station/region id, `await update()`, then read attributes. Coordinates resolve to the nearest station with geopy. HTTP uses aiohttp with a per-request `ClientSession` and `USER_AGENT`. Make every request with `ec_http.get_with_retry`, not `session.get`: Environment Canada's servers sometimes leave a new connection hanging for ~20 s, so `CLIENT_TIMEOUT` bounds the connect on its own and the helper retries it. Responses are XML (lxml), CSV or JSON.
+All data classes follow one pattern: construct with coordinates or a station/region id, `await update()`, then read attributes. Coordinates resolve to the nearest station with geopy. HTTP uses aiohttp with a per-request `ClientSession` and `USER_AGENT`. Make every request with `ec_http.get_with_retry`, not `session.get`: new connections to Environment Canada's servers sometimes stall in the connect for seconds to over a minute (seen from GitHub's runners), so `CLIENT_TIMEOUT` bounds the connect on its own and the helper retries it. That only mitigates; the stalls come in runs and worsen with many connections open at once. A per-request `ClientSession` means a new connection per request, and `ECMap` loops open a dozen at once, so any change to sessions must reduce new connections: one keep-alive session per `update()` and a cap on the loop's parallelism. Responses are XML (lxml), CSV or JSON.
 
 GeoMet behaviours the tests encode and that must not regress:
 
