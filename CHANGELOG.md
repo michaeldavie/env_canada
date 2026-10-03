@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.20.5
+
 ### Changes
 
 - A weekly workflow (`live.yml`) runs the tests that call the real services, retrying failures once, so a change to one of them is noticed by CI rather than by a user. The main test workflow now also runs weekly, because Dependabot's merges don't trigger a push run and nothing else tested `main` after them
