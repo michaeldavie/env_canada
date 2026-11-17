@@ -1,6 +1,6 @@
 from aiohttp import ClientTimeout
 
-USER_AGENT = "env_canada/0.20.6"
+USER_AGENT = "env_canada/0.20.7"
 
 # Every request uses this except the basemap, which has its own
 # (ec_map.BASEMAP_TIMEOUT). Environment Canada's services answer in well

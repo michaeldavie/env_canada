@@ -431,7 +431,7 @@ wheels = [
 
 [[package]]
 name = "env-canada"
-version = "0.20.6"
+version = "0.20.7"
 source = { editable = "." }
 default-groups = ["dev", "lint", "test"]
 dependencies = [
