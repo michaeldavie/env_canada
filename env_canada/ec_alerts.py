@@ -149,6 +149,8 @@ class ECAlerts:
                 "confidence": props.get(f"confidence_{lang_suffix}"),
                 "impact": props.get(f"impact_{lang_suffix}"),
                 "alert_code": props.get("alert_code"),
+                "validity_time": props.get("validity_datetime"),
+                "event_end_time": props.get("event_end_datetime"),
             }
 
             self.alerts[category]["value"].append(alert_dict)

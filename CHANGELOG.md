@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Changes
+
+- **ECAlerts / ECWeather**: Each WFS alert now carries `validity_time` and `event_end_time`, when the hazard starts and ends, from the service's `validity_datetime` and `event_end_datetime`. The alert's `date` and `expiryTime` are when the bulletin was published and when it expires, which can be well before the hazard: a special weather statement for Calgary issued on November 16 and expiring early on the 17th was for snow from the afternoon of the 17th to late on the 18th. Both were already in `alert_features`, but not in the alert dict that Home Assistant's `get_alerts` action passes through. The keys are additive, and `None` when the service leaves them out; alerts from the citypage XML fallback don't have them (#184)
+- pre-commit no longer reformats JSON in `tests/fixtures/`, for the same reason its whitespace hooks don't touch it: a fixture is what the service sent, laid out as it sent it. `check-json` still validates them
+
 ## v0.20.6
 
 ### Changes
