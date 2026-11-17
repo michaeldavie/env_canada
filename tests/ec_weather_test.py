@@ -248,8 +248,6 @@ async def test_alerts_keep_previous_wfs_records_while_wfs_fetch_in_flight():
             first_poll = ecw.alerts
             assert first_poll["advisories"]["value"][0]["alert_code"] == "AD"
 
-            # Second poll: the station is resolved, so only the listing and
-            # the XML are fetched before the WFS request, which we hold open.
             Cache.clear()
             resp.text.side_effect = [listing, weather_xml]
             wfs_requested = asyncio.Event()
