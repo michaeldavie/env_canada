@@ -4,8 +4,9 @@ repos:
     hooks:
       # Fixtures are responses captured from the services, byte for byte:
       # CRLF line endings, a byte-order mark, a body with no newline at the
-      # end. The whitespace hooks below would "fix" them into something the
-      # service never sent.
+      # end, JSON as the service laid it out. The whitespace hooks and the
+      # JSON formatter below would "fix" them into something the service
+      # never sent.
       - id: mixed-line-ending
         exclude: ^tests/fixtures/
       - id: name-tests-test
@@ -18,6 +19,7 @@ repos:
       - id: check-json
       - id: pretty-format-json
         args: [--autofix]
+        exclude: ^tests/fixtures/
       - id: check-yaml
         args: [--allow-multiple-documents] # required for multi-document .yml files
       - id: detect-private-key

@@ -72,6 +72,39 @@ async def test_ecalerts_update():
 
 
 @pytest.mark.asyncio
+async def test_alert_carries_hazard_start_and_end_times():
+    """An alert's bulletin times (`date`, `expiryTime`) aren't when the
+    hazard happens: this special weather statement for Calgary was issued
+    on the 16th and expires early on the 17th, but the snow it warns of
+    starts on the afternoon of the 17th and ends late on the 18th. The WFS
+    gives those as `validity_datetime` and `event_end_datetime`; without
+    them in the alert dict, Home Assistant's `get_alerts` action, which
+    passes the dict through, can't show when the hazard runs (issue #184).
+    The fixture is a live capture trimmed to two whole features, one of
+    them outside the point, which is filtered out."""
+    with open("tests/fixtures/alerts_wfs_calgary.json") as f:
+        fixture_data = json.load(f)
+
+    resp = AsyncMock()
+    resp.json.return_value = fixture_data
+
+    with patch("aiohttp.ClientSession.get", AsyncMock(return_value=resp)):
+        ea = ECAlerts(coordinates=(51.05, -114.07))
+        await ea.update()
+
+    assert len(ea.alert_features) == 1
+    statements = ea.alerts["statements"]["value"]
+    assert len(statements) == 1
+    statement = statements[0]
+    assert statement["title"] == "Special Weather Statement"
+    assert statement["area"] == "City of Calgary"
+    assert statement["date"] == "2026-11-16T21:30:28.233Z"
+    assert statement["expiryTime"] == "2026-11-17T13:30:28.233Z"
+    assert statement["validity_time"] == "2026-11-17T18:00:00.000Z"
+    assert statement["event_end_time"] == "2026-11-19T06:00:00.000Z"
+
+
+@pytest.mark.asyncio
 async def test_ecalerts_endings():
     """Test that alerts with status_en='ended' are categorized as endings."""
     fixture = {
