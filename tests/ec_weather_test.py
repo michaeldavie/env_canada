@@ -1,4 +1,5 @@
 import asyncio
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -6,6 +7,7 @@ from freezegun import freeze_time
 from syrupy.assertion import SnapshotAssertion
 
 from env_canada import ECWeather, ec_weather
+from env_canada.ec_cache import Cache
 
 
 @pytest.mark.parametrize(
@@ -211,3 +213,90 @@ async def test_home_assistant_compatibility():
 
     # Internal tuple should be available via property
     assert ecw.station_tuple == ("ON", "430")
+
+
+@pytest.mark.asyncio
+async def test_alerts_keep_previous_wfs_records_while_wfs_fetch_in_flight():
+    """`update()` parses the citypage XML alerts as the fallback for a failed
+    WFS fetch. It used to assign them to `alerts` before awaiting the WFS
+    fetch, so a reader landing during that await (Home Assistant's
+    `get_alerts` action, issue #182) got XML-shaped records: no `text`,
+    `area` or `alert_code`, and citypage-format dates. Hold the WFS response
+    open on a second poll and check that `alerts` still has the previous
+    poll's WFS records until the new ones arrive."""
+    with open("tests/fixtures/alerts_wfs.json") as f:
+        wfs = json.load(f)
+    with open("tests/fixtures/weather.xml") as f:
+        weather_xml = f.read()
+    listing = """<html><body>
+    <a href="20250206T120000.000Z_MSC_CitypageWeather_s0000430_en.xml">file</a>
+    </body></html>"""
+
+    ecw, resp = setup_test(
+        {
+            "station": "ON/s0000430",
+            "sites": "tests/fixtures/site_list.csv",
+            "forecast": "tests/fixtures/weather.xml",
+        }
+    )
+    resp.json.return_value = wfs
+
+    with patch("aiohttp.ClientSession.get", AsyncMock(return_value=resp)):
+        with freeze_time("2025-02-06 00:00"):
+            await ecw.update()
+
+            first_poll = ecw.alerts
+            assert first_poll["advisories"]["value"][0]["alert_code"] == "AD"
+
+            # Second poll: the station is resolved, so only the listing and
+            # the XML are fetched before the WFS request, which we hold open.
+            Cache.clear()
+            resp.text.side_effect = [listing, weather_xml]
+            wfs_requested = asyncio.Event()
+            release_wfs = asyncio.Event()
+
+            async def slow_wfs_json():
+                wfs_requested.set()
+                await release_wfs.wait()
+                return wfs
+
+            resp.json.side_effect = slow_wfs_json
+            poll = asyncio.create_task(ecw.update())
+            await wfs_requested.wait()
+
+            assert ecw.alerts is first_poll
+            advisory = ecw.alerts["advisories"]["value"][0]
+            assert advisory["alert_code"] == "AD"
+            assert advisory["date"] == "2025-02-05T23:07:00Z"
+
+            release_wfs.set()
+            await poll
+
+    assert ecw.alerts is not first_poll
+    assert ecw.alerts["advisories"]["value"][0]["alert_code"] == "AD"
+
+
+@pytest.mark.asyncio
+async def test_alerts_fall_back_to_xml_records_when_wfs_fetch_fails():
+    """The XML alerts are now assigned only in the WFS failure branch, so
+    check that branch still publishes them: a failed WFS fetch must leave
+    the citypage alerts in place rather than the previous or empty ones."""
+    ecw, resp = setup_test(
+        {
+            "station": "ON/s0000430",
+            "sites": "tests/fixtures/site_list.csv",
+            "forecast": "tests/fixtures/weather.xml",
+        }
+    )
+    resp.json.side_effect = TimeoutError
+
+    with patch("aiohttp.ClientSession.get", AsyncMock(return_value=resp)):
+        with freeze_time("2025-02-06 00:00"):
+            await ecw.update()
+
+    advisories = ecw.alerts["advisories"]["value"]
+    assert len(advisories) == 1
+    assert advisories[0]["title"] == "Weather Advisory"
+    assert advisories[0]["expiryTime"] == "20250206150755"
+    assert "alert_code" not in advisories[0]
+    assert ecw.alert_features == []
