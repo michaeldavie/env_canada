@@ -615,9 +615,7 @@ class ECWeather:
                 ),
             }
 
-        # Update alerts. Build the XML alerts in a local and assign only after
-        # the WFS attempt below: the await on it yields, and a reader landing
-        # in that window must see the previous alerts, not the XML fallback.
+        # Update alerts
         xml_alerts: dict[str, Any] = copy.deepcopy(ALERTS_INIT[self.language])
         alert_elements = weather_tree.findall("./warnings/event")
         for alert in alert_elements:
