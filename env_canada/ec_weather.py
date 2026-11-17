@@ -4,6 +4,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from urllib.parse import urljoin
 
 import voluptuous as vol
@@ -614,14 +615,16 @@ class ECWeather:
                 ),
             }
 
-        # Update alerts
-        self.alerts = copy.deepcopy(ALERTS_INIT[self.language])
+        # Update alerts. Build the XML alerts in a local and assign only after
+        # the WFS attempt below: the await on it yields, and a reader landing
+        # in that window must see the previous alerts, not the XML fallback.
+        xml_alerts: dict[str, Any] = copy.deepcopy(ALERTS_INIT[self.language])
         alert_elements = weather_tree.findall("./warnings/event")
         for alert in alert_elements:
             title = alert.attrib.get("description")
             type_ = alert.attrib.get("type")
             if title is not None and type_ is not None and type_ in ALERT_TYPE_TO_NAME:
-                self.alerts[ALERT_TYPE_TO_NAME[type_]]["value"].append(
+                xml_alerts[ALERT_TYPE_TO_NAME[type_]]["value"].append(
                     {
                         "title": title.strip().title(),
                         "date": _get_xml_text(alert, "./dateTime[last()]/textSummary"),
@@ -643,6 +646,7 @@ class ECWeather:
             self.alert_features = ec_alerts.alert_features
         except Exception:
             LOG.debug("WFS alert fetch failed, using XML alerts", exc_info=True)
+            self.alerts = xml_alerts
             self.alert_features = []
 
         # Update forecasts
